@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Node / Web
+node_modules/
+web/node_modules/
+web/dist/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
+
+# Misc
+*.log
