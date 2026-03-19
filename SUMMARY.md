@@ -47,10 +47,9 @@ The frontend (`App.tsx`) runs a full replica of the geometry synthesis for real-
 
 ## Current Limitations (by design / known stubs)
 
-- **Mannequin IK is a stub.** Only trunk angle is computed from geometry; hip angle, knee extension, elbow flexion, and shoulder flexion are hardcoded constants. A real 2-link IK solver is needed.
 - **Crank angle fixed at BDC.** Cleat position is always computed at bottom dead centre. Multiple crank angles should be sampled to evaluate worst-case knee clearance.
 - **Solver varies only saddle height and spacer stack.** Stem length, stem angle, bar reach, and crank length are not part of the search space.
-- **`mannequin3d.py` is a placeholder** (returns empty dict).
+- **Frontend overrides backend mannequin for visualization.** The 3D mannequin rendered in `BikeScene3D` is built by the frontend's `buildMannequin3DPoints()` (forward kinematics from trunk angle slider), not the backend's IK-derived mannequin. The backend mannequin is still computed for pose metrics and constraint checking.
 
 ---
 
@@ -86,22 +85,21 @@ The frontend (`App.tsx`) runs a full replica of the geometry synthesis for real-
 
 | # | Issue | Severity | Location |
 |---|-------|----------|----------|
-| A | Mannequin IK hardcodes hip/knee/elbow angles — metrics are meaningless | High | `mannequin2d.py` |
-| B | Frontend `synthesizeBike` duplicates backend — divergence risk | High | `App.tsx:313` |
-| C | Solver only searches saddle height × spacers — misses stem/crank | High | `solver.py:76` |
-| D | Crank angle hardcoded to BDC | Medium | `geometry.py:66` |
-| E | `shoulder_abduction` constraint silently ignored in evaluation | Medium | `constraints.py` |
-| F | API error details lost in frontend error handling | Medium | `api.ts:9` |
-| G | Tyre size adjustment assumes 340 mm base wheel radius | Low | `App.tsx:195` |
-| H | Fixed ±20 mm search window may miss optimal saddle height | Low | `solver.py:76` |
+| A | Frontend `synthesizeBike` duplicates backend — divergence risk | High | `App.tsx:313` |
+| B | Solver only searches saddle height × spacers — misses stem/crank | High | `solver.py:76` |
+| C | Crank angle hardcoded to BDC | Medium | `geometry.py:66` |
+| D | `shoulder_abduction` constraint silently ignored in evaluation | Medium | `constraints.py` |
+| E | API error details lost in frontend error handling | Medium | `api.ts:9` |
+| F | Tyre size adjustment assumes 340 mm base wheel radius | Low | `App.tsx:195` |
+| G | Fixed ±20 mm search window may miss optimal saddle height | Low | `solver.py:76` |
 
 ---
 
 ## Test Coverage
 
-8 tests, all passing. Covers: serialization round-trip, solver adjusts components, steerer geometry, axle ground line, chainstay constraint, saddle position sign, spacer cockpit raise, cleat setback.
+Tests cover: serialization round-trip, solver adjusts components, steerer geometry, axle ground line, chainstay constraint, saddle position sign, spacer cockpit raise, cleat setback, 2D↔3D mannequin consistency, bilateral expansion contract (frontend↔backend point names, edges, Z-spread rules, null-width defaults).
 
-**Gaps:** No tests for posture constraint evaluation, mannequin IK accuracy, serialization error paths, API error responses, or solver optimality.
+**Gaps:** No tests for API error responses or solver optimality.
 
 ---
 

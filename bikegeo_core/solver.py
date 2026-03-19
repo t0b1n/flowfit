@@ -53,7 +53,7 @@ def _grid_search_components(
 ) -> Tuple[Components, BikePoints]:
     best_components = setup.components
     best_points = synthesize_bike(setup.frame, best_components)
-    best_pose = solve_pose_2d(best_points, setup.rider)
+    best_pose = solve_pose_2d(best_points, setup.rider, setup.components.pedal_stack_height)
     best_obj = _objective(
         (setup.target_contact_points.saddle.x, setup.target_contact_points.saddle.y),
         (setup.target_contact_points.hoods.x, setup.target_contact_points.hoods.y),
@@ -75,7 +75,7 @@ def _grid_search_components(
                     )
                     components = Components(**base)
                     points = synthesize_bike(setup.frame, components)
-                    pose = solve_pose_2d(points, setup.rider)
+                    pose = solve_pose_2d(points, setup.rider, components.pedal_stack_height)
                     obj = _objective(
                         (setup.target_contact_points.saddle.x, setup.target_contact_points.saddle.y),
                         (setup.target_contact_points.hoods.x, setup.target_contact_points.hoods.y),
@@ -117,7 +117,7 @@ def solve_setup(setup: SetupInput) -> SetupOutput:
         stem_angles=stem_angles,
     )
 
-    pose_metrics: PoseMetrics = solve_pose_2d(bike_points=bike_points, rider=setup.rider)
+    pose_metrics: PoseMetrics = solve_pose_2d(bike_points=bike_points, rider=setup.rider, pedal_stack_height=components.pedal_stack_height)
     component_constraints: ConstraintResult = evaluate_component_constraints(components=components)
     posture_constraints: ConstraintResult = evaluate_posture_constraints(
         pose=pose_metrics,

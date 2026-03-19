@@ -56,11 +56,15 @@ def _circle_intersections(
 def solve_pose_2d_full(
     bike_points: BikePoints,
     rider: RiderAnthropometrics,
+    pedal_stack_height: float = 11.0,
 ) -> tuple[PoseMetrics, MannequinJoints2D]:
     """Solve 2D pose and return both metrics and joint positions."""
-    # Hip at saddle, ankle at cleat (bottom dead centre)
-    hx, hy = bike_points.saddle.x, bike_points.saddle.y
-    ax, ay = bike_points.cleat.x, bike_points.cleat.y
+    # Hip joint is above the saddle contact by hip_joint_offset
+    hx = bike_points.saddle.x
+    hy = bike_points.saddle.y + rider.hip_joint_offset
+    # Ankle is above the cleat by pedal_stack_height
+    ax = bike_points.cleat.x
+    ay = bike_points.cleat.y + pedal_stack_height
 
     # Knee via 2-link IK (thigh + shank), prefer upper solution
     kx, ky = _circle_intersections(hx, hy, ax, ay, rider.thigh_length, rider.shank_length, True)
@@ -112,6 +116,7 @@ def solve_pose_2d_full(
 def solve_pose_2d(
     bike_points: BikePoints,
     rider: RiderAnthropometrics,
+    pedal_stack_height: float = 11.0,
 ) -> PoseMetrics:
-    metrics, _ = solve_pose_2d_full(bike_points, rider)
+    metrics, _ = solve_pose_2d_full(bike_points, rider, pedal_stack_height)
     return metrics

@@ -83,6 +83,7 @@ def test_cleat_setback_moves_cleat_behind_pedal_spindle() -> None:
     no_setback = synthesize_bike(_frame(), _components(cleat_setback=0.0))
     setback = synthesize_bike(_frame(), _components(cleat_setback=15.0))
 
-    assert no_setback.cleat.x == 172.5
-    assert setback.cleat.x == 157.5
+    # BDC: cleat is directly below BB at x = -cleat_setback
+    assert no_setback.cleat.x == 0.0
+    assert setback.cleat.x == -15.0
     assert setback.cleat.y == no_setback.cleat.y

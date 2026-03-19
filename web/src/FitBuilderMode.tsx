@@ -18,6 +18,7 @@ import {
   boundsForBikes,
   buildFrontalMannequin,
   buildMannequin,
+  buildMannequin3DPoints,
   buildRider,
   buildSetup,
   expandBoundsForMannequins,
@@ -107,7 +108,7 @@ const HOOD_PRESETS = [
 
 const PEDAL_PRESETS = [
   { id: "spd-sl", label: "SPD-SL", stack: 6, note: "Shimano 3-bolt" },
-  { id: "keo-blade", label: "Keo Blade", stack: 7, note: "Look Keo Blade" },
+  { id: "keo-blade", label: "Look Keo Blade", stack: 7, note: "Look Keo Blade 2" },
   { id: "speedplay", label: "Speedplay", stack: 11, note: "Zero / Nano" },
   { id: "time", label: "Time", stack: 7, note: "XPRO / ATAC" },
 ] as const;
@@ -129,17 +130,15 @@ const PRESET_LABELS: Record<MannequinPresetKey, string> = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const FitBuilderMode: React.FC = () => {
-  const firstModel = FRAME_CATALOG[0];
-
   const [selection, setSelection] = useState<BikeSelection>({
-    modelId: firstModel.id,
-    size: firstModel.sizes[2]?.size ?? firstModel.sizes[0].size,
+    modelId: "specialized-crux",
+    size: "52",
   });
   const [components, setComponents] = useState<Components>(DEFAULT_COMPONENTS_BUILDER);
   const [tyreSize, setTyreSize] = useState(DEFAULT_TYRE_SIZE);
   const [riderFit, setRiderFit] = useState<RiderFit>(DEFAULT_RIDER_FIT);
   const [preset, setPreset] = useState<MannequinPresetKey>("endurance");
-  const [trunkAngleOverride, setTrunkAngleOverride] = useState<number | null>(null);
+  const [trunkAngleOverride, setTrunkAngleOverride] = useState<number | null>(35);
   const [hoodPresetId, setHoodPresetId] = useState(HOOD_PRESETS[0].id);
   const [showGeometry, setShowGeometry] = useState(false);
   const [showFit, setShowFit] = useState(false);
@@ -152,8 +151,14 @@ export const FitBuilderMode: React.FC = () => {
   // Partial — any unset field falls back to the height-derived default in buildRider.
   // This means height changes still rescale the body unless the user has explicitly
   // overridden a measurement by moving its slider.
-  const [bodyMeasurements, setBodyMeasurements] = useState<Partial<BodyMeasurements>>({});
-  const [pedalPresetId, setPedalPresetId] = useState<string>(PEDAL_PRESETS[0].id);
+  const [bodyMeasurements, setBodyMeasurements] = useState<Partial<BodyMeasurements>>({
+    shoulderWidth: 370,
+    upperArmLength: 320,
+    forearmLength: 270,
+    hipJointOffset: 80,
+    footLength: 290,
+  });
+  const [pedalPresetId, setPedalPresetId] = useState<string>("keo-blade");
   const [shoePresetId, setShoePresetId] = useState<string>(SHOE_PRESETS[0].id);
 
   const model = getModelById(selection.modelId);
@@ -194,13 +199,14 @@ export const FitBuilderMode: React.FC = () => {
       ...bike,
       saddle: bike.saddle,
       hoods: bike.hoods,
-      cleat: idealContacts.cleat,
+      cleat: bike.cleat,
     }),
-    [bike, idealContacts]
+    [bike]
   );
+
   const mannequin = useMemo(
-    () => buildMannequin(bikeForMannequin, rider, preset, targetTrunkAngleDeg, components.bar_width, components.pedal_stack_height),
-    [bikeForMannequin, rider, preset, targetTrunkAngleDeg, components.bar_width, components.pedal_stack_height]
+    () => buildMannequin(bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg),
+    [bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg]
   );
   const frontalMannequin = useMemo(
     () => buildFrontalMannequin(mannequin, rider, components.bar_width),
@@ -246,7 +252,36 @@ export const FitBuilderMode: React.FC = () => {
       .finally(() => { if (!cancelled) setGeo3dLoading(false); });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view3d, effectiveFrame, components, rider, idealContacts.saddle.y, idealContacts.saddle.x]);
+  }, [view3d, effectiveFrame, components, rider, idealContacts.saddle.y, idealContacts.saddle.x, idealContacts.hoods.x, idealContacts.hoods.y]);
+
+  // Build a 3D mannequin from backend bike contact points + frontend forward kinematics.
+  // This ensures the 3D mesh mannequin uses the same trunk angle as the 2D view.
+  const mannequin3DData = useMemo(() => {
+    if (!geo3d) return null;
+    const ptMap = new Map(geo3d.points.map(p => [p.name, p.pos]));
+    const saddle3d = ptMap.get("saddle");
+    const hoodsL = ptMap.get("hoods_l");
+    const hoodsR = ptMap.get("hoods_r");
+    const cleatL = ptMap.get("cleat_l");
+    if (!saddle3d || !hoodsL || !hoodsR || !cleatL) return null;
+    // Build a side-view bike from backend 3D points (use centerline)
+    const bike3dSide = {
+      ...bike,
+      saddle: { x: saddle3d[0], y: saddle3d[1] },
+      hoods: { x: (hoodsL[0] + hoodsR[0]) / 2, y: (hoodsL[1] + hoodsR[1]) / 2 },
+      cleat: { x: cleatL[0], y: cleatL[1] },
+    };
+    // Build 2D mannequin with forward kinematics using target trunk angle
+    const mannequin2dFor3d = buildMannequin(
+      bike3dSide, rider, components.bar_width,
+      components.pedal_stack_height, targetTrunkAngleDeg
+    );
+    // Bilaterally expand to 3D
+    return {
+      mannequin2d: mannequin2dFor3d,
+      ...buildMannequin3DPoints(mannequin2dFor3d, rider, components),
+    };
+  }, [geo3d, bike, rider, components, targetTrunkAngleDeg]);
 
   const kneeExtension = angleAtPoint(mannequin.hip, mannequin.knee, mannequin.ankle);
   const kneeFlex = 180 - kneeExtension;
@@ -691,7 +726,11 @@ export const FitBuilderMode: React.FC = () => {
                 {geo3dLoading ? "Loading 3D geometry…" : "Switch to 3D to load"}
               </div>
             ) : (
-              <BikeScene3D geo={geo3d} />
+              <BikeScene3D
+                geo={geo3d}
+                mannequin2D={mannequin3DData?.mannequin2d ?? mannequin}
+                mannequin3DOverride={mannequin3DData ?? undefined}
+              />
             )
           ) : viewMode === 'side' ? (
             <svg viewBox={viewBox} className="geometry-svg">

@@ -10,6 +10,7 @@ import type {
   RiderFit,
   SeatpostRecommendation,
 } from "./types";
+import type { Geometry3DPoint, Geometry3DEdge } from "./bike3d";
 import { FrameGeometry } from "./frameCatalog";
 
 export const DEFAULT_TYRE_SIZE = 28;
@@ -19,20 +20,20 @@ export const DEFAULT_COMPONENTS: Components = {
   cleat_setback: 0,
   saddle_rail_length: 80,
   saddle_clamp_offset: 700,
-  stem_length: 100,
-  stem_angle_deg: 6,
+  stem_length: 120,
+  stem_angle_deg: -6,
   spacer_stack: 10,
   bar_reach: 80,
   bar_drop: 0,
   hood_reach_offset: 24.6,
   hood_drop_offset: 0,
-  bar_width: 400,
+  bar_width: 370,
   hood_width: null,
   stance_width: null,
-  saddle_stack: 75,
+  saddle_stack: 52,
   seatpost_offset: 0,
   saddle_rail_offset: 0,
-  pedal_stack_height: 11,
+  pedal_stack_height: 12,
 };
 
 export const DEFAULT_RIDER = {
@@ -42,7 +43,7 @@ export const DEFAULT_RIDER = {
   torso_length: 600,
   upper_arm_length: 320,
   forearm_length: 280,
-  foot_length: 270,
+  foot_length: 290,
   shoulder_width: 400,
   hip_width: null as null,
   stance_width: null as null,
@@ -50,9 +51,9 @@ export const DEFAULT_RIDER = {
 };
 
 export const DEFAULT_RIDER_FIT: RiderFit = {
-  height: 1800,
-  legLength: 860,
-  targetKneeFlexDeg: 35,
+  height: 1760,
+  legLength: 790,
+  targetKneeFlexDeg: 10,
 };
 
 export const DEFAULT_TARGETS = {
@@ -150,13 +151,10 @@ export const circleIntersections = (
 export const buildMannequin = (
   bike: BikeSketch,
   rider: ReturnType<typeof buildRider>,
-  mode: MannequinPresetKey,
-  trunkAngleDegOverride?: number,
   barWidth: number = 0,
-  pedalStackHeight: number = 0
+  pedalStackHeight: number = 0,
+  targetTrunkAngleDeg?: number
 ): MannequinSketch => {
-  const trunkAngle = radiansFromDegrees(trunkAngleDegOverride ?? MANNEQUIN_PRESETS[mode].trunkAngleDeg);
-
   // The ischial tuberosity (sit bones) contacts the saddle; the hip joint centre
   // (femoral head) is hip_joint_offset mm above, where the femur actually rotates.
   const saddleContact = bike.saddle;
@@ -168,11 +166,25 @@ export const buildMannequin = (
   const ankle = { x: bike.cleat.x, y: bike.cleat.y + pedalStackHeight };
   const [knee] = circleIntersections(hipJoint, ankle, rider.thigh_length, rider.shank_length, true);
 
-  // Torso runs from hip joint to shoulder joint.
-  const shoulder = {
-    x: hipJoint.x + Math.cos(trunkAngle) * rider.torso_length,
-    y: hipJoint.y + Math.sin(trunkAngle) * rider.torso_length,
-  };
+  const targetHands = bike.hoods;
+
+  let shoulder: ContactPoint;
+  let trunkAngle: number;
+
+  if (targetTrunkAngleDeg !== undefined) {
+    // Forward kinematics: place shoulder from trunk angle slider
+    trunkAngle = radiansFromDegrees(targetTrunkAngleDeg);
+    shoulder = {
+      x: hipJoint.x + Math.cos(trunkAngle) * rider.torso_length,
+      y: hipJoint.y + Math.sin(trunkAngle) * rider.torso_length,
+    };
+  } else {
+    // Backward compatible: closed-chain IK from hip→hoods
+    const armLengthFull = rider.upper_arm_length + rider.forearm_length - 0.1;
+    const [ikShoulder] = circleIntersections(hipJoint, targetHands, rider.torso_length, armLengthFull, true);
+    shoulder = ikShoulder;
+    trunkAngle = Math.atan2(shoulder.y - hipJoint.y, shoulder.x - hipJoint.x);
+  }
 
   // Each hood is barWidth/2 laterally off the centreline. Project arm segments
   // into the sagittal plane by distributing the lateral offset proportionally.
@@ -181,10 +193,6 @@ export const buildMannequin = (
   const upperArm2D = Math.sqrt(Math.max(0, rider.upper_arm_length ** 2 - (lateralOffset * rider.upper_arm_length / totalArm) ** 2));
   const forearm2D  = Math.sqrt(Math.max(0, rider.forearm_length  ** 2 - (lateralOffset * rider.forearm_length  / totalArm) ** 2));
   const maxReach2D = upperArm2D + forearm2D;
-
-  // If the bars are beyond arm reach, cap the hand position at max extension in
-  // the direction of the bars — the body doesn't stretch past its own length.
-  const targetHands = bike.hoods;
   const toHands = { x: targetHands.x - shoulder.x, y: targetHands.y - shoulder.y };
   const toHandsDist = Math.hypot(toHands.x, toHands.y);
   const hands: ContactPoint = (toHandsDist > maxReach2D && toHandsDist > 1e-6)
@@ -608,3 +616,86 @@ export const barReachNeeded = (
   if (reach < BAR_REACH_MIN_MM || reach > BAR_REACH_MAX_MM) return null;
   return reach;
 };
+
+// ── 3D bilateral expansion of 2D mannequin ──────────────────────────────────
+
+const _DEFAULT_STANCE_WIDTH = 155;
+const _DEFAULT_HIP_WIDTH = 200;
+
+const _LEG_EDGES: [string, string][] = [
+  ["cleat_l", "ankle_l"], ["ankle_l", "knee_l"], ["knee_l", "hip_l"],
+  ["cleat_r", "ankle_r"], ["ankle_r", "knee_r"], ["knee_r", "hip_r"],
+  ["hip_l", "hip_r"],
+];
+const _TORSO_EDGES: [string, string][] = [
+  ["hip_center", "shoulder_center"],
+];
+const _ARM_EDGES: [string, string][] = [
+  ["shoulder_l", "elbow_l"], ["elbow_l", "wrist_l"],
+  ["shoulder_r", "elbow_r"], ["elbow_r", "wrist_r"],
+  ["shoulder_l", "shoulder_r"],
+];
+
+/**
+ * Bilaterally expand a 2D sagittal-plane mannequin into 3D points and edges.
+ * Ports the logic from bikegeo_core/mannequin3d.py.
+ */
+export function buildMannequin3DPoints(
+  mannequin: MannequinSketch,
+  rider: ReturnType<typeof buildRider>,
+  components: Components,
+): { points: Geometry3DPoint[]; edges: Geometry3DEdge[] } {
+  const hoodW = components.hood_width ?? components.bar_width;
+  const stanceW = components.stance_width ?? _DEFAULT_STANCE_WIDTH;
+  const hipW = rider.hip_width ?? _DEFAULT_HIP_WIDTH;
+  const shoulderW = rider.shoulder_width;
+
+  const halfStance = stanceW / 2;
+  const halfHip = hipW / 2;
+  const halfHood = hoodW / 2;
+  const halfShoulder = shoulderW / 2;
+
+  const points: Geometry3DPoint[] = [];
+  const p = (name: string, x: number, y: number, z: number) => {
+    points.push({ name, pos: [x, y, z], group: "mannequin" });
+  };
+
+  // Legs at ±half_stance
+  p("cleat_l", mannequin.ankle.x, mannequin.ankle.y - (components.pedal_stack_height || 0), +halfStance);
+  p("cleat_r", mannequin.ankle.x, mannequin.ankle.y - (components.pedal_stack_height || 0), -halfStance);
+  p("ankle_l", mannequin.ankle.x, mannequin.ankle.y, +halfStance);
+  p("ankle_r", mannequin.ankle.x, mannequin.ankle.y, -halfStance);
+  p("knee_l", mannequin.knee.x, mannequin.knee.y, +halfStance);
+  p("knee_r", mannequin.knee.x, mannequin.knee.y, -halfStance);
+
+  // Hips at ±half_hip + centerline
+  p("hip_l", mannequin.hip.x, mannequin.hip.y, +halfHip);
+  p("hip_r", mannequin.hip.x, mannequin.hip.y, -halfHip);
+  p("hip_center", mannequin.hip.x, mannequin.hip.y, 0);
+
+  // Shoulders at ±half_shoulder + centerline
+  p("shoulder_l", mannequin.shoulder.x, mannequin.shoulder.y, +halfShoulder);
+  p("shoulder_r", mannequin.shoulder.x, mannequin.shoulder.y, -halfShoulder);
+  p("shoulder_center", mannequin.shoulder.x, mannequin.shoulder.y, 0);
+
+  // Elbows at ±half_shoulder
+  p("elbow_l", mannequin.elbow.x, mannequin.elbow.y, +halfShoulder);
+  p("elbow_r", mannequin.elbow.x, mannequin.elbow.y, -halfShoulder);
+
+  // Wrists at ±half_hood
+  p("wrist_l", mannequin.hands.x, mannequin.hands.y, +halfHood);
+  p("wrist_r", mannequin.hands.x, mannequin.hands.y, -halfHood);
+
+  const edges: Geometry3DEdge[] = [];
+  for (const [a, b] of _LEG_EDGES) {
+    edges.push({ a, b, group: "mannequin_leg" });
+  }
+  for (const [a, b] of _TORSO_EDGES) {
+    edges.push({ a, b, group: "mannequin_torso" });
+  }
+  for (const [a, b] of _ARM_EDGES) {
+    edges.push({ a, b, group: "mannequin_arm" });
+  }
+
+  return { points, edges };
+}

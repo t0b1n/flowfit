@@ -17,10 +17,13 @@ import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import {
   Geometry3DResponse,
+  Geometry3DPoint,
+  Geometry3DEdge,
   buildTubes,
   getWheelCenters,
   Tube3D,
 } from "./bike3d";
+import type { MannequinSketch } from "./types";
 
 // ── Material ─────────────────────────────────────────────────────────────────
 
@@ -588,6 +591,42 @@ function sceneBounds(geo: Geometry3DResponse): {
   return { center: [cx, cy, cz], span };
 }
 
+// ── 2D skeleton overlay (sagittal plane, z=0) ─────────────────────────────────
+
+function Overlay2D({ mannequin2D }: { mannequin2D: MannequinSketch }) {
+  const m = mannequin2D;
+  const segments: [[number, number], [number, number]][] = [
+    [[m.hip.x, m.hip.y], [m.knee.x, m.knee.y]],
+    [[m.knee.x, m.knee.y], [m.ankle.x, m.ankle.y]],
+    [[m.hip.x, m.hip.y], [m.shoulder.x, m.shoulder.y]],
+    [[m.shoulder.x, m.shoulder.y], [m.elbow.x, m.elbow.y]],
+    [[m.elbow.x, m.elbow.y], [m.hands.x, m.hands.y]],
+  ];
+
+  return (
+    <>
+      {segments.map(([[x1, y1], [x2, y2]], i) => {
+        const start = new THREE.Vector3(x1, y1, 0);
+        const end = new THREE.Vector3(x2, y2, 0);
+        const dir = new THREE.Vector3().subVectors(end, start);
+        const length = dir.length();
+        if (length < 1) return null;
+        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+        const quat = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          dir.clone().normalize()
+        );
+        return (
+          <mesh key={i} position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
+            <cylinderGeometry args={[3, 3, length, 6, 1]} />
+            <meshStandardMaterial color="#00ffaa" emissive="#00ffaa" emissiveIntensity={0.4} roughness={0.5} metalness={0} />
+          </mesh>
+        );
+      })}
+    </>
+  );
+}
+
 // ── Main scene content (inside Canvas) ───────────────────────────────────────
 
 function SceneContent({
@@ -597,6 +636,9 @@ function SceneContent({
   target,
   showMannequin,
   saddleType,
+  show2dOverlay,
+  mannequin2D,
+  mannequin3DOverride,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -604,8 +646,26 @@ function SceneContent({
   target: [number, number, number];
   showMannequin: boolean;
   saddleType: SaddleType;
+  show2dOverlay: boolean;
+  mannequin2D?: MannequinSketch;
+  mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
 }) {
-  const allTubes = buildTubes(geo.points, geo.edges);
+  // When frontend-computed mannequin data is provided, replace backend mannequin
+  // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
+  const effectivePoints = mannequin3DOverride
+    ? [
+        ...geo.points.filter((p) => p.group !== "mannequin"),
+        ...mannequin3DOverride.points,
+      ]
+    : geo.points;
+  const effectiveEdges = mannequin3DOverride
+    ? [
+        ...geo.edges.filter((e) => !e.group.startsWith("mannequin")),
+        ...mannequin3DOverride.edges,
+      ]
+    : geo.edges;
+
+  const allTubes = buildTubes(effectivePoints, effectiveEdges);
   const tubes = showMannequin
     ? allTubes
     : allTubes.filter((t) => !t.group.startsWith("mannequin"));
@@ -639,6 +699,9 @@ function SceneContent({
         <AttachedAssetMesh key={i} asset={asset} geo={geo} />
       ))}
 
+      {/* 2D skeleton overlay */}
+      {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
+
       {/* Orbit controls — target the scene centre so tumbling feels natural */}
       <OrbitControls makeDefault target={target} />
 
@@ -652,6 +715,8 @@ function SceneContent({
 
 interface BikeScene3DProps {
   geo: Geometry3DResponse;
+  mannequin2D?: MannequinSketch;
+  mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
 }
 
 function exportJson(geo: Geometry3DResponse) {
@@ -678,9 +743,10 @@ function exportCsv(geo: Geometry3DResponse) {
   URL.revokeObjectURL(url);
 }
 
-export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo }) => {
+export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mannequin3DOverride }) => {
   const [devMode, setDevMode] = useState(false);
   const [showMannequin, setShowMannequin] = useState(true);
+  const [show2dOverlay, setShow2dOverlay] = useState(false);
   const [saddleType, setSaddleType] = useState<SaddleType>("power");
   // attachedAssets: populated programmatically (e.g. SRAM / Shimano shifter meshes
   // swapped on component change). Dev mode exposes runtime file import for authoring.
@@ -770,6 +836,14 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo }) => {
         >
           Rider
         </button>
+        {mannequin2D && (
+          <button
+            className={`tab-pill ${show2dOverlay ? "tab-pill--active" : ""}`}
+            onClick={() => setShow2dOverlay((v) => !v)}
+          >
+            2D overlay
+          </button>
+        )}
         {(Object.keys(SADDLE_DETAIL) as SaddleType[]).map((t) => (
           <button
             key={t}
@@ -801,6 +875,9 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo }) => {
             target={center}
             showMannequin={showMannequin}
             saddleType={saddleType}
+            show2dOverlay={show2dOverlay}
+            mannequin2D={mannequin2D}
+            mannequin3DOverride={mannequin3DOverride}
           />
         </Canvas>
       </div>

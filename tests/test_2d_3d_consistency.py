@@ -2,6 +2,19 @@
 Tests that the 3D mannequin is a faithful bilateral expansion of the 2D mannequin.
 Every joint's X and Y in 3D must match the corresponding 2D joint exactly,
 since mannequin3d is defined as a pure sagittal-plane expansion.
+
+NOTE — scope of these tests:
+  These are **backend self-consistency** tests only.  They verify that
+  mannequin3d.solve_pose_3d() faithfully copies the 2D joint positions
+  produced by mannequin2d.solve_pose_2d_full() into 3D space.
+
+  They do NOT test whether the 3D mannequin aligns with the 2D green
+  overlay rendered in BikeScene3D.  That overlay is driven by the
+  frontend buildMannequin() function (geometry.ts), which uses different
+  algorithms in several places (trunk-angle preset, projected arm lengths,
+  frontend hoods formula).  Tests for that alignment live in:
+    - tests/test_3d_vs_overlay.py
+    - tests/test_contact_points_3d_vs_2d.py
 """
 from __future__ import annotations
 
@@ -120,18 +133,20 @@ def test_3d_joint_xy_matches_2d(joint_name, pt3d_key):
 
 # ── Structural anchors: 3D frame points match 2D mannequin fixed points ────────
 
-def test_saddle_3d_matches_hip_2d():
-    """The 3D saddle point must be at the same XY as the 2D hip (= saddle)."""
+def test_saddle_3d_matches_bike_saddle_and_hip_is_above():
+    """The 3D saddle point must sit at bike_points.saddle.  The 2D hip joint
+    is offset above the saddle by hip_joint_offset, so saddle ≠ hip."""
+    r = _rider()
     j2 = _2d_joints()
     pts3d = _3d_pts()
     bike = _bike()
 
-    # 3D saddle XY == bike_points.saddle == 2D hip
-    assert abs(pts3d["saddle"].x - j2.hip.x) < TOLERANCE
-    assert abs(pts3d["saddle"].y - j2.hip.y) < TOLERANCE
-    # sanity: bike saddle == 2D hip
-    assert abs(bike.saddle.x - j2.hip.x) < TOLERANCE
-    assert abs(bike.saddle.y - j2.hip.y) < TOLERANCE
+    # 3D saddle XY == bike_points.saddle
+    assert abs(pts3d["saddle"].x - bike.saddle.x) < TOLERANCE
+    assert abs(pts3d["saddle"].y - bike.saddle.y) < TOLERANCE
+    # 2D hip is exactly hip_joint_offset above the saddle
+    assert abs(j2.hip.x - bike.saddle.x) < TOLERANCE
+    assert abs(j2.hip.y - (bike.saddle.y + r.hip_joint_offset)) < TOLERANCE
 
 
 def test_hoods_3d_matches_wrist_2d():
@@ -148,28 +163,31 @@ def test_hoods_3d_matches_wrist_2d():
     assert abs(bike.hoods.y - j2.wrist.y) < TOLERANCE
 
 
-def test_cleat_3d_matches_ankle_2d():
-    """The 3D cleat_l/r XY must match the 2D ankle (= cleat at BDC)."""
+def test_cleat_3d_matches_bike_cleat_and_ankle_is_above():
+    """The 3D cleat_l/r must sit at bike_points.cleat (the pedal axle at BDC).
+    The 2D ankle is pedal_stack_height above the cleat, so cleat ≠ ankle."""
+    comp = _components()
     j2 = _2d_joints()
     pts3d = _3d_pts()
     bike = _bike()
 
     for key in ("cleat_l", "cleat_r"):
-        assert abs(pts3d[key].x - j2.ankle.x) < TOLERANCE, f"{key}.x mismatch"
-        assert abs(pts3d[key].y - j2.ankle.y) < TOLERANCE, f"{key}.y mismatch"
-    # sanity: bike cleat == 2D ankle
-    assert abs(bike.cleat.x - j2.ankle.x) < TOLERANCE
-    assert abs(bike.cleat.y - j2.ankle.y) < TOLERANCE
+        assert abs(pts3d[key].x - bike.cleat.x) < TOLERANCE, f"{key}.x mismatch"
+        assert abs(pts3d[key].y - bike.cleat.y) < TOLERANCE, f"{key}.y mismatch"
+    # 2D ankle is exactly pedal_stack_height above the cleat
+    assert abs(j2.ankle.x - bike.cleat.x) < TOLERANCE
+    assert abs(j2.ankle.y - (bike.cleat.y + comp.pedal_stack_height)) < TOLERANCE
 
 
 # ── Feasible fixture (saddle low enough that limbs can reach) ────────────────
 #
-# With saddle_clamp_offset=700 the hip-to-cleat gap is ~829 mm which exceeds
-# thigh+shank=810 mm — the circles can't intersect.  Use 540 mm instead;
-# the resulting gap is ~672 mm (≈83 % extension), a realistic cycling fit.
+# With hip_joint_offset=95 and saddle_stack=75 (both now included), the
+# effective hip-to-ankle distance is larger than before.  Use
+# saddle_clamp_offset=400; the resulting hip-to-ankle gap is ≈722 mm
+# (≈89 % of thigh+shank=810 mm), a realistic cycling fit.
 
 def _feasible_bike():
-    return synthesize_bike(_frame(), _components(saddle_clamp_offset=540))
+    return synthesize_bike(_frame(), _components(saddle_clamp_offset=400))
 
 
 def _feasible_2d_joints():

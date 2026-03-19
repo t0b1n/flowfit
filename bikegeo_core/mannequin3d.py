@@ -22,7 +22,7 @@ def solve_pose_3d(
         Y — up
         Z — lateral (positive = rider's left)
     """
-    _, joints = solve_pose_2d_full(bike_points, rider)
+    _, joints = solve_pose_2d_full(bike_points, rider, components.pedal_stack_height)
 
     hood_w = components.hood_width if components.hood_width is not None else components.bar_width
     stance_w = components.stance_width if components.stance_width is not None else _DEFAULT_STANCE_WIDTH

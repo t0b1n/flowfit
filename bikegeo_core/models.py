@@ -52,6 +52,7 @@ class Components(BaseModel):
     saddle_stack: float = Field(75.0, description="Vertical distance from rail clamp to saddle surface, in mm.")
     seatpost_offset: float = Field(0.0, description="Horizontal setback of the clamp from the seat-tube centreline, in mm (positive = rearward).")
     saddle_rail_offset: float = Field(0.0, description="Forward/backward slide of the saddle on its rails relative to the clamp, in mm (positive = forward).")
+    pedal_stack_height: float = Field(11.0, description="Height from pedal axle to cleat contact in mm.")
 
 
 class ContactPoint(BaseModel):
@@ -77,6 +78,7 @@ class RiderAnthropometrics(BaseModel):
     hip_width: Optional[float] = None
     stance_width: Optional[float] = None
     flexibility: float = Field(1.0, description="Scalar to widen/narrow posture bands.")
+    hip_joint_offset: float = Field(95.0, description="Vertical offset from saddle contact to hip joint centre (femoral head), in mm.")
 
 
 class AngleBand(BaseModel):

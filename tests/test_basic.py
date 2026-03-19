@@ -84,4 +84,5 @@ def test_solve_returns_actual_contact_points_not_requested_targets() -> None:
 
     assert solved.contact_points.saddle.x != setup.target_contact_points.saddle.x
     assert solved.contact_points.hoods.x != setup.target_contact_points.hoods.x
-    assert solved.contact_points.cleat.y == 0.0
+    # BDC: cleat is directly below BB at y = -crank_length
+    assert solved.contact_points.cleat.y == -setup.components.crank_length

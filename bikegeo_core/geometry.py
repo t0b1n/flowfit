@@ -74,10 +74,10 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         bar_clamp.y + components.bar_drop + components.hood_drop_offset,
     )
 
-    crank_angle_rad = 0.0
+    # BDC = crank pointing straight down
     cleat = Vec2(
-        bb.x + components.crank_length * cos(crank_angle_rad) - components.cleat_setback,
-        bb.y + components.crank_length * sin(crank_angle_rad),
+        bb.x - components.cleat_setback,
+        bb.y - components.crank_length,
     )
 
     return BikePoints(
