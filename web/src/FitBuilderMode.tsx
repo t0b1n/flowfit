@@ -187,9 +187,10 @@ export const FitBuilderMode: React.FC = () => {
         components.crank_length,
         effectiveFrame.seat_angle_deg,
         components.bar_width,
-        components.pedal_stack_height
+        components.pedal_stack_height,
+        components.saddle_stack
       ),
-    [rider, targetKneeExtension, targetTrunkAngleDeg, components.crank_length, effectiveFrame.seat_angle_deg, components.bar_width, components.pedal_stack_height]
+    [rider, targetKneeExtension, targetTrunkAngleDeg, components.crank_length, effectiveFrame.seat_angle_deg, components.bar_width, components.pedal_stack_height, components.saddle_stack]
   );
 
   // Build mannequin: hip/cleat at actual bike contacts (so seatpost/rail offsets move the body),
@@ -216,8 +217,8 @@ export const FitBuilderMode: React.FC = () => {
   const warnings = useMemo(() => fitWarnings(idealContacts, bike), [idealContacts, bike]);
 
   const seatpostRec = useMemo(
-    () => seatpostRecommendation(bike.saddle, bike.saddleClamp, components.pedal_stack_height),
-    [bike.saddle, bike.saddleClamp, components.pedal_stack_height]
+    () => seatpostRecommendation(bike.saddle, bike.saddleClamp),
+    [bike.saddle, bike.saddleClamp]
   );
 
   const barReachNeededValue = useMemo(
@@ -233,7 +234,7 @@ export const FitBuilderMode: React.FC = () => {
     const offset = clampY / Math.sin(seatAngle);
     setComponents((c) => ({ ...c, saddle_clamp_offset: Math.max(400, Math.min(950, offset)) }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riderFit.legLength, riderFit.targetKneeFlexDeg, selection.modelId, selection.size, preset, components.saddle_stack, bodyMeasurements?.hipJointOffset, components.pedal_stack_height]);
+  }, [riderFit.inseam, riderFit.targetKneeFlexDeg, selection.modelId, selection.size, preset, components.saddle_stack, bodyMeasurements?.hipJointOffset, components.pedal_stack_height]);
 
   // Fetch 3D geometry from API when 3D view is active and inputs change
   useEffect(() => {
@@ -288,6 +289,7 @@ export const FitBuilderMode: React.FC = () => {
 
   const idealSaddleY = idealContacts.saddle.y;
   const actualSaddleY = bike.saddle.y;
+  const bbToSaddleDistance = bike.saddle.y / Math.sin(radiansFromDegrees(effectiveFrame.seat_angle_deg));
   const seatpostExtension = Math.max(
     0,
     components.saddle_clamp_offset - estimateSeatTubeTopDistance(effectiveFrame)
@@ -387,12 +389,40 @@ export const FitBuilderMode: React.FC = () => {
           </div>
         </CollapsibleSection>
 
+        <CollapsibleSection eyebrow="Posture" title="Riding preset">
+          <div className="tab-row">
+            {(Object.keys(MANNEQUIN_PRESETS) as MannequinPresetKey[]).map((p) => (
+              <button
+                key={p}
+                className={`tab-pill ${preset === p ? "tab-pill--active" : ""}`}
+                onClick={() => { setPreset(p); setTrunkAngleOverride(null); }}
+              >
+                {PRESET_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
+            <label className="slider-card slider-card--target">
+              <div className="slider-card__header">
+                <span>Trunk angle</span>
+                <strong>{targetTrunkAngleDeg.toFixed(0)}°</strong>
+              </div>
+              <input
+                className="slider-card__input slider-card__input--target"
+                type="range"
+                min={0} max={70} step={1} value={targetTrunkAngleDeg}
+                onChange={(e) => setTrunkAngleOverride(Number(e.target.value))}
+              />
+            </label>
+          </div>
+        </CollapsibleSection>
+
         <CollapsibleSection eyebrow="Rider" title="Fit targets">
           <div className="slider-grid slider-grid--compact">
             {(
               [
                 ["Height", riderFit.height, 1500, 2050, 5, "height", "mm"],
-                ["Leg length", riderFit.legLength, 760, 980, 5, "legLength", "mm"],
+                ["Inseam", riderFit.inseam, 700, 1000, 5, "inseam", "mm"],
                 ["Target knee flex", riderFit.targetKneeFlexDeg, 0, 45, 1, "targetKneeFlexDeg", "°"],
               ] as const
             ).map(([label, value, min, max, step, key, unit]) => (
@@ -469,34 +499,6 @@ export const FitBuilderMode: React.FC = () => {
           >
             Reset to height defaults
           </button>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Posture" title="Riding preset">
-          <div className="tab-row">
-            {(Object.keys(MANNEQUIN_PRESETS) as MannequinPresetKey[]).map((p) => (
-              <button
-                key={p}
-                className={`tab-pill ${preset === p ? "tab-pill--active" : ""}`}
-                onClick={() => { setPreset(p); setTrunkAngleOverride(null); }}
-              >
-                {PRESET_LABELS[p]}
-              </button>
-            ))}
-          </div>
-          <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
-            <label className="slider-card slider-card--target">
-              <div className="slider-card__header">
-                <span>Trunk angle</span>
-                <strong>{targetTrunkAngleDeg.toFixed(0)}°</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--target"
-                type="range"
-                min={0} max={70} step={1} value={targetTrunkAngleDeg}
-                onChange={(e) => setTrunkAngleOverride(Number(e.target.value))}
-              />
-            </label>
-          </div>
         </CollapsibleSection>
 
         <CollapsibleSection eyebrow="Cockpit" title="Component setup">
@@ -664,14 +666,14 @@ export const FitBuilderMode: React.FC = () => {
             {!view3d && (
               <>
                 <button
-                  className={`tab-pill ${viewMode === 'side' ? "tab-pill--active" : ""}`}
+                  className={`tab-pill tab-pill--visual ${viewMode === 'side' ? "tab-pill--active" : ""}`}
                   style={{ marginLeft: "auto" }}
                   onClick={() => setViewMode('side')}
                 >
                   Side
                 </button>
                 <button
-                  className={`tab-pill ${viewMode === 'front' ? "tab-pill--active" : ""}`}
+                  className={`tab-pill tab-pill--visual ${viewMode === 'front' ? "tab-pill--active" : ""}`}
                   onClick={() => setViewMode('front')}
                 >
                   Front
@@ -679,7 +681,7 @@ export const FitBuilderMode: React.FC = () => {
               </>
             )}
             <button
-              className={`tab-pill ${view3d ? "tab-pill--active" : ""}`}
+              className={`tab-pill tab-pill--visual ${view3d ? "tab-pill--active" : ""}`}
               style={view3d ? undefined : { marginLeft: "auto" }}
               onClick={() => setView3d((v) => !v)}
             >
@@ -688,13 +690,13 @@ export const FitBuilderMode: React.FC = () => {
             {!view3d && (
               <>
                 <button
-                  className={`tab-pill ${showFit ? "tab-pill--active" : ""}`}
+                  className={`tab-pill tab-pill--visual ${showFit ? "tab-pill--active" : ""}`}
                   onClick={() => setShowFit((v) => !v)}
                 >
                   Fit positions
                 </button>
                 <button
-                  className={`tab-pill ${showGeometry ? "tab-pill--active" : ""}`}
+                  className={`tab-pill tab-pill--visual ${showGeometry ? "tab-pill--active" : ""}`}
                   onClick={() => setShowGeometry((v) => !v)}
                 >
                   Frame geometry
@@ -702,7 +704,7 @@ export const FitBuilderMode: React.FC = () => {
               </>
             )}
             <button
-              className="tab-pill"
+              className="tab-pill tab-pill--visual"
               title={fullscreen ? "Show controls" : "Hide controls"}
               onClick={() => setFullscreen((v) => !v)}
             >
@@ -945,14 +947,21 @@ export const FitBuilderMode: React.FC = () => {
 
         <CollapsibleSection eyebrow="Fit Analysis" title="Ideal vs actual">
           <div className="metric-grid">
-            <div className="metric-card">
+            <div className="metric-card"
+              title="Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface. This is the height that gives your target knee flex angle at bottom dead centre.">
               <div className="metric-card__label">Ideal saddle height</div>
               <div className="metric-card__compare"><strong>{idealSaddleY.toFixed(0)} mm</strong></div>
             </div>
-            <div className="metric-card">
+            <div className="metric-card"
+              title="Current saddle height based on your seatpost and saddle stack settings. Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface.">
               <div className="metric-card__label">Actual saddle height</div>
               <div className="metric-card__compare"><strong>{actualSaddleY.toFixed(0)} mm</strong></div>
               <div className="metric-card__delta">{(actualSaddleY - idealSaddleY).toFixed(0)} mm vs ideal</div>
+            </div>
+            <div className="metric-card"
+              title="Distance measured along the seat tube from the centre of the bottom bracket axle to the top of the saddle surface. This matches the standard tape measurement a bike fitter takes.">
+              <div className="metric-card__label">BB to saddle</div>
+              <div className="metric-card__compare"><strong>{Math.round(bbToSaddleDistance)} mm</strong></div>
             </div>
             <div className="metric-card">
               <div className="metric-card__label">Seatpost extension</div>

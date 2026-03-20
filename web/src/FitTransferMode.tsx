@@ -301,12 +301,12 @@ export const FitTransferMode: React.FC = () => {
   );
 
   const seatpostRecA = useMemo(
-    () => seatpostRecommendation(bikeA.saddle, bikeA.saddleClamp, componentsA.pedal_stack_height),
-    [bikeA.saddle, bikeA.saddleClamp, componentsA.pedal_stack_height]
+    () => seatpostRecommendation(bikeA.saddle, bikeA.saddleClamp),
+    [bikeA.saddle, bikeA.saddleClamp]
   );
   const seatpostRecB = useMemo(
-    () => seatpostRecommendation(bikeB.saddle, bikeB.saddleClamp, solvedComponentsB.pedal_stack_height),
-    [bikeB.saddle, bikeB.saddleClamp, solvedComponentsB.pedal_stack_height]
+    () => seatpostRecommendation(bikeB.saddle, bikeB.saddleClamp),
+    [bikeB.saddle, bikeB.saddleClamp]
   );
   const barReachNeededB = useMemo(
     () => resultB
@@ -524,7 +524,7 @@ export const FitTransferMode: React.FC = () => {
             {(
               [
                 ["Height", riderFit.height, 1500, 2050, 5, "height", "mm"],
-                ["Leg length", riderFit.legLength, 760, 980, 5, "legLength", "mm"],
+                ["Inseam", riderFit.inseam, 700, 1000, 5, "inseam", "mm"],
               ] as const
             ).map(([label, value, min, max, step, key, unit]) => (
               <label className="slider-card slider-card--target" key={key}>

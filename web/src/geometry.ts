@@ -16,7 +16,7 @@ import { FrameGeometry } from "./frameCatalog";
 export const DEFAULT_TYRE_SIZE = 28;
 
 export const DEFAULT_COMPONENTS: Components = {
-  crank_length: 172.5,
+  crank_length: 165,
   cleat_setback: 0,
   saddle_rail_length: 80,
   saddle_clamp_offset: 700,
@@ -52,7 +52,7 @@ export const DEFAULT_RIDER = {
 
 export const DEFAULT_RIDER_FIT: RiderFit = {
   height: 1760,
-  legLength: 790,
+  inseam: 860, // floor-to-crotch inseam, mm
   targetKneeFlexDeg: 10,
 };
 
@@ -89,8 +89,8 @@ export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   return {
     ...DEFAULT_RIDER,
     height: fit.height,
-    thigh_length: fit.legLength * 0.53,
-    shank_length: fit.legLength * 0.47,
+    thigh_length: fit.inseam * 0.92 * 0.53,
+    shank_length: fit.inseam * 0.92 * 0.47,
     torso_length: body?.torsoLength ?? DEFAULT_RIDER.torso_length * heightScale,
     upper_arm_length: body?.upperArmLength ?? DEFAULT_RIDER.upper_arm_length * heightScale,
     forearm_length: body?.forearmLength ?? DEFAULT_RIDER.forearm_length * heightScale,
@@ -164,7 +164,7 @@ export const buildMannequin = (
   };
 
   const ankle = { x: bike.cleat.x, y: bike.cleat.y + pedalStackHeight };
-  const [knee] = circleIntersections(hipJoint, ankle, rider.thigh_length, rider.shank_length, true);
+  const [knee] = circleIntersections(saddleContact, ankle, rider.thigh_length, rider.shank_length, true);
 
   const targetHands = bike.hoods;
 
@@ -228,7 +228,7 @@ export const buildMannequin = (
     x: shoulder.x + Math.cos(trunkAngle + neckAngle) * neckLength,
     y: shoulder.y + Math.sin(trunkAngle + neckAngle) * neckLength,
   };
-  return { hip: hipJoint, knee, ankle, shoulder, elbow, hands, head };
+  return { hip: saddleContact, knee, ankle, shoulder, elbow, hands, head };
 };
 
 export type FrontalMannequin = {
@@ -458,7 +458,8 @@ export const idealContactsFromRider = (
   crankLength: number,
   seatAngleDeg: number,
   barWidth: number = 0,
-  pedalStackHeight: number = 0
+  pedalStackHeight: number = 0,
+  saddleStack: number = 0
 ): IdealContacts => {
   const seatAngle = radiansFromDegrees(seatAngleDeg);
   const cleat: ContactPoint = { x: 0, y: -crankLength };
@@ -477,14 +478,10 @@ export const idealContactsFromRider = (
     const mid = (lo + hi) / 2;
     const saddleMid: ContactPoint = {
       x: -Math.cos(seatAngle) * mid,
-      y: Math.sin(seatAngle) * mid,
+      y: Math.sin(seatAngle) * mid + saddleStack,
     };
-    const hipJointMid: ContactPoint = {
-      x: saddleMid.x,
-      y: saddleMid.y + rider.hip_joint_offset,
-    };
-    const [knee] = circleIntersections(hipJointMid, ankle, rider.thigh_length, rider.shank_length, true);
-    const ext = angleAtPoint(hipJointMid, knee, ankle);
+    const [knee] = circleIntersections(saddleMid, ankle, rider.thigh_length, rider.shank_length, true);
+    const ext = angleAtPoint(saddleMid, knee, ankle);
     if (ext < clampedTargetExt) {
       lo = mid; // saddle too low → raise
     } else {
@@ -495,7 +492,7 @@ export const idealContactsFromRider = (
   const saddleOffset = (lo + hi) / 2;
   const saddle: ContactPoint = {
     x: -Math.cos(seatAngle) * saddleOffset,
-    y: Math.sin(seatAngle) * saddleOffset,
+    y: Math.sin(seatAngle) * saddleOffset + saddleStack,
   };
   const hipJoint: ContactPoint = {
     x: saddle.x,
@@ -566,9 +563,8 @@ export const SETBACK_THRESHOLD_MM = 15;
 export const seatpostRecommendation = (
   saddle: ContactPoint,
   saddleClamp: ContactPoint,
-  pedalStackHeight: number
 ): SeatpostRecommendation => {
-  const bbToRailDistance = saddle.y - pedalStackHeight;
+  const bbToRailDistance = saddleClamp.y;
   const requiredSetback = saddleClamp.x - saddle.x;
 
   if (bbToRailDistance > ISP_MAX_BB_TO_RAIL_MM) {
