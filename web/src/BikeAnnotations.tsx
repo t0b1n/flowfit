@@ -1,6 +1,6 @@
 import React from "react";
 import type { BikeSketch } from "./types";
-import type { FrameGeometry } from "./frameCatalog";
+import type { FrameGeometry, SizeData } from "./frameCatalog";
 
 // ── Drawing constants (all in mm, bike-space scale) ───────────────────────────
 const AH = 5;    // arrowhead half-width
@@ -221,121 +221,184 @@ export const BikeFitAnnotations: React.FC<{
   );
 };
 
+export const FRAME_MEASUREMENT_IDS = [
+  "stack",
+  "reach",
+  "effectiveTopTube",
+  "headTubeLength",
+  "headTubeAngle",
+  "seatTubeAngle",
+  "seatTubeLength",
+  "bbDrop",
+  "chainstay",
+  "wheelbase",
+  "forkLength",
+  "forkOffset",
+] as const;
+
+export type FrameMeasurementId = typeof FRAME_MEASUREMENT_IDS[number];
+export type FrameMeasurementVisibility = Record<FrameMeasurementId, boolean>;
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export const BikeGeometryAnnotations: React.FC<{
   bike: BikeSketch;
   frame: FrameGeometry;
-}> = ({ bike, frame }) => {
+  sizeData: SizeData;
+  visibleMeasurements: FrameMeasurementVisibility;
+}> = ({ bike, frame, sizeData, visibleMeasurements }) => {
   // Convert all key points to SVG coords (x same, y = -bikeY)
   const bb    = { x: 0, y: 0 };
   const htTop = { x: frame.reach, y: -frame.stack };
   const htBot = { x: bike.headTubeBottom.x, y: -bike.headTubeBottom.y };
+  const ettSeat = sizeData.top_tube_effective != null
+    ? { x: htTop.x - sizeData.top_tube_effective, y: htTop.y }
+    : { x: bike.seatCluster.x, y: htTop.y };
   const stTop = { x: bike.seatTubeTop.x,    y: -bike.seatTubeTop.y };
   const rearA = { x: bike.rearAxle.x,       y: -bike.rearAxle.y };
   const frontA = { x: bike.frontAxle.x,     y: -bike.frontAxle.y };
 
   // Head tube length in mm (Euclidean distance between tube endpoints)
-  const htLen = Math.round(Math.hypot(htTop.x - htBot.x, htTop.y - htBot.y));
+  const htLen = Math.round(frame.head_tube ?? Math.hypot(htTop.x - htBot.x, htTop.y - htBot.y));
 
-  // Effective top tube: horizontal distance from seat tube top to HT top
-  const ettLen = Math.round(htTop.x - stTop.x);
+  // Effective top tube is horizontal from the seat tube axis at HT-top height.
+  const ettLen = Math.round(sizeData.top_tube_effective ?? (htTop.x - ettSeat.x));
 
   // Placement offsets
   const dimRightX  = htTop.x + 85;
   const dimTopY    = Math.min(htTop.y, stTop.y) - 60;
   const dimBotY    = Math.max(rearA.y, bb.y) + 80;
   const dimWbY     = dimBotY + 70;
+  const forkDimY   = dimWbY + 52;
+  const forkDimX   = frontA.x + 60;
+  const seatTubeDimX = stTop.x - 60;
 
   // Seat tube angle: SVG angle of the tube's downward extension = sa° from rightward
   const sa = frame.seat_angle_deg;
   // Head tube angle: SVG angle of tube's downward extension = ha° from rightward
   const ha = frame.head_angle_deg;
+  const wheelbase = sizeData.wheelbase ?? Math.round(frontA.x - rearA.x);
+  const seatTubeLength = frame.seat_tube_ct ?? null;
 
   return (
     <g className="bike-geo-annotations">
 
-      {/* ── Stack ── */}
-      <VertDim
-        y1={htTop.y} y2={bb.y}
-        x={dimRightX}
-        eX1={htTop.x} eX2={bb.x}
-        label={`${frame.stack}`}
-        labelRight={true}
-      />
+      {visibleMeasurements.stack && (
+        <VertDim
+          y1={htTop.y} y2={bb.y}
+          x={dimRightX}
+          eX1={htTop.x} eX2={bb.x}
+          label={`${frame.stack}`}
+          labelRight={true}
+        />
+      )}
 
-      {/* ── Reach ── */}
-      <HorizDim
-        x1={bb.x} x2={htTop.x}
-        y={dimTopY}
-        eY1={bb.y} eY2={htTop.y}
-        label={`${frame.reach}`}
-        labelAbove={true}
-      />
+      {visibleMeasurements.reach && (
+        <HorizDim
+          x1={bb.x} x2={htTop.x}
+          y={dimTopY}
+          eY1={bb.y} eY2={htTop.y}
+          label={`${frame.reach}`}
+          labelAbove={true}
+        />
+      )}
 
-      {/* ── Effective top tube ── */}
-      <HorizDim
-        x1={stTop.x} x2={htTop.x}
-        y={dimTopY + 45}
-        eY1={stTop.y} eY2={htTop.y}
-        label={`${ettLen} ETT`}
-        labelAbove={true}
-      />
+      {visibleMeasurements.effectiveTopTube && (
+        <HorizDim
+          x1={ettSeat.x} x2={htTop.x}
+          y={dimTopY + 45}
+          eY1={ettSeat.y} eY2={htTop.y}
+          label={`${ettLen} ETT`}
+          labelAbove={true}
+        />
+      )}
 
-      {/* ── Head tube length ── */}
-      <VertDim
-        y1={htTop.y} y2={htBot.y}
-        x={htTop.x + 55}
-        eX1={htTop.x} eX2={htBot.x}
-        label={`${htLen} HT`}
-        labelRight={true}
-      />
+      {visibleMeasurements.headTubeLength && (
+        <VertDim
+          y1={htTop.y} y2={htBot.y}
+          x={htTop.x + 55}
+          eX1={htTop.x} eX2={htBot.x}
+          label={`${htLen} HT`}
+          labelRight={true}
+        />
+      )}
 
-      {/* ── BB drop ── */}
-      <VertDim
-        y1={rearA.y} y2={bb.y}
-        x={rearA.x + 55}
-        eX1={rearA.x} eX2={bb.x}
-        label={`${frame.bb_drop}`}
-        labelRight={false}
-      />
+      {visibleMeasurements.seatTubeLength && seatTubeLength !== null && (
+        <VertDim
+          y1={stTop.y} y2={bb.y}
+          x={seatTubeDimX}
+          eX1={stTop.x} eX2={bb.x}
+          label={`${Math.round(seatTubeLength)} ST`}
+          labelRight={false}
+        />
+      )}
 
-      {/* ── Chainstay ── */}
-      <HorizDim
-        x1={rearA.x} x2={bb.x}
-        y={dimBotY}
-        eY1={rearA.y} eY2={bb.y}
-        label={`${frame.chainstay_length}`}
-        labelAbove={false}
-      />
+      {visibleMeasurements.bbDrop && (
+        <VertDim
+          y1={rearA.y} y2={bb.y}
+          x={rearA.x + 55}
+          eX1={rearA.x} eX2={bb.x}
+          label={`${frame.bb_drop}`}
+          labelRight={false}
+        />
+      )}
 
-      {/* ── Wheelbase ── */}
-      <HorizDim
-        x1={rearA.x} x2={frontA.x}
-        y={dimWbY}
-        eY1={rearA.y} eY2={frontA.y}
-        label={`${Math.round(frontA.x - rearA.x)} WB`}
-        labelAbove={false}
-      />
+      {visibleMeasurements.chainstay && (
+        <HorizDim
+          x1={rearA.x} x2={bb.x}
+          y={dimBotY}
+          eY1={rearA.y} eY2={bb.y}
+          label={`${frame.chainstay_length}`}
+          labelAbove={false}
+        />
+      )}
 
-      {/* ── Seat tube angle at BB ──
-            fromDeg = sa (seat tube downward extension, sa° CW from rightward)
-            toDeg   = 90 (downward vertical reference)
-            arc sweeps CW from sa→90, spanning (90-sa)° — visually shows the complement,
-            but we label with the conventional sa° from horizontal */}
-      <AngleDim
-        cx={bb.x} cy={bb.y}
-        fromDeg={sa} toDeg={90}
-        label={`${sa.toFixed(0)}°`}
-        refLineDeg={90}
-      />
+      {visibleMeasurements.wheelbase && (
+        <HorizDim
+          x1={rearA.x} x2={frontA.x}
+          y={dimWbY}
+          eY1={rearA.y} eY2={frontA.y}
+          label={`${Math.round(wheelbase)} WB`}
+          labelAbove={false}
+        />
+      )}
 
-      {/* ── Head tube angle at HT bottom ── */}
-      <AngleDim
-        cx={htBot.x} cy={htBot.y}
-        fromDeg={ha} toDeg={90}
-        label={`${ha.toFixed(1)}°`}
-        refLineDeg={90}
-      />
+      {visibleMeasurements.forkLength && (
+        <VertDim
+          y1={htBot.y} y2={frontA.y}
+          x={forkDimX}
+          eX1={htBot.x} eX2={frontA.x}
+          label={`${Math.round(frame.fork_length)} FL`}
+          labelRight={true}
+        />
+      )}
+
+      {visibleMeasurements.forkOffset && (
+        <HorizDim
+          x1={htBot.x} x2={frontA.x}
+          y={forkDimY}
+          eY1={htBot.y} eY2={frontA.y}
+          label={`${Math.round(frame.fork_offset)} FO`}
+          labelAbove={false}
+        />
+      )}
+
+      {visibleMeasurements.seatTubeAngle && (
+        <AngleDim
+          cx={bb.x} cy={bb.y}
+          fromDeg={sa} toDeg={90}
+          label={`${sa.toFixed(0)}°`}
+          refLineDeg={90}
+        />
+      )}
+
+      {visibleMeasurements.headTubeAngle && (
+        <AngleDim
+          cx={htBot.x} cy={htBot.y}
+          fromDeg={ha} toDeg={90}
+          label={`${ha.toFixed(1)}°`}
+          refLineDeg={90}
+        />
+      )}
 
     </g>
   );

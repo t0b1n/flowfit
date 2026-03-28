@@ -15,15 +15,15 @@ web/                React + TypeScript frontend (Vite)
 tests/              Pytest unit tests
 ```
 
-The frontend (`App.tsx`) runs a full replica of the geometry synthesis for real-time SVG rendering. The backend is only called for the full solve (grid search + constraint report). This dual-implementation means there is a risk of frontend/backend geometry divergence if one side is changed without updating the other.
+The frontend (`App.tsx`) runs a full replica of the geometry synthesis for real-time SVG rendering. The backend is only called for the full solve (grid search + constraint report). This dual-implementation means there is a risk of frontend/backend geometry divergence if one side is changed without updating the other, especially for structural frame points such as the seat cluster, seat-tube top, and head-tube endpoints.
 
 ---
 
 ## Data Flow
 
 1. User adjusts frame size, components, and rider dimensions in the UI.
-2. `synthesizeBike()` (frontend) redraws the SVG continuously.
-3. On "Solve", `POST /solve` is called with `SetupInput` (frame + components + target contact points + rider anthropometrics + posture preset).
+2. `synthesizeBike()` (frontend) redraws the SVG continuously, deriving separate structural points for the seat cluster, full seat-tube top, and catalog head-tube bottom.
+3. On "Solve", `POST /solve` is called with `SetupInput` (frame + components + target contact points + rider anthropometrics + posture preset). In 3D mode the frame payload also carries `top_tube_effective` so the backend export can place the top-tube junction consistently with the frontend.
 4. `solve_setup()` runs a grid search over saddle height × spacer stack (45 combinations), scoring each by contact-point error + posture-band penalty.
 5. Best-fit `SetupOutput` is returned: adjusted components, actual contact points, pose metrics, and constraint status.
 6. The current setup can be serialized to a URL fragment (gzip → base64) for sharing.

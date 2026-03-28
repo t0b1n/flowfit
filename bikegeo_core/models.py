@@ -26,6 +26,9 @@ class FrameGeometry(BaseModel):
     fork_offset: float
     wheel_radius: float
     wheelbase: Optional[float] = None
+    seat_tube_ct: Optional[float] = None
+    head_tube: Optional[float] = None
+    top_tube_effective: Optional[float] = None
 
 
 class Components(BaseModel):
@@ -142,4 +145,3 @@ class SetupOutput(BaseModel):
     preset: PosePreset
     pose_metrics: PoseMetrics
     constraints: ConstraintResult
-

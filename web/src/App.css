@@ -424,6 +424,72 @@ a {
   color: #faf0e2;
 }
 
+.overlay-drawer {
+  display: grid;
+  gap: 10px;
+  padding: 10px 18px 0;
+}
+
+.overlay-drawer__section {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(250, 240, 226, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.overlay-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.overlay-drawer__header span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(250, 240, 226, 0.72);
+}
+
+.overlay-drawer__actions,
+.overlay-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.overlay-chip {
+  border: 1px solid rgba(250, 240, 226, 0.22);
+  background: transparent;
+  color: rgba(250, 240, 226, 0.76);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.overlay-chip:hover {
+  border-color: rgba(250, 240, 226, 0.5);
+  color: #faf0e2;
+}
+
+.overlay-chip--active {
+  background: rgba(250, 240, 226, 0.16);
+  border-color: rgba(250, 240, 226, 0.58);
+  color: #faf0e2;
+}
+
+.overlay-chip--action {
+  border-color: rgba(240, 53, 0, 0.35);
+  color: rgba(250, 240, 226, 0.88);
+}
+
 .subpanel-note {
   margin-bottom: 12px;
   font-size: 0.85rem;

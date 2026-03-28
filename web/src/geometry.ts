@@ -30,7 +30,7 @@ export const DEFAULT_COMPONENTS: Components = {
   bar_width: 370,
   hood_width: null,
   stance_width: null,
-  saddle_stack: 52,
+  saddle_stack: 55,
   seatpost_offset: 0,
   saddle_rail_offset: 0,
   pedal_stack_height: 12,
@@ -62,6 +62,9 @@ export const DEFAULT_TARGETS = {
   cleat: { x: 0, y: -172.5 },
 };
 
+/** Distance (along seat tube) of the visible offset/bend section of the seatpost */
+const SEATPOST_BEND_LENGTH = 40;
+
 export const MANNEQUIN_PRESETS = {
   endurance: { trunkAngleDeg: 55, forearmHorizontalBias: 0.2, elbowBarHeightBias: 0.1 },
   race: { trunkAngleDeg: 33, forearmHorizontalBias: 1.1, elbowBarHeightBias: 1.3 },
@@ -89,8 +92,8 @@ export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   return {
     ...DEFAULT_RIDER,
     height: fit.height,
-    thigh_length: fit.inseam * 0.92 * 0.53,
-    shank_length: fit.inseam * 0.92 * 0.47,
+    thigh_length: fit.inseam * 0.53,
+    shank_length: fit.inseam * 0.47,
     torso_length: body?.torsoLength ?? DEFAULT_RIDER.torso_length * heightScale,
     upper_arm_length: body?.upperArmLength ?? DEFAULT_RIDER.upper_arm_length * heightScale,
     forearm_length: body?.forearmLength ?? DEFAULT_RIDER.forearm_length * heightScale,
@@ -121,9 +124,31 @@ export const deriveSaddleTarget = (
 };
 
 export const estimateSeatTubeTopDistance = (frame: FrameGeometry) => {
+  if (frame.seat_tube_ct != null) return frame.seat_tube_ct;
   const seatAngle = radiansFromDegrees(frame.seat_angle_deg);
   const seatTubeTopY = frame.stack * 0.84;
   return seatTubeTopY / Math.sin(seatAngle);
+};
+
+export const distanceBetweenPoints = (a: ContactPoint, b: ContactPoint) =>
+  Math.hypot(b.x - a.x, b.y - a.y);
+
+export const exposedSeatpostLength = (bike: Pick<BikeSketch, "seatTubeTop" | "seatpostTop">) =>
+  distanceBetweenPoints(bike.seatTubeTop, bike.seatpostTop);
+
+const pointAlongSeatTube = (frame: FrameGeometry, distance: number): ContactPoint => {
+  const seatAngle = radiansFromDegrees(frame.seat_angle_deg);
+  return {
+    x: -Math.cos(seatAngle) * distance,
+    y: Math.sin(seatAngle) * distance,
+  };
+};
+
+const seatTubeDistanceForX = (frame: FrameGeometry, x: number): number | null => {
+  const seatAngle = radiansFromDegrees(frame.seat_angle_deg);
+  const cosSeat = Math.cos(seatAngle);
+  if (Math.abs(cosSeat) < 1e-6) return null;
+  return -x / cosSeat;
 };
 
 export const circleIntersections = (
@@ -331,23 +356,32 @@ export const synthesizeBike = (
     y: axleY,
   };
   const headTubeTop = { x: frame.reach, y: frame.stack };
-  const headTubeBottom = {
-    x: frontAxle.x - headAxis.x * frame.fork_length - forkOffsetDirection.x * frame.fork_offset,
-    y: frontAxle.y - headAxis.y * frame.fork_length - forkOffsetDirection.y * frame.fork_offset,
-  };
-  const seatTubeTopY = frame.stack * 0.84;
-  const seatTubeTopDistance = seatTubeTopY / Math.sin(seatAngle);
-  const seatTubeTop = {
-    x: -Math.cos(seatAngle) * seatTubeTopDistance,
-    y: Math.sin(seatAngle) * seatTubeTopDistance,
-  };
+  const headTubeBottom = frame.head_tube != null
+    ? {
+        x: headTubeTop.x + headAxis.x * frame.head_tube,
+        y: headTubeTop.y + headAxis.y * frame.head_tube,
+      }
+    : {
+        x: frontAxle.x - headAxis.x * frame.fork_length - forkOffsetDirection.x * frame.fork_offset,
+        y: frontAxle.y - headAxis.y * frame.fork_length - forkOffsetDirection.y * frame.fork_offset,
+      };
+  const seatTubeTopDistance = estimateSeatTubeTopDistance(frame);
+  const seatTubeTop = pointAlongSeatTube(frame, seatTubeTopDistance);
+  const seatClusterDistance = (() => {
+    if (sizeData.top_tube_effective == null) return seatTubeTopDistance;
+    const distance = seatTubeDistanceForX(frame, headTubeTop.x - sizeData.top_tube_effective);
+    if (distance == null) return seatTubeTopDistance;
+    return Math.max(0, Math.min(seatTubeTopDistance, distance));
+  })();
+  const seatCluster = pointAlongSeatTube(frame, seatClusterDistance);
 
   const saddleClamp = {
     x: -Math.cos(seatAngle) * components.saddle_clamp_offset - components.seatpost_offset,
     y: Math.sin(seatAngle) * components.saddle_clamp_offset,
   };
-  // 40 mm of seatpost (measured along tube) forms the visible offset section
-  const bendDist = Math.max(0, components.saddle_clamp_offset - 40);
+  // Seatpost top is at the rail clamp position (no head extension)
+  const seatpostTop = { ...saddleClamp };
+  const bendDist = Math.max(0, components.saddle_clamp_offset - SEATPOST_BEND_LENGTH);
   const seatpostBend = {
     x: -Math.cos(seatAngle) * bendDist,
     y: Math.sin(seatAngle) * bendDist,
@@ -379,11 +413,13 @@ export const synthesizeBike = (
     bb,
     rearAxle,
     frontAxle,
+    seatCluster,
     seatTubeTop,
     headTubeBottom,
     headTubeTop,
     saddle,
     saddleClamp,
+    seatpostTop,
     seatpostBend,
     cleat,
     crankEnd,
@@ -402,10 +438,12 @@ export const boundsForBikes = (
     bike.bb,
     bike.rearAxle,
     bike.frontAxle,
+    bike.seatCluster,
     bike.seatTubeTop,
     bike.headTubeBottom,
     bike.headTubeTop,
     bike.saddle,
+    bike.seatpostTop,
     bike.cleat,
     bike.crankEnd,
     bike.steererTop,
@@ -564,7 +602,7 @@ export const seatpostRecommendation = (
   saddle: ContactPoint,
   saddleClamp: ContactPoint,
 ): SeatpostRecommendation => {
-  const bbToRailDistance = saddleClamp.y;
+  const bbToRailDistance = Math.hypot(saddleClamp.x, saddleClamp.y);
   const requiredSetback = saddleClamp.x - saddle.x;
 
   if (bbToRailDistance > ISP_MAX_BB_TO_RAIL_MM) {

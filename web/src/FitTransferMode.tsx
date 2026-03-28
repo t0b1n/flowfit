@@ -16,7 +16,7 @@ import {
   buildRider,
   computeComponentDeltas,
   expandBoundsForMannequins,
-  estimateSeatTubeTopDistance,
+  exposedSeatpostLength,
   seatpostRecommendation,
   synthesizeBike,
   withTyreSize,
@@ -27,7 +27,7 @@ import type { BikeSelection, Components, ContactPoint, ReferenceMode, RiderFit, 
 
 const SaddleShape: React.FC<{
   contact: ContactPoint; // bike coordinates (y up) — saddle surface
-  clamp: ContactPoint;   // bike coordinates — rail clamp centre
+  clamp: ContactPoint;   // bike coordinates — visual seatpost head / rail support
   className?: string;
 }> = ({ contact, clamp, className }) => {
   const cx = contact.x;
@@ -263,9 +263,9 @@ export const FitTransferMode: React.FC = () => {
   const activeBounds = useMemo(() => {
     if (!fullscreen) return bounds;
     const pts = [
-      bikeA.bb, bikeA.seatTubeTop, bikeA.headTubeBottom, bikeA.headTubeTop,
+      bikeA.bb, bikeA.seatCluster, bikeA.seatTubeTop, bikeA.headTubeBottom, bikeA.headTubeTop,
       bikeA.saddle, bikeA.hoods, bikeA.cleat, bikeA.barClamp,
-      bikeB.bb, bikeB.seatTubeTop, bikeB.headTubeBottom, bikeB.headTubeTop,
+      bikeB.bb, bikeB.seatCluster, bikeB.seatTubeTop, bikeB.headTubeBottom, bikeB.headTubeTop,
       bikeB.saddle, bikeB.hoods, bikeB.cleat, bikeB.barClamp,
     ];
     const xs = pts.map((p) => p.x);
@@ -291,14 +291,8 @@ export const FitTransferMode: React.FC = () => {
   const updateComponentB = (key: keyof Components, value: number) =>
     setComponentsB((c) => ({ ...c, [key]: value }));
 
-  const seatpostExtA = Math.max(
-    0,
-    componentsA.saddle_clamp_offset - estimateSeatTubeTopDistance(effectiveFrameA)
-  );
-  const seatpostExtB = Math.max(
-    0,
-    solvedComponentsB.saddle_clamp_offset - estimateSeatTubeTopDistance(effectiveFrameB)
-  );
+  const seatpostExtA = exposedSeatpostLength(bikeA);
+  const seatpostExtB = exposedSeatpostLength(bikeB);
 
   const seatpostRecA = useMemo(
     () => seatpostRecommendation(bikeA.saddle, bikeA.saddleClamp),
@@ -620,26 +614,27 @@ export const FitTransferMode: React.FC = () => {
                     <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={rimRadius} className="geometry-wheel" />
                     <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.crankEnd.x} y2={-bike.crankEnd.y} className="geometry-frame geometry-frame--cockpit-thin" />
                     <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.bb.x} y2={-bike.bb.y} className="geometry-frame geometry-frame--main" />
-                    <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatTubeTop.x} y2={-bike.seatTubeTop.y} className="geometry-frame geometry-frame--seat" />
-                    <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatTubeTop.x} y2={-bike.seatTubeTop.y} className="geometry-frame geometry-frame--seat" />
-                    <line x1={bike.seatTubeTop.x} y1={-bike.seatTubeTop.y} x2={bike.headTubeTop.x} y2={-bike.headTubeTop.y} className="geometry-frame geometry-frame--front" />
+                    <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
+                    <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
+                    <line x1={bike.seatCluster.x} y1={-bike.seatCluster.y} x2={bike.seatTubeTop.x} y2={-bike.seatTubeTop.y} className="geometry-frame geometry-frame--seat" />
+                    <line x1={bike.seatCluster.x} y1={-bike.seatCluster.y} x2={bike.headTubeTop.x} y2={-bike.headTubeTop.y} className="geometry-frame geometry-frame--front" />
                     <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.headTubeBottom.x} y2={-bike.headTubeBottom.y} className="geometry-frame geometry-frame--main" />
                     <line x1={bike.headTubeBottom.x} y1={-bike.headTubeBottom.y} x2={bike.headTubeTop.x} y2={-bike.headTubeTop.y} className="geometry-frame geometry-frame--front" />
                     <line x1={bike.headTubeBottom.x} y1={-bike.headTubeBottom.y} x2={bike.frontAxle.x} y2={-bike.frontAxle.y} className="geometry-frame geometry-frame--front" />
                     <line x1={bike.seatTubeTop.x} y1={-bike.seatTubeTop.y} x2={bike.seatpostBend.x} y2={-bike.seatpostBend.y} className="geometry-frame geometry-frame--cockpit-thin" />
-                    <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.saddleClamp.x} y2={-bike.saddleClamp.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                    <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.seatpostTop.x} y2={-bike.seatpostTop.y} className="geometry-frame geometry-frame--cockpit-thin" />
                     <line x1={bike.steererTop.x} y1={-bike.steererTop.y} x2={bike.barClamp.x} y2={-bike.barClamp.y} className="geometry-frame geometry-frame--cockpit" />
                     <line x1={bike.barClamp.x} y1={-bike.barClamp.y} x2={bike.hoods.x} y2={-bike.hoods.y} className="geometry-frame geometry-frame--cockpit-thin" />
                     {/* Saddle shape + contact nodes */}
                     {tone === "a" ? (
                       <>
-                        <SaddleShape contact={bike.saddle} clamp={bike.saddleClamp} className={`geometry-layer--${tone}`} />
+                        <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className={`geometry-layer--${tone}`} />
                         <circle cx={bike.hoods.x} cy={-bike.hoods.y} r={7} className="geometry-node geometry-node--contact" />
                         <circle cx={bike.cleat.x} cy={-bike.cleat.y} r={7} className="geometry-node geometry-node--contact" />
                       </>
                     ) : (
                       <>
-                        <SaddleShape contact={bike.saddle} clamp={bike.saddleClamp} className={`geometry-layer--${tone}`} />
+                        <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className={`geometry-layer--${tone}`} />
                         <circle cx={bike.hoods.x} cy={-bike.hoods.y} r={7} className="geometry-node geometry-node--contact geometry-node--open" />
                         <circle cx={bike.cleat.x} cy={-bike.cleat.y} r={7} className="geometry-node geometry-node--contact geometry-node--open" />
                       </>
@@ -800,13 +795,15 @@ export const FitTransferMode: React.FC = () => {
                 <strong>{resultB?.constraints.status ?? "waiting"}</strong>
               </div>
             </div>
-            <div className="metric-card">
+            <div className="metric-card"
+              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper.">
               <div className="metric-card__label">A seatpost extension</div>
               <div className="metric-card__compare">
                 <strong>{seatpostExtA.toFixed(0)} mm</strong>
               </div>
             </div>
-            <div className="metric-card">
+            <div className="metric-card"
+              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper.">
               <div className="metric-card__label">B seatpost extension</div>
               <div className="metric-card__compare">
                 <strong>{seatpostExtB.toFixed(0)} mm</strong>

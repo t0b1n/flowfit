@@ -55,11 +55,13 @@ export type BikeSketch = {
   bb: ContactPoint;
   rearAxle: ContactPoint;
   frontAxle: ContactPoint;
+  seatCluster: ContactPoint;
   seatTubeTop: ContactPoint;
   headTubeBottom: ContactPoint;
   headTubeTop: ContactPoint;
   saddle: ContactPoint;
   saddleClamp: ContactPoint;
+  seatpostTop: ContactPoint;
   seatpostBend: ContactPoint;
   cleat: ContactPoint;
   crankEnd: ContactPoint;

@@ -177,13 +177,23 @@ Out-of-band values produce `ConstraintViolation` entries; the overall status bec
 
 ## Rendering pipeline summary
 
+### Frame structural points used by `geometry_export.py`
+
+| Point | Definition |
+|---|---|
+| `seat_cluster` | Seat-tube / top-tube / seatstay junction. When `top_tube_effective` is available, this sits on the seat-tube axis at `x = reach - top_tube_effective`, rather than at the full seat-tube top. |
+| `seat_tube_top` | Full seat-tube / seat-mast top from `seat_tube_ct` (or the legacy stack-based fallback). This is the anchor for the rendered seatpost / mast extension, not the top-tube junction. |
+| `seatpost_top` | Visual top of the rendered seatpost / topper, extending a short fixed distance above `saddle_clamp` so the exposed post is not truncated at the clamp centre. |
+| `head_tube_top` | `(reach, stack)`; top of the head tube on the frame centreline. |
+| `head_tube_bottom` | Derived from `head_tube` along the head axis when catalog length is available; otherwise back-solved from front axle + fork geometry. |
+
 ```mermaid
 flowchart LR
     A["RiderAnthropometrics\n+ BikePoints"] --> B["solve_pose_2d_full\n(mannequin2d.py)"]
     B --> C["PoseMetrics\n+ MannequinJoints2D"]
     C --> D["solve_pose_3d\n(mannequin3d.py)"]
     D --> E["pts_3d dict\n(bilateral joints)"]
-    E --> F["build_export\n(geometry_export.py)"]
+    E --> F["build_export\n(geometry_export.py:\nseat_cluster + true head_tube_bottom)"]
     F --> G["Geometry3DResponse\n(points + edges)"]
 
     G --> H["BikeScene3D.tsx"]
@@ -210,6 +220,6 @@ For visualization, the frontend builds its own 3D mannequin using `buildMannequi
 1. The backend `Geometry3DResponse` provides bike contact points (saddle, hoods, cleat) that anchor the mannequin to the 3D frame.
 2. `buildMannequin()` (geometry.ts) runs forward kinematics from the hip joint using `targetTrunkAngleDeg` to place the shoulder, then solves elbow position via circle–circle intersection.
 3. `buildMannequin3DPoints()` expands the 2D sagittal-plane mannequin into bilateral 3D using the same Z-spread rules and point/edge names as the backend (`mannequin3d.py` / `geometry_export.py`).
-4. `BikeScene3D` merges the frontend mannequin with the backend frame geometry by filtering out `mannequin*` edge groups from the backend response and replacing them with the frontend-generated mannequin edges.
+4. `BikeScene3D` merges the frontend mannequin with the backend frame geometry by filtering out `mannequin*` edge groups from the backend response and replacing them with the frontend-generated mannequin edges. The backend frame payload now distinguishes the seat cluster from the full seat-tube top, so sloping top tubes and integrated seat masts do not collapse into one point.
 
 **Contract:** The frontend bilateral expansion must produce the same point names, edge definitions, and Z-spread rules as the backend. This is enforced by regression tests in `tests/test_bilateral_expansion.py`.

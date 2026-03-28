@@ -1,6 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
 import {
+  FRAME_MEASUREMENT_IDS,
+  type FrameMeasurementId,
+  type FrameMeasurementVisibility,
+} from "./BikeAnnotations";
+import {
   FRAME_CATALOG,
   FrameGeometry,
   getModelById,
@@ -21,8 +26,8 @@ import {
   buildMannequin3DPoints,
   buildRider,
   buildSetup,
+  exposedSeatpostLength,
   expandBoundsForMannequins,
-  estimateSeatTubeTopDistance,
   fitWarnings,
   idealContactsFromRider,
   radiansFromDegrees,
@@ -39,7 +44,7 @@ import type { Geometry3DResponse } from "./bike3d";
 
 const SaddleShape: React.FC<{
   contact: ContactPoint;  // bike coordinates (y up) — saddle surface
-  clamp: ContactPoint;    // bike coordinates — rail clamp centre
+  clamp: ContactPoint;    // bike coordinates — visual seatpost head / rail support
   className?: string;
 }> = ({ contact, clamp, className }) => {
   const cx = contact.x;
@@ -127,6 +132,57 @@ const PRESET_LABELS: Record<MannequinPresetKey, string> = {
   fast: "Fast",
 };
 
+type RiderVisibilityPart = "legs" | "torso" | "arms" | "head" | "feet" | "contactMarkers";
+type RiderVisibility = Record<RiderVisibilityPart, boolean>;
+
+const FRAME_MEASUREMENT_LABELS: Record<FrameMeasurementId, string> = {
+  stack: "Stack",
+  reach: "Reach",
+  effectiveTopTube: "ETT",
+  headTubeLength: "HT length",
+  headTubeAngle: "HT angle",
+  seatTubeAngle: "ST angle",
+  seatTubeLength: "ST length",
+  bbDrop: "BB drop",
+  chainstay: "Chainstay",
+  wheelbase: "Wheelbase",
+  forkLength: "Fork length",
+  forkOffset: "Fork offset",
+};
+
+const RIDER_VISIBILITY_LABELS: Record<RiderVisibilityPart, string> = {
+  legs: "Legs",
+  torso: "Torso",
+  arms: "Arms",
+  head: "Head",
+  feet: "Feet",
+  contactMarkers: "Contacts",
+};
+
+const DEFAULT_RIDER_VISIBILITY: RiderVisibility = {
+  legs: true,
+  torso: true,
+  arms: true,
+  head: true,
+  feet: true,
+  contactMarkers: true,
+};
+
+const DEFAULT_FRAME_MEASUREMENT_VISIBILITY: FrameMeasurementVisibility = {
+  stack: true,
+  reach: true,
+  effectiveTopTube: true,
+  headTubeLength: true,
+  headTubeAngle: true,
+  seatTubeAngle: true,
+  seatTubeLength: true,
+  bbDrop: true,
+  chainstay: true,
+  wheelbase: true,
+  forkLength: true,
+  forkOffset: true,
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const FitBuilderMode: React.FC = () => {
@@ -140,8 +196,12 @@ export const FitBuilderMode: React.FC = () => {
   const [preset, setPreset] = useState<MannequinPresetKey>("endurance");
   const [trunkAngleOverride, setTrunkAngleOverride] = useState<number | null>(35);
   const [hoodPresetId, setHoodPresetId] = useState(HOOD_PRESETS[0].id);
-  const [showGeometry, setShowGeometry] = useState(false);
-  const [showFit, setShowFit] = useState(false);
+  const [showFrameGeometry, setShowFrameGeometry] = useState(false);
+  const [showFitPositions, setShowFitPositions] = useState(false);
+  const [riderVisibility, setRiderVisibility] = useState<RiderVisibility>(DEFAULT_RIDER_VISIBILITY);
+  const [frameMeasurementVisibility, setFrameMeasurementVisibility] = useState<FrameMeasurementVisibility>(
+    DEFAULT_FRAME_MEASUREMENT_VISIBILITY
+  );
   const [fullscreen, setFullscreen] = useState(false);
   const [viewMode, setViewMode] = useState<'side' | 'front'>('side');
   const [view3d, setView3d] = useState(false);
@@ -241,7 +301,11 @@ export const FitBuilderMode: React.FC = () => {
     if (!view3d) return;
     let cancelled = false;
     setGeo3dLoading(true);
-    const setup = buildSetup({ ...effectiveFrame, wheelbase: sizeData.wheelbase }, components, {
+    const setup = buildSetup({
+      ...effectiveFrame,
+      wheelbase: sizeData.wheelbase,
+      top_tube_effective: sizeData.top_tube_effective,
+    }, components, {
       saddle: idealContacts.saddle,
       hoods: idealContacts.hoods,
       cleat: idealContacts.cleat,
@@ -290,10 +354,7 @@ export const FitBuilderMode: React.FC = () => {
   const idealSaddleY = idealContacts.saddle.y;
   const actualSaddleY = bike.saddle.y;
   const bbToSaddleDistance = bike.saddle.y / Math.sin(radiansFromDegrees(effectiveFrame.seat_angle_deg));
-  const seatpostExtension = Math.max(
-    0,
-    components.saddle_clamp_offset - estimateSeatTubeTopDistance(effectiveFrame)
-  );
+  const seatpostExtension = exposedSeatpostLength(bike);
 
   const pseudoTargets = {
     saddle: idealContacts.saddle,
@@ -307,7 +368,7 @@ export const FitBuilderMode: React.FC = () => {
   const activeBounds = useMemo(() => {
     if (!fullscreen) return bounds;
     const pts = [
-      bike.bb, bike.seatTubeTop, bike.headTubeBottom, bike.headTubeTop,
+      bike.bb, bike.seatCluster, bike.seatTubeTop, bike.headTubeBottom, bike.headTubeTop,
       bike.saddle, bike.hoods, bike.cleat, bike.barClamp,
       mannequin.hip, mannequin.knee, mannequin.ankle,
       mannequin.shoulder, mannequin.elbow, mannequin.hands, mannequin.head,
@@ -336,6 +397,58 @@ export const FitBuilderMode: React.FC = () => {
 
   const updateBodyMeasurement = (key: keyof BodyMeasurements, value: number) =>
     setBodyMeasurements((b: Partial<BodyMeasurements>) => ({ ...b, [key]: value }));
+
+  const toggleRiderVisibility = (part: RiderVisibilityPart) =>
+    setRiderVisibility((current) => ({ ...current, [part]: !current[part] }));
+
+  const setAllRiderVisibility = (value: boolean) =>
+    setRiderVisibility({
+      legs: value,
+      torso: value,
+      arms: value,
+      head: value,
+      feet: value,
+      contactMarkers: value,
+    });
+
+  const toggleFrameMeasurement = (measurement: FrameMeasurementId) =>
+    setFrameMeasurementVisibility((current) => ({ ...current, [measurement]: !current[measurement] }));
+
+  const setAllFrameMeasurements = (value: boolean) =>
+    setFrameMeasurementVisibility({
+      stack: value,
+      reach: value,
+      effectiveTopTube: value,
+      headTubeLength: value,
+      headTubeAngle: value,
+      seatTubeAngle: value,
+      seatTubeLength: value,
+      bbDrop: value,
+      chainstay: value,
+      wheelbase: value,
+      forkLength: value,
+      forkOffset: value,
+    });
+
+  const frameGeometryRows = [
+    ["Stack", `${sizeData.geometry.stack} mm`],
+    ["Reach", `${sizeData.geometry.reach} mm`],
+    ["Head angle", `${sizeData.geometry.head_angle_deg.toFixed(1)}°`],
+    ["Seat angle", `${sizeData.geometry.seat_angle_deg.toFixed(1)}°`],
+    ["BB drop", `${sizeData.geometry.bb_drop} mm`],
+    ["Chainstay", `${sizeData.geometry.chainstay_length} mm`],
+    ["Fork length", `${sizeData.geometry.fork_length} mm`],
+    ["Fork offset", `${sizeData.geometry.fork_offset} mm`],
+    ["Wheel radius", `${sizeData.geometry.wheel_radius} mm`],
+    ["Wheelbase", sizeData.wheelbase != null ? `${sizeData.wheelbase} mm` : null],
+    ["Seat tube C-T", sizeData.geometry.seat_tube_ct != null ? `${Math.round(sizeData.geometry.seat_tube_ct)} mm` : null],
+    ["Head tube", sizeData.geometry.head_tube != null ? `${sizeData.geometry.head_tube} mm` : null],
+    ["Front center", sizeData.front_center != null ? `${sizeData.front_center} mm` : null],
+    ["Trail", sizeData.trail != null ? `${sizeData.trail} mm` : null],
+    ["Effective top tube", sizeData.top_tube_effective != null ? `${sizeData.top_tube_effective} mm` : null],
+    ["Standover", sizeData.standover != null ? `${sizeData.standover} mm` : null],
+    ["BB height", sizeData.bb_height != null ? `${sizeData.bb_height} mm` : null],
+  ].filter((row): row is [string, string] => row[1] !== null);
 
   const handlePedalPreset = (id: string) => {
     setPedalPresetId(id);
@@ -690,14 +803,14 @@ export const FitBuilderMode: React.FC = () => {
             {!view3d && (
               <>
                 <button
-                  className={`tab-pill tab-pill--visual ${showFit ? "tab-pill--active" : ""}`}
-                  onClick={() => setShowFit((v) => !v)}
+                  className={`tab-pill tab-pill--visual ${showFitPositions ? "tab-pill--active" : ""}`}
+                  onClick={() => setShowFitPositions((v) => !v)}
                 >
                   Fit positions
                 </button>
                 <button
-                  className={`tab-pill tab-pill--visual ${showGeometry ? "tab-pill--active" : ""}`}
-                  onClick={() => setShowGeometry((v) => !v)}
+                  className={`tab-pill tab-pill--visual ${showFrameGeometry ? "tab-pill--active" : ""}`}
+                  onClick={() => setShowFrameGeometry((v) => !v)}
                 >
                   Frame geometry
                 </button>
@@ -712,6 +825,59 @@ export const FitBuilderMode: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {!view3d && (
+          <div className="overlay-drawer">
+            <div className="overlay-drawer__section">
+              <div className="overlay-drawer__header">
+                <span>Rider visibility</span>
+                <div className="overlay-drawer__actions">
+                  <button className="overlay-chip overlay-chip--action" onClick={() => setAllRiderVisibility(true)}>Show all</button>
+                  <button className="overlay-chip overlay-chip--action" onClick={() => setAllRiderVisibility(false)}>Hide all</button>
+                </div>
+              </div>
+              <div className="overlay-chip-row">
+                {(["legs", "torso", "arms", "head", "feet", "contactMarkers"] as RiderVisibilityPart[]).map((part) => (
+                  <button
+                    key={part}
+                    className={`overlay-chip ${riderVisibility[part] ? "overlay-chip--active" : ""}`}
+                    onClick={() => toggleRiderVisibility(part)}
+                  >
+                    {RIDER_VISIBILITY_LABELS[part]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {showFrameGeometry && (
+              <div className="overlay-drawer__section">
+                <div className="overlay-drawer__header">
+                  <span>Frame measurements</span>
+                  <div className="overlay-drawer__actions">
+                    <button className="overlay-chip overlay-chip--action" onClick={() => setAllFrameMeasurements(true)}>Show all</button>
+                    <button className="overlay-chip overlay-chip--action" onClick={() => setAllFrameMeasurements(false)}>Hide all</button>
+                  </div>
+                </div>
+                <div className="overlay-chip-row">
+                  {FRAME_MEASUREMENT_IDS.map((measurement) => {
+                    if (measurement === "seatTubeLength" && sizeData.geometry.seat_tube_ct == null) {
+                      return null;
+                    }
+                    return (
+                      <button
+                        key={measurement}
+                        className={`overlay-chip ${frameMeasurementVisibility[measurement] ? "overlay-chip--active" : ""}`}
+                        onClick={() => toggleFrameMeasurement(measurement)}
+                      >
+                        {FRAME_MEASUREMENT_LABELS[measurement]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="visual-stage">
           {view3d ? (
@@ -748,19 +914,24 @@ export const FitBuilderMode: React.FC = () => {
                 <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)} className="geometry-wheel" />
                 <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.crankEnd.x} y2={-bike.crankEnd.y} className="geometry-frame geometry-frame--cockpit-thin" />
                 <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.bb.x} y2={-bike.bb.y} className="geometry-frame geometry-frame--main" />
-                <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatTubeTop.x} y2={-bike.seatTubeTop.y} className="geometry-frame geometry-frame--seat" />
-                <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatTubeTop.x} y2={-bike.seatTubeTop.y} className="geometry-frame geometry-frame--seat" />
-                <line x1={bike.seatTubeTop.x} y1={-bike.seatTubeTop.y} x2={bike.headTubeTop.x} y2={-bike.headTubeTop.y} className="geometry-frame geometry-frame--front" />
+                <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
+                <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
+                <line x1={bike.seatCluster.x} y1={-bike.seatCluster.y} x2={bike.seatTubeTop.x} y2={-bike.seatTubeTop.y} className="geometry-frame geometry-frame--seat" />
+                <line x1={bike.seatCluster.x} y1={-bike.seatCluster.y} x2={bike.headTubeTop.x} y2={-bike.headTubeTop.y} className="geometry-frame geometry-frame--front" />
                 <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.headTubeBottom.x} y2={-bike.headTubeBottom.y} className="geometry-frame geometry-frame--main" />
                 <line x1={bike.headTubeBottom.x} y1={-bike.headTubeBottom.y} x2={bike.headTubeTop.x} y2={-bike.headTubeTop.y} className="geometry-frame geometry-frame--front" />
                 <line x1={bike.headTubeBottom.x} y1={-bike.headTubeBottom.y} x2={bike.frontAxle.x} y2={-bike.frontAxle.y} className="geometry-frame geometry-frame--front" />
                 <line x1={bike.seatTubeTop.x} y1={-bike.seatTubeTop.y} x2={bike.seatpostBend.x} y2={-bike.seatpostBend.y} className="geometry-frame geometry-frame--cockpit-thin" />
-                <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.saddleClamp.x} y2={-bike.saddleClamp.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.seatpostTop.x} y2={-bike.seatpostTop.y} className="geometry-frame geometry-frame--cockpit-thin" />
                 <line x1={bike.steererTop.x} y1={-bike.steererTop.y} x2={bike.barClamp.x} y2={-bike.barClamp.y} className="geometry-frame geometry-frame--cockpit" />
                 <line x1={bike.barClamp.x} y1={-bike.barClamp.y} x2={bike.hoods.x} y2={-bike.hoods.y} className="geometry-frame geometry-frame--cockpit-thin" />
-                <SaddleShape contact={bike.saddle} clamp={bike.saddleClamp} className="geometry-layer--a" />
-                <circle cx={bike.hoods.x} cy={-bike.hoods.y} r={6} className="geometry-node geometry-node--contact" />
-                <circle cx={bike.cleat.x} cy={-bike.cleat.y} r={6} className="geometry-node geometry-node--contact" />
+                <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="geometry-layer--a" />
+                {riderVisibility.contactMarkers && (
+                  <>
+                    <circle cx={bike.hoods.x} cy={-bike.hoods.y} r={6} className="geometry-node geometry-node--contact" />
+                    <circle cx={bike.cleat.x} cy={-bike.cleat.y} r={6} className="geometry-node geometry-node--contact" />
+                  </>
+                )}
               </g>
 
               {(() => {
@@ -771,7 +942,7 @@ export const FitBuilderMode: React.FC = () => {
                 return (
                   <g className="geometry-mannequin">
                     {/* ── Foot / shoe ── */}
-                    {(() => {
+                    {riderVisibility.feet && (() => {
                       const cx    = bike.cleat.x;           // ball-of-foot / cleat / pedal axle
                       const sole  = -bike.cleat.y;          // SVG y at pedal axle
                       const ankSY = -mannequin.ankle.y;     // SVG y at foot stack height above sole
@@ -823,25 +994,41 @@ export const FitBuilderMode: React.FC = () => {
                       );
                     })()}
                     {/* Pelvis: connects saddle contact (ischial tuberosity) to hip joint centre */}
-                    <line
-                      x1={bike.saddle.x} y1={-bike.saddle.y}
-                      x2={mannequin.hip.x} y2={-mannequin.hip.y}
-                      className="geometry-mannequin__line"
-                      strokeWidth={Math.round(80 * s)}
-                      opacity={0.45}
-                    />
-                    <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.knee.x} y2={-mannequin.knee.y} className="geometry-mannequin__line" strokeWidth={Math.round(110 * s)} />
-                    <line x1={mannequin.knee.x} y1={-mannequin.knee.y} x2={visualAnkleX} y2={-mannequin.ankle.y} className="geometry-mannequin__line" strokeWidth={Math.round(82 * s)} />
-                    <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.shoulder.x} y2={-mannequin.shoulder.y} className="geometry-mannequin__line" strokeWidth={Math.round(175 * s)} />
-                    <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.elbow.x} y2={-mannequin.elbow.y} className="geometry-mannequin__line" strokeWidth={Math.round(70 * s)} />
-                    <line x1={mannequin.elbow.x} y1={-mannequin.elbow.y} x2={mannequin.hands.x} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
-                    <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.head.x} y2={-mannequin.head.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
-                    <circle cx={mannequin.head.x} cy={-mannequin.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
+                    {riderVisibility.torso && (
+                      <>
+                        <line
+                          x1={bike.saddle.x} y1={-bike.saddle.y}
+                          x2={mannequin.hip.x} y2={-mannequin.hip.y}
+                          className="geometry-mannequin__line"
+                          strokeWidth={Math.round(80 * s)}
+                          opacity={0.45}
+                        />
+                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.shoulder.x} y2={-mannequin.shoulder.y} className="geometry-mannequin__line" strokeWidth={Math.round(175 * s)} />
+                      </>
+                    )}
+                    {riderVisibility.legs && (
+                      <>
+                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.knee.x} y2={-mannequin.knee.y} className="geometry-mannequin__line" strokeWidth={Math.round(110 * s)} />
+                        <line x1={mannequin.knee.x} y1={-mannequin.knee.y} x2={visualAnkleX} y2={-mannequin.ankle.y} className="geometry-mannequin__line" strokeWidth={Math.round(82 * s)} />
+                      </>
+                    )}
+                    {riderVisibility.arms && (
+                      <>
+                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.elbow.x} y2={-mannequin.elbow.y} className="geometry-mannequin__line" strokeWidth={Math.round(70 * s)} />
+                        <line x1={mannequin.elbow.x} y1={-mannequin.elbow.y} x2={mannequin.hands.x} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                      </>
+                    )}
+                    {riderVisibility.head && (
+                      <>
+                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.head.x} y2={-mannequin.head.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        <circle cx={mannequin.head.x} cy={-mannequin.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
+                      </>
+                    )}
                   </g>
                 );
               })()}
 
-              {(["saddle", "hoods", "cleat"] as const).map((contact) => {
+              {riderVisibility.contactMarkers && (["saddle", "hoods", "cleat"] as const).map((contact) => {
                 const pt = idealContacts[contact];
                 return (
                   <g key={contact}>
@@ -878,11 +1065,16 @@ export const FitBuilderMode: React.FC = () => {
                   );
                 })}
 
-              {showFit && (
+              {showFitPositions && (
                 <BikeFitAnnotations bike={bike} barWidth={components.bar_width} />
               )}
-              {showGeometry && (
-                <BikeGeometryAnnotations bike={bike} frame={effectiveFrame} />
+              {showFrameGeometry && (
+                <BikeGeometryAnnotations
+                  bike={bike}
+                  frame={effectiveFrame}
+                  sizeData={sizeData}
+                  visibleMeasurements={frameMeasurementVisibility}
+                />
               )}
             </svg>
           ) : (() => {
@@ -901,15 +1093,19 @@ export const FitBuilderMode: React.FC = () => {
               <svg viewBox={frontalViewBox} className="geometry-svg">
                 <line x1={-halfW} y1={groundY} x2={halfW} y2={groundY} className="geometry-ground" />
                 <circle cx={0} cy={0} r={12} fill="rgba(240,53,0,0.35)" />
-                <line x1={-components.bar_width / 2} y1={-mannequin.hands.y} x2={components.bar_width / 2} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(30 * s)} />
+                <line x1={-components.bar_width / 2} y1={-mannequin.hands.y} x2={components.bar_width / 2} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(30 * s)} opacity={0.4} />
                 <g className="geometry-mannequin">
                   {/* Legs */}
-                  {mline(fm.ankleL.x, fm.ankleL.y, fm.kneeL.x, fm.kneeL.y, 82)}
-                  {mline(fm.kneeL.x, fm.kneeL.y, fm.hipL.x, fm.hipL.y, 110)}
-                  {mline(fm.ankleR.x, fm.ankleR.y, fm.kneeR.x, fm.kneeR.y, 82)}
-                  {mline(fm.kneeR.x, fm.kneeR.y, fm.hipR.x, fm.hipR.y, 110)}
+                  {riderVisibility.legs && (
+                    <>
+                      {mline(fm.ankleL.x, fm.ankleL.y, fm.kneeL.x, fm.kneeL.y, 82)}
+                      {mline(fm.kneeL.x, fm.kneeL.y, fm.hipL.x, fm.hipL.y, 110)}
+                      {mline(fm.ankleR.x, fm.ankleR.y, fm.kneeR.x, fm.kneeR.y, 82)}
+                      {mline(fm.kneeR.x, fm.kneeR.y, fm.hipR.x, fm.hipR.y, 110)}
+                    </>
+                  )}
                   {/* Torso trapezoid: wide at shoulders, tapers to hip + ½ thigh width */}
-                  {(() => {
+                  {riderVisibility.torso && (() => {
                     const thighHalf = Math.round(110 * s) / 2;
                     const pts = [
                       `${fm.shoulderL.x},${-shoulderMidY}`,
@@ -928,13 +1124,21 @@ export const FitBuilderMode: React.FC = () => {
                     );
                   })()}
                   {/* Arms */}
-                  {mline(fm.shoulderL.x, fm.shoulderL.y, fm.elbowL.x, fm.elbowL.y, 70)}
-                  {mline(fm.elbowL.x, fm.elbowL.y, fm.handsL.x, fm.handsL.y, 55)}
-                  {mline(fm.shoulderR.x, fm.shoulderR.y, fm.elbowR.x, fm.elbowR.y, 70)}
-                  {mline(fm.elbowR.x, fm.elbowR.y, fm.handsR.x, fm.handsR.y, 55)}
+                  {riderVisibility.arms && (
+                    <>
+                      {mline(fm.shoulderL.x, fm.shoulderL.y, fm.elbowL.x, fm.elbowL.y, 70)}
+                      {mline(fm.elbowL.x, fm.elbowL.y, fm.handsL.x, fm.handsL.y, 55)}
+                      {mline(fm.shoulderR.x, fm.shoulderR.y, fm.elbowR.x, fm.elbowR.y, 70)}
+                      {mline(fm.elbowR.x, fm.elbowR.y, fm.handsR.x, fm.handsR.y, 55)}
+                    </>
+                  )}
                   {/* Neck + head */}
-                  {mline(0, shoulderMidY, fm.head.x, fm.head.y, 55)}
-                  <circle cx={fm.head.x} cy={-fm.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
+                  {riderVisibility.head && (
+                    <>
+                      {mline(0, shoulderMidY, fm.head.x, fm.head.y, 55)}
+                      <circle cx={fm.head.x} cy={-fm.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
+                    </>
+                  )}
                 </g>
               </svg>
             );
@@ -963,7 +1167,8 @@ export const FitBuilderMode: React.FC = () => {
               <div className="metric-card__label">BB to saddle</div>
               <div className="metric-card__compare"><strong>{Math.round(bbToSaddleDistance)} mm</strong></div>
             </div>
-            <div className="metric-card">
+            <div className="metric-card"
+              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper.">
               <div className="metric-card__label">Seatpost extension</div>
               <div className="metric-card__compare"><strong>{seatpostExtension.toFixed(0)} mm</strong></div>
             </div>
@@ -1066,14 +1271,8 @@ export const FitBuilderMode: React.FC = () => {
 
         <CollapsibleSection eyebrow="Frame" title="Geometry" defaultOpen={false}>
           <div className="metric-grid">
-            {[
-              ["Stack", `${sizeData.geometry.stack} mm`],
-              ["Reach", `${sizeData.geometry.reach} mm`],
-              ["Head angle", `${sizeData.geometry.head_angle_deg.toFixed(1)}°`],
-              ["Seat angle", `${sizeData.geometry.seat_angle_deg.toFixed(1)}°`],
-              ["Chainstay", `${sizeData.geometry.chainstay_length} mm`],
-            ].map(([label, value]) => (
-              <div className="metric-card" key={String(label)}>
+            {frameGeometryRows.map(([label, value]) => (
+              <div className="metric-card" key={label}>
                 <div className="metric-card__label">{label}</div>
                 <div className="metric-card__compare"><strong>{value}</strong></div>
               </div>

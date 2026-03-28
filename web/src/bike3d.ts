@@ -64,17 +64,18 @@ const TUBE_RADIUS: Record<string, number> = {
 
 // Which tube name to use for a given edge a→b pair
 const EDGE_TUBE_NAME: Record<string, string> = {
-  "bb→seat_tube_top": "seat_tube",
-  "seat_tube_top→head_tube_top": "top_tube",
+  "bb→seat_cluster": "seat_tube",
+  "seat_cluster→seat_tube_top": "seat_tube",
+  "seat_cluster→head_tube_top": "top_tube",
   "bb→head_tube_bottom": "down_tube",
   "head_tube_top→head_tube_bottom": "head_tube",
   "bb→chainstay_l": "chainstay",
   "bb→chainstay_r": "chainstay",
-  "seat_tube_top→chainstay_l": "seatstay",
-  "seat_tube_top→chainstay_r": "seatstay",
+  "seat_cluster→chainstay_l": "seatstay",
+  "seat_cluster→chainstay_r": "seatstay",
   "head_tube_bottom→fork_l": "fork",
   "head_tube_bottom→fork_r": "fork",
-  "seat_tube_top→saddle_clamp": "seatpost",
+  "seat_tube_top→seatpost_top": "seatpost",
   "head_tube_top→steerer_top": "steerer",
   "steerer_top→bar_clamp": "stem",
   "bar_clamp→bar_top_l": "bar",

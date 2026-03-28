@@ -40,21 +40,22 @@ class BikeGeoExport:
 
 _FRAME_EDGES: list[tuple[str, str]] = [
     # Diamond main frame
-    ("bb", "seat_tube_top"),
-    ("seat_tube_top", "head_tube_top"),
+    ("bb", "seat_cluster"),
+    ("seat_cluster", "seat_tube_top"),
+    ("seat_cluster", "head_tube_top"),
     ("bb", "head_tube_bottom"),
     ("head_tube_top", "head_tube_bottom"),
     # Bilateral chainstays: BB centre → lateral rear-dropout points
     ("bb", "chainstay_l"),
     ("bb", "chainstay_r"),
     # Bilateral seatstays: seat-tube top → same lateral rear-dropout points
-    ("seat_tube_top", "chainstay_l"),
-    ("seat_tube_top", "chainstay_r"),
+    ("seat_cluster", "chainstay_l"),
+    ("seat_cluster", "chainstay_r"),
     # Bilateral fork blades: fork crown → lateral front-dropout points
     ("head_tube_bottom", "fork_l"),
     ("head_tube_bottom", "fork_r"),
     # Seatpost (straight along seat tube axis to clamp — saddle rendered separately)
-    ("seat_tube_top", "saddle_clamp"),
+    ("seat_tube_top", "seatpost_top"),
     # Cockpit: steerer/spacers follow head angle, then stem, then handlebar
     ("head_tube_top", "steerer_top"),     # steerer + spacers (along head angle)
     ("steerer_top", "bar_clamp"),          # stem
@@ -90,9 +91,10 @@ _ARM_EDGES: list[tuple[str, str]] = [
 
 _FRAME_PT_NAMES = {
     "bb", "rear_axle", "front_axle", "saddle", "saddle_clamp",
+    "seatpost_top",
     "steerer_top", "bar_clamp", "hoods_l", "hoods_r",
     "cleat_l", "cleat_r",
-    "seat_tube_top", "head_tube_top", "head_tube_bottom",
+    "seat_cluster", "seat_tube_top", "head_tube_top", "head_tube_bottom",
     "chainstay_l", "chainstay_r", "fork_l", "fork_r",
     "bar_top_l", "bar_top_r", "bar_drop_l", "bar_drop_r",
 }
@@ -129,26 +131,54 @@ def _add_frame_structural_points(
     fork_off_x = sin(head_angle_rad)
     fork_off_y = cos(head_angle_rad)
     fa = bike_points.front_axle
-    pts_3d["head_tube_bottom"] = Vec3(
-        fa.x - head_axis_x * frame.fork_length - fork_off_x * frame.fork_offset,
-        fa.y - head_axis_y * frame.fork_length - fork_off_y * frame.fork_offset,
-        0.0,
-    )
+    if frame.head_tube is not None:
+        pts_3d["head_tube_bottom"] = Vec3(
+            frame.reach + head_axis_x * frame.head_tube,
+            frame.stack + head_axis_y * frame.head_tube,
+            0.0,
+        )
+    else:
+        pts_3d["head_tube_bottom"] = Vec3(
+            fa.x - head_axis_x * frame.fork_length - fork_off_x * frame.fork_offset,
+            fa.y - head_axis_y * frame.fork_length - fork_off_y * frame.fork_offset,
+            0.0,
+        )
 
     # ── Seat tube top ─────────────────────────────────────────────────────────
     seat_angle_rad = radians(frame.seat_angle_deg)
-    seat_tube_top_y = frame.stack * 0.84
-    seat_tube_top_dist = seat_tube_top_y / sin(seat_angle_rad)
+    if frame.seat_tube_ct is not None:
+        seat_tube_top_dist = frame.seat_tube_ct
+    else:
+        seat_tube_top_y = frame.stack * 0.84
+        seat_tube_top_dist = seat_tube_top_y / sin(seat_angle_rad)
     pts_3d["seat_tube_top"] = Vec3(
         -cos(seat_angle_rad) * seat_tube_top_dist,
         sin(seat_angle_rad) * seat_tube_top_dist,
         0.0,
     )
+    if frame.top_tube_effective is not None:
+        seat_cluster_x = frame.reach - frame.top_tube_effective
+        seat_cluster_dist = min(
+            seat_tube_top_dist,
+            max(0.0, -seat_cluster_x / max(cos(seat_angle_rad), 1e-6)),
+        )
+        pts_3d["seat_cluster"] = Vec3(
+            -cos(seat_angle_rad) * seat_cluster_dist,
+            sin(seat_angle_rad) * seat_cluster_dist,
+            0.0,
+        )
+    else:
+        pts_3d["seat_cluster"] = pts_3d["seat_tube_top"]
 
-    # ── Saddle clamp (seatpost top, along seat tube axis) ────────────────────
+    # ── Saddle clamp / seatpost top (at rail clamp position) ─────────────────
     pts_3d["saddle_clamp"] = Vec3(
         -cos(seat_angle_rad) * components.saddle_clamp_offset - components.seatpost_offset,
         sin(seat_angle_rad) * components.saddle_clamp_offset,
+        0.0,
+    )
+    pts_3d["seatpost_top"] = Vec3(
+        pts_3d["saddle_clamp"].x,
+        pts_3d["saddle_clamp"].y,
         0.0,
     )
 

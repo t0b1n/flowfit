@@ -9,6 +9,9 @@ export type FrameGeometry = {
   fork_offset: number;
   wheel_radius: number;
   wheelbase?: number;
+  seat_tube_ct?: number;
+  head_tube?: number;
+  top_tube_effective?: number;
 };
 
 export type SizeData = {
@@ -17,6 +20,14 @@ export type SizeData = {
   wheelbase?: number;
   front_center?: number;
   trail?: number;
+  top_tube_effective?: number;
+  standover?: number;
+  bb_height?: number;
+  // Legacy fields kept for catalog rows that have not yet been inlined into
+  // `geometry`. `getSizeData()` normalizes them so downstream code always reads
+  // a consistent shape.
+  seat_tube_ct?: number;
+  head_tube?: number;
   stockCockpit?: {
     stem_length?: number;
     bar_width?: number;
@@ -37,6 +48,93 @@ export type FrameModel = {
 };
 
 const defaultWheelRadius = 340;
+
+const REQUIRED_GEOMETRY_FIELDS: Array<keyof FrameGeometry> = [
+  "stack",
+  "reach",
+  "head_angle_deg",
+  "seat_angle_deg",
+  "bb_drop",
+  "chainstay_length",
+  "fork_length",
+  "fork_offset",
+  "wheel_radius",
+];
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const normalizeSizeData = (entry: SizeData): SizeData => ({
+  ...entry,
+  geometry: {
+    ...entry.geometry,
+    seat_tube_ct: entry.geometry.seat_tube_ct ?? entry.seat_tube_ct,
+    head_tube: entry.geometry.head_tube ?? entry.head_tube,
+  },
+});
+
+const validateSizeData = (model: FrameModel, entry: SizeData) => {
+  const normalized = normalizeSizeData(entry);
+  const prefix = `Invalid frame catalog entry for ${model.id} size ${entry.size}:`;
+
+  if (!entry.size) {
+    throw new Error(`${prefix} missing size label.`);
+  }
+
+  for (const field of REQUIRED_GEOMETRY_FIELDS) {
+    if (!isFiniteNumber(normalized.geometry[field])) {
+      throw new Error(`${prefix} geometry.${field} must be a finite number.`);
+    }
+  }
+
+  const optionalNumberFields: Array<[string, unknown]> = [
+    ["geometry.seat_tube_ct", normalized.geometry.seat_tube_ct],
+    ["geometry.head_tube", normalized.geometry.head_tube],
+    ["wheelbase", normalized.wheelbase],
+    ["front_center", normalized.front_center],
+    ["trail", normalized.trail],
+    ["top_tube_effective", normalized.top_tube_effective],
+    ["standover", normalized.standover],
+    ["bb_height", normalized.bb_height],
+  ];
+
+  for (const [label, value] of optionalNumberFields) {
+    if (value != null && !isFiniteNumber(value)) {
+      throw new Error(`${prefix} ${label} must be a finite number when provided.`);
+    }
+  }
+
+  if (entry.seat_tube_ct != null && entry.geometry.seat_tube_ct != null && entry.seat_tube_ct !== entry.geometry.seat_tube_ct) {
+    throw new Error(`${prefix} conflicting seat_tube_ct values at size and geometry levels.`);
+  }
+
+  if (entry.head_tube != null && entry.geometry.head_tube != null && entry.head_tube !== entry.geometry.head_tube) {
+    throw new Error(`${prefix} conflicting head_tube values at size and geometry levels.`);
+  }
+};
+
+const validateFrameCatalog = (catalog: FrameModel[]) => {
+  const modelIds = new Set<string>();
+
+  for (const model of catalog) {
+    if (!model.id) {
+      throw new Error("Invalid frame catalog entry: missing model id.");
+    }
+    if (modelIds.has(model.id)) {
+      throw new Error(`Invalid frame catalog entry: duplicate model id '${model.id}'.`);
+    }
+    modelIds.add(model.id);
+
+    const seenSizes = new Set<string>();
+    for (const entry of model.sizes) {
+      if (seenSizes.has(entry.size)) {
+        throw new Error(`Invalid frame catalog entry for ${model.id}: duplicate size '${entry.size}'.`);
+      }
+      seenSizes.add(entry.size);
+      validateSizeData(model, entry);
+    }
+  }
+};
 
 export const FRAME_CATALOG: FrameModel[] = [
   {
@@ -68,6 +166,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 970,
         front_center: 572,
         trail: 71,
+        top_tube_effective: 496,
+        standover: 723,
+        bb_height: 266,
+        seat_tube_ct: 433,
+        head_tube: 99,
         stockCockpit: { stem_length: 75, bar_width: 380, crank_length: 165 }
       },
       {
@@ -86,6 +189,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 973,
         front_center: 574,
         trail: 63,
+        top_tube_effective: 509,
+        standover: 735,
+        bb_height: 266,
+        seat_tube_ct: 445,
+        head_tube: 109,
         stockCockpit: { stem_length: 75, bar_width: 380, crank_length: 165 }
       },
       {
@@ -104,6 +212,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 975,
         front_center: 577,
         trail: 58,
+        top_tube_effective: 531,
+        standover: 746,
+        bb_height: 266,
+        seat_tube_ct: 456,
+        head_tube: 120,
         stockCockpit: { stem_length: 90, bar_width: 400, crank_length: 170 }
       },
       {
@@ -122,6 +235,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 978,
         front_center: 579,
         trail: 58,
+        top_tube_effective: 541,
+        standover: 768,
+        bb_height: 268,
+        seat_tube_ct: 473,
+        head_tube: 137,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -140,6 +258,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 991,
         front_center: 592,
         trail: 55,
+        top_tube_effective: 563,
+        standover: 786,
+        bb_height: 268,
+        seat_tube_ct: 494,
+        head_tube: 157,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -158,6 +281,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1006,
         front_center: 606,
         trail: 55,
+        top_tube_effective: 577,
+        standover: 808,
+        bb_height: 268,
+        seat_tube_ct: 515,
+        head_tube: 184,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       },
       {
@@ -176,6 +304,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1013,
         front_center: 613,
         trail: 52,
+        top_tube_effective: 595,
+        standover: 834,
+        bb_height: 268,
+        seat_tube_ct: 545,
+        head_tube: 204,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       }
     ]
@@ -208,6 +341,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 965,
         front_center: 567,
         trail: 72,
+        top_tube_effective: 490,
+        standover: 730,
+        bb_height: 266,
+        seat_tube_ct: 400,
+        head_tube: 105,
         stockCockpit: { stem_length: 75, bar_width: 380, crank_length: 165 }
       },
       {
@@ -226,6 +364,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 968,
         front_center: 570,
         trail: 66,
+        top_tube_effective: 508,
+        standover: 740,
+        bb_height: 266,
+        seat_tube_ct: 431,
+        head_tube: 115,
         stockCockpit: { stem_length: 75, bar_width: 380, crank_length: 165 }
       },
       {
@@ -244,6 +387,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 973,
         front_center: 574,
         trail: 61,
+        top_tube_effective: 531,
+        standover: 755,
+        bb_height: 266,
+        seat_tube_ct: 462,
+        head_tube: 126,
         stockCockpit: { stem_length: 90, bar_width: 400, crank_length: 170 }
       },
       {
@@ -262,6 +410,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 975,
         front_center: 576,
         trail: 61,
+        top_tube_effective: 540,
+        standover: 775,
+        bb_height: 268,
+        seat_tube_ct: 481,
+        head_tube: 143,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -280,6 +433,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 987,
         front_center: 588,
         trail: 57,
+        top_tube_effective: 562,
+        standover: 795,
+        bb_height: 268,
+        seat_tube_ct: 501,
+        head_tube: 163,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -298,6 +456,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1002,
         front_center: 603,
         trail: 57,
+        top_tube_effective: 577,
+        standover: 826,
+        bb_height: 268,
+        seat_tube_ct: 522,
+        head_tube: 190,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       },
       {
@@ -316,6 +479,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1011,
         front_center: 612,
         trail: 54,
+        top_tube_effective: 595,
+        standover: 850,
+        bb_height: 268,
+        seat_tube_ct: 553,
+        head_tube: 210,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       }
     ]
@@ -347,6 +515,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 975,
+        top_tube_effective: 516,
+        standover: 720,
+        bb_height: 270,
+        seat_tube_ct: 441,
+        head_tube: 88,
         stockCockpit: { stem_length: 80, bar_width: 370, crank_length: 165, spacer_stack: 20 }
       },
       {
@@ -363,6 +536,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 979,
+        top_tube_effective: 529,
+        standover: 748,
+        bb_height: 270,
+        seat_tube_ct: 471,
+        head_tube: 107,
         stockCockpit: { stem_length: 90, bar_width: 370, crank_length: 170, spacer_stack: 20 }
       },
       {
@@ -379,6 +557,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 982,
+        top_tube_effective: 546,
+        standover: 775,
+        bb_height: 270,
+        seat_tube_ct: 501,
+        head_tube: 121,
         stockCockpit: { stem_length: 90, bar_width: 370, crank_length: 170, spacer_stack: 20 }
       },
       {
@@ -395,6 +578,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 988,
+        top_tube_effective: 555,
+        standover: 801,
+        bb_height: 270,
+        seat_tube_ct: 531,
+        head_tube: 142,
         stockCockpit: { stem_length: 100, bar_width: 410, crank_length: 172.5, spacer_stack: 20 }
       },
       {
@@ -411,6 +599,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 1003,
+        top_tube_effective: 569,
+        standover: 828,
+        bb_height: 270,
+        seat_tube_ct: 561,
+        head_tube: 162,
         stockCockpit: { stem_length: 110, bar_width: 410, crank_length: 172.5, spacer_stack: 20 }
       },
       {
@@ -427,6 +620,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 1029,
+        top_tube_effective: 594,
+        standover: 851,
+        bb_height: 270,
+        seat_tube_ct: 591,
+        head_tube: 188,
         stockCockpit: { stem_length: 110, bar_width: 410, crank_length: 175, spacer_stack: 20 }
       },
       {
@@ -443,6 +641,11 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 1042,
+        top_tube_effective: 609,
+        standover: 874,
+        bb_height: 270,
+        seat_tube_ct: 621,
+        head_tube: 206,
         stockCockpit: { stem_length: 120, bar_width: 410, crank_length: 175, spacer_stack: 20 }
       }
     ]
@@ -474,7 +677,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 971,
-        trail: 61
+        trail: 61,
+        top_tube_effective: 517,
+        standover: 704,
+        bb_height: 268,
+        seat_tube_ct: 404,
+        head_tube: 100,
       },
       {
         size: "S",
@@ -490,7 +698,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 976,
-        trail: 62
+        trail: 62,
+        top_tube_effective: 532,
+        standover: 734,
+        bb_height: 268,
+        seat_tube_ct: 440,
+        head_tube: 121,
       },
       {
         size: "M",
@@ -506,7 +719,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 981,
-        trail: 58
+        trail: 58,
+        top_tube_effective: 545,
+        standover: 762,
+        bb_height: 270,
+        seat_tube_ct: 476,
+        head_tube: 136,
       },
       {
         size: "ML",
@@ -522,7 +740,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 980,
-        trail: 59
+        trail: 59,
+        top_tube_effective: 557,
+        standover: 790,
+        bb_height: 270,
+        seat_tube_ct: 512,
+        head_tube: 150,
       },
       {
         size: "L",
@@ -538,7 +761,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 990,
-        trail: 57
+        trail: 57,
+        top_tube_effective: 568,
+        standover: 820,
+        bb_height: 272,
+        seat_tube_ct: 548,
+        head_tube: 172,
       },
       {
         size: "XL",
@@ -554,7 +782,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 1007,
-        trail: 57
+        trail: 57,
+        top_tube_effective: 584,
+        standover: 863,
+        bb_height: 272,
+        seat_tube_ct: 609,
+        head_tube: 201,
       }
     ]
   },
@@ -586,7 +819,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 973,
         front_center: 579,
-        trail: 55.6
+        trail: 55.6,
+        top_tube_effective: 520,
+        standover: 712,
+        bb_height: 265.5,
+        head_tube: 64,
       },
       {
         size: "51",
@@ -603,7 +840,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 974,
         front_center: 580,
-        trail: 55.6
+        trail: 55.6,
+        top_tube_effective: 535,
+        standover: 734,
+        bb_height: 265.5,
+        head_tube: 82,
       },
       {
         size: "54",
@@ -620,7 +861,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 975,
         front_center: 581,
-        trail: 55.6
+        trail: 55.6,
+        top_tube_effective: 550,
+        standover: 758,
+        bb_height: 268,
+        head_tube: 104,
       },
       {
         size: "56",
@@ -637,7 +882,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 982,
         front_center: 588,
-        trail: 55.6
+        trail: 55.6,
+        top_tube_effective: 565,
+        standover: 781,
+        bb_height: 268,
+        head_tube: 125,
       },
       {
         size: "58",
@@ -654,7 +903,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 999,
         front_center: 604,
-        trail: 55.6
+        trail: 55.6,
+        top_tube_effective: 581,
+        standover: 804,
+        bb_height: 270.5,
+        head_tube: 152,
       },
       {
         size: "61",
@@ -671,7 +924,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1013,
         front_center: 617,
-        trail: 55.6
+        trail: 55.6,
+        top_tube_effective: 595,
+        standover: 822,
+        bb_height: 270.5,
+        head_tube: 173,
       }
     ]
   },
@@ -685,7 +942,8 @@ export const FRAME_CATALOG: FrameModel[] = [
     sources: [
       "https://www.manualslib.com/manual/4042881/Colnago-Y1rs.html",
       "https://www.bikeradar.com/reviews/bikes/road-bikes/colnago-y1rs-review",
-      "https://www.cyclingnews.com/features/tour-de-france-bikes/"
+      "https://www.cyclingnews.com/features/tour-de-france-bikes/",
+      "https://geometrygeeks.bike/bike/colnago-y1rs-2025/"
     ],
     sizes: [
       {
@@ -703,7 +961,9 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 974,
         front_center: 577.5,
-        trail: 61
+        trail: 61,
+        bb_height: 266,
+        head_tube: 88.5
       },
       {
         size: "S",
@@ -720,7 +980,9 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 976,
         front_center: 579.5,
-        trail: 59.5
+        trail: 59.5,
+        bb_height: 266,
+        head_tube: 108.5
       },
       {
         size: "M",
@@ -737,7 +999,9 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 978,
         front_center: 581,
-        trail: 57.5
+        trail: 57.5,
+        bb_height: 268,
+        head_tube: 126.5
       },
       {
         size: "L",
@@ -754,7 +1018,9 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 987,
         front_center: 590,
-        trail: 57
+        trail: 57,
+        bb_height: 268,
+        head_tube: 150.5
       },
       {
         size: "XL",
@@ -771,7 +1037,9 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1003,
         front_center: 606,
-        trail: 57
+        trail: 57,
+        bb_height: 268,
+        head_tube: 176.5
       }
     ]
   },
@@ -802,6 +1070,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 976,
         trail: 70.5,
+        top_tube_effective: 520,
+        standover: 734,
+        bb_height: 264,
+        seat_tube_ct: 680,
+        head_tube: 120,
         stockCockpit: { stem_length: 80, bar_width: 400, crank_length: 170 }
       },
       {
@@ -819,6 +1092,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 977,
         trail: 62.5,
+        top_tube_effective: 535,
+        standover: 755,
+        bb_height: 266,
+        seat_tube_ct: 710,
+        head_tube: 130,
         stockCockpit: { stem_length: 90, bar_width: 400, crank_length: 170 }
       },
       {
@@ -836,6 +1114,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 980,
         trail: 57.8,
+        top_tube_effective: 550,
+        standover: 775,
+        bb_height: 266,
+        seat_tube_ct: 740,
+        head_tube: 145,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -853,6 +1136,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 991,
         trail: 57.8,
+        top_tube_effective: 565,
+        standover: 794,
+        bb_height: 269,
+        seat_tube_ct: 770,
+        head_tube: 165,
         stockCockpit: { stem_length: 110, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -870,6 +1158,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1006,
         trail: 57.8,
+        top_tube_effective: 580,
+        standover: 821,
+        bb_height: 269,
+        seat_tube_ct: 800,
+        head_tube: 185,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       },
       {
@@ -887,6 +1180,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1020,
         trail: 57.8,
+        top_tube_effective: 600,
+        standover: 834,
+        bb_height: 269,
+        seat_tube_ct: 830,
+        head_tube: 200,
         stockCockpit: { stem_length: 120, bar_width: 440, crank_length: 175 }
       }
     ]
@@ -895,11 +1193,12 @@ export const FRAME_CATALOG: FrameModel[] = [
     id: "specialized-crux",
     brand: "Specialized",
     model: "S-Works Crux",
-    launch_year: 2022,
+    launch_year: 2025,
     category: "Gravel race",
     popularity: "Specialized's lightweight gravel race platform with official geometry table on the product page.",
     sources: [
-      "https://www.specialized.com/us/en/s-works-crux/p/199959"
+      "https://www.specialized.com/us/en/s-works-crux/p/199959",
+      "https://geometrygeeks.bike/bike/specialized-crux-2025/"
     ],
     sizes: [
       {
@@ -913,11 +1212,16 @@ export const FRAME_CATALOG: FrameModel[] = [
           chainstay_length: 425,
           fork_length: 401,
           fork_offset: 50,
-          wheel_radius: defaultWheelRadius
+          wheel_radius: defaultWheelRadius,
+          seat_tube_ct: 466,
+          head_tube: 100
         },
         wheelbase: 1008,
         front_center: 594,
         trail: 74,
+        top_tube_effective: 512,
+        standover: 749,
+        bb_height: 284,
         stockCockpit: { stem_length: 70, bar_width: 380, crank_length: 165 }
       },
       {
@@ -931,11 +1235,16 @@ export const FRAME_CATALOG: FrameModel[] = [
           chainstay_length: 425,
           fork_length: 401,
           fork_offset: 50,
-          wheel_radius: defaultWheelRadius
+          wheel_radius: defaultWheelRadius,
+          seat_tube_ct: 496,
+          head_tube: 115
         },
         wheelbase: 1014,
         front_center: 600,
         trail: 69,
+        top_tube_effective: 539,
+        standover: 772,
+        bb_height: 284,
         stockCockpit: { stem_length: 80, bar_width: 400, crank_length: 170 }
       },
       {
@@ -949,11 +1258,16 @@ export const FRAME_CATALOG: FrameModel[] = [
           chainstay_length: 425,
           fork_length: 401,
           fork_offset: 50,
-          wheel_radius: defaultWheelRadius
+          wheel_radius: defaultWheelRadius,
+          seat_tube_ct: 521,
+          head_tube: 130
         },
         wheelbase: 1023,
         front_center: 608,
         trail: 67,
+        top_tube_effective: 549,
+        standover: 794,
+        bb_height: 286,
         stockCockpit: { stem_length: 90, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -967,11 +1281,16 @@ export const FRAME_CATALOG: FrameModel[] = [
           chainstay_length: 425,
           fork_length: 401,
           fork_offset: 50,
-          wheel_radius: defaultWheelRadius
+          wheel_radius: defaultWheelRadius,
+          seat_tube_ct: 546,
+          head_tube: 147
         },
         wheelbase: 1033,
         front_center: 618,
         trail: 64,
+        top_tube_effective: 568,
+        standover: 816,
+        bb_height: 286,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -985,11 +1304,16 @@ export const FRAME_CATALOG: FrameModel[] = [
           chainstay_length: 425,
           fork_length: 401,
           fork_offset: 50,
-          wheel_radius: defaultWheelRadius
+          wheel_radius: defaultWheelRadius,
+          seat_tube_ct: 576,
+          head_tube: 167
         },
         wheelbase: 1045,
         front_center: 630,
         trail: 62,
+        top_tube_effective: 582,
+        standover: 841,
+        bb_height: 286,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       },
       {
@@ -1003,11 +1327,16 @@ export const FRAME_CATALOG: FrameModel[] = [
           chainstay_length: 425,
           fork_length: 401,
           fork_offset: 50,
-          wheel_radius: defaultWheelRadius
+          wheel_radius: defaultWheelRadius,
+          seat_tube_ct: 606,
+          head_tube: 190
         },
         wheelbase: 1059,
         front_center: 644,
         trail: 60,
+        top_tube_effective: 599,
+        standover: 866,
+        bb_height: 286,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       }
     ]
@@ -1039,6 +1368,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1019,
         front_center: 607,
         trail: 69,
+        top_tube_effective: 529,
+        standover: 700,
+        bb_height: 270,
+        seat_tube_ct: 390,
+        head_tube: 99,
         stockCockpit: { stem_length: 80, bar_width: 400, crank_length: 165 }
       },
       {
@@ -1057,6 +1391,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1026,
         front_center: 614,
         trail: 66,
+        top_tube_effective: 542,
+        standover: 725,
+        bb_height: 270,
+        seat_tube_ct: 430,
+        head_tube: 104,
         stockCockpit: { stem_length: 90, bar_width: 400, crank_length: 165 }
       },
       {
@@ -1075,6 +1414,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1032,
         front_center: 620,
         trail: 61,
+        top_tube_effective: 558,
+        standover: 754,
+        bb_height: 270,
+        seat_tube_ct: 470,
+        head_tube: 116,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 170 }
       },
       {
@@ -1093,6 +1437,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1042,
         front_center: 630,
         trail: 57,
+        top_tube_effective: 573,
+        standover: 779,
+        bb_height: 270,
+        seat_tube_ct: 500,
+        head_tube: 133,
         stockCockpit: { stem_length: 100, bar_width: 420, crank_length: 172.5 }
       },
       {
@@ -1111,6 +1460,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1059,
         front_center: 647,
         trail: 57,
+        top_tube_effective: 589,
+        standover: 805,
+        bb_height: 270,
+        seat_tube_ct: 530,
+        head_tube: 159,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 172.5 }
       },
       {
@@ -1129,6 +1483,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         wheelbase: 1076,
         front_center: 664,
         trail: 57,
+        top_tube_effective: 605,
+        standover: 832,
+        bb_height: 270,
+        seat_tube_ct: 560,
+        head_tube: 185,
         stockCockpit: { stem_length: 110, bar_width: 440, crank_length: 175 }
       }
     ]
@@ -1159,7 +1518,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 982.2,
         front_center: 579.4,
-        trail: 60
+        trail: 60,
+        top_tube_effective: 502,
+        standover: 701,
+        bb_height: 263.5,
+        head_tube: 89.5,
       },
       {
         size: "51",
@@ -1176,7 +1539,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 984.5,
         front_center: 581.7,
-        trail: 60
+        trail: 60,
+        top_tube_effective: 522,
+        standover: 741,
+        bb_height: 263.5,
+        head_tube: 109.9,
       },
       {
         size: "54",
@@ -1193,7 +1560,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 995.2,
         front_center: 591.5,
-        trail: 60
+        trail: 60,
+        top_tube_effective: 543,
+        standover: 773,
+        bb_height: 266,
+        head_tube: 136,
       },
       {
         size: "56",
@@ -1210,7 +1581,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1012.3,
         front_center: 608.5,
-        trail: 60
+        trail: 60,
+        top_tube_effective: 565,
+        standover: 796,
+        bb_height: 266,
+        head_tube: 162.3,
       },
       {
         size: "58",
@@ -1227,7 +1602,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1030.7,
         front_center: 626,
-        trail: 60
+        trail: 60,
+        top_tube_effective: 581,
+        standover: 823,
+        bb_height: 268.5,
+        head_tube: 191.2,
       },
       {
         size: "61",
@@ -1244,7 +1623,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1047.8,
         front_center: 643,
-        trail: 60
+        trail: 60,
+        top_tube_effective: 598,
+        standover: 847,
+        bb_height: 268.5,
+        head_tube: 217.5,
       }
     ]
   },
@@ -1274,6 +1657,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1020,
         trail: 72,
+        top_tube_effective: 550,
+        standover: 740,
+        bb_height: 269,
+        seat_tube_ct: 450,
+        head_tube: 135,
         stockCockpit: { stem_length: 60, bar_width: 420, crank_length: 170 }
       },
       {
@@ -1291,6 +1679,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1026,
         trail: 68,
+        top_tube_effective: 560,
+        standover: 757,
+        bb_height: 269,
+        seat_tube_ct: 470,
+        head_tube: 150,
         stockCockpit: { stem_length: 70, bar_width: 440, crank_length: 172.5 }
       },
       {
@@ -1308,6 +1701,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1031,
         trail: 65,
+        top_tube_effective: 575,
+        standover: 774,
+        bb_height: 269,
+        seat_tube_ct: 490,
+        head_tube: 165,
         stockCockpit: { stem_length: 80, bar_width: 440, crank_length: 172.5 }
       },
       {
@@ -1325,6 +1723,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1041,
         trail: 65,
+        top_tube_effective: 585,
+        standover: 791,
+        bb_height: 269,
+        seat_tube_ct: 510,
+        head_tube: 180,
         stockCockpit: { stem_length: 80, bar_width: 460, crank_length: 175 }
       },
       {
@@ -1342,6 +1745,11 @@ export const FRAME_CATALOG: FrameModel[] = [
         },
         wheelbase: 1056,
         trail: 65,
+        top_tube_effective: 600,
+        standover: 807,
+        bb_height: 269,
+        seat_tube_ct: 530,
+        head_tube: 195,
         stockCockpit: { stem_length: 90, bar_width: 460, crank_length: 175 }
       }
     ]
@@ -1371,7 +1779,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 971.8,
-        trail: 66
+        trail: 66,
+        top_tube_effective: 510.3,
+        standover: 736.5,
+        bb_height: 268.5,
+        seat_tube_ct: 440,
+        head_tube: 110.5,
       },
       {
         size: "49",
@@ -1387,7 +1800,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 975.4,
-        trail: 62.8
+        trail: 62.8,
+        top_tube_effective: 522.7,
+        standover: 748.5,
+        bb_height: 268.5,
+        seat_tube_ct: 460,
+        head_tube: 118.2,
       },
       {
         size: "51",
@@ -1403,7 +1821,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 980,
-        trail: 58.4
+        trail: 58.4,
+        top_tube_effective: 535.9,
+        standover: 767.5,
+        bb_height: 268.5,
+        seat_tube_ct: 480,
+        head_tube: 134.6,
       },
       {
         size: "53",
@@ -1419,7 +1842,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 981.2,
-        trail: 59.9
+        trail: 59.9,
+        top_tube_effective: 548.5,
+        standover: 788.5,
+        bb_height: 270.5,
+        seat_tube_ct: 500,
+        head_tube: 152.9,
       },
       {
         size: "55",
@@ -1435,7 +1863,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 991.4,
-        trail: 58.7
+        trail: 58.7,
+        top_tube_effective: 560.4,
+        standover: 808.5,
+        bb_height: 270.5,
+        seat_tube_ct: 520,
+        head_tube: 173.1,
       },
       {
         size: "57",
@@ -1451,7 +1884,12 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 1001.9,
-        trail: 57.4
+        trail: 57.4,
+        top_tube_effective: 576.1,
+        standover: 826.5,
+        bb_height: 270.5,
+        seat_tube_ct: 540,
+        head_tube: 191.2,
       },
       {
         size: "60",
@@ -1467,17 +1905,27 @@ export const FRAME_CATALOG: FrameModel[] = [
           wheel_radius: defaultWheelRadius
         },
         wheelbase: 1015.6,
-        trail: 57.4
+        trail: 57.4,
+        top_tube_effective: 590,
+        standover: 852.5,
+        bb_height: 270.5,
+        seat_tube_ct: 570,
+        head_tube: 218.3,
       }
     ]
   }
 
 ];
 
+validateFrameCatalog(FRAME_CATALOG);
+
 export const getModelById = (modelId: string) =>
   FRAME_CATALOG.find((model) => model.id === modelId) ?? FRAME_CATALOG[0];
 
 export const getSizeData = (modelId: string, size: string) => {
   const model = getModelById(modelId);
-  return model.sizes.find((entry) => entry.size === size) ?? model.sizes[0];
+  const entry = model.sizes.find((candidate) => candidate.size === size) ?? model.sizes[0];
+  const normalized = normalizeSizeData(entry);
+  validateSizeData(model, normalized);
+  return normalized;
 };
