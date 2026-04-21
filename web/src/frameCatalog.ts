@@ -1755,6 +1755,54 @@ export const FRAME_CATALOG: FrameModel[] = [
     ]
   },
   {
+    id: "seka-spear",
+    brand: "Seka",
+    model: "Spear",
+    launch_year: 2023,
+    category: "Aero race",
+    popularity: "Seka's aero road frameset; geometry sourced directly from the manufacturer chart supplied by the user.",
+    sources: [
+      "User-supplied manufacturer geometry chart (Frame Geometry & Size Height Chart)"
+    ],
+    sizes: [
+      {
+        size: "XS",
+        geometry: { stack: 508, reach: 362, head_angle_deg: 70.6, seat_angle_deg: 75, bb_drop: 74, chainstay_length: 410, fork_length: 372, fork_offset: 48, wheel_radius: defaultWheelRadius, seat_tube_ct: 449, head_tube: 107 },
+        wheelbase: 969, front_center: 570, trail: 68
+      },
+      {
+        size: "S",
+        geometry: { stack: 524, reach: 370, head_angle_deg: 71.7, seat_angle_deg: 74.8, bb_drop: 74, chainstay_length: 410, fork_length: 372, fork_offset: 48, wheel_radius: defaultWheelRadius, seat_tube_ct: 463, head_tube: 120 },
+        wheelbase: 973, front_center: 574, trail: 62
+      },
+      {
+        size: "M",
+        geometry: { stack: 543, reach: 379, head_angle_deg: 72.9, seat_angle_deg: 74, bb_drop: 72, chainstay_length: 410, fork_length: 372, fork_offset: 44, wheel_radius: defaultWheelRadius, seat_tube_ct: 480, head_tube: 136 },
+        wheelbase: 973, front_center: 574, trail: 58
+      },
+      {
+        size: "MR",
+        geometry: { stack: 538, reach: 386, head_angle_deg: 73, seat_angle_deg: 74, bb_drop: 72, chainstay_length: 410, fork_length: 372, fork_offset: 44, wheel_radius: defaultWheelRadius, seat_tube_ct: 476, head_tube: 130 },
+        wheelbase: 978, front_center: 578, trail: 58
+      },
+      {
+        size: "L",
+        geometry: { stack: 570, reach: 389, head_angle_deg: 73, seat_angle_deg: 73.5, bb_drop: 72, chainstay_length: 410, fork_length: 372, fork_offset: 44, wheel_radius: defaultWheelRadius, seat_tube_ct: 508, head_tube: 164 },
+        wheelbase: 990, front_center: 591, trail: 58
+      },
+      {
+        size: "LR",
+        geometry: { stack: 560, reach: 397, head_angle_deg: 73.1, seat_angle_deg: 73.5, bb_drop: 72, chainstay_length: 410, fork_length: 372, fork_offset: 44, wheel_radius: defaultWheelRadius, seat_tube_ct: 496, head_tube: 153 },
+        wheelbase: 995, front_center: 585, trail: 57
+      },
+      {
+        size: "XL",
+        geometry: { stack: 600, reach: 402, head_angle_deg: 73.5, seat_angle_deg: 73, bb_drop: 72, chainstay_length: 410, fork_length: 372, fork_offset: 44, wheel_radius: defaultWheelRadius, seat_tube_ct: 535, head_tube: 193 },
+        wheelbase: 1008, front_center: 608, trail: 55
+      }
+    ]
+  },
+  {
     id: "orbea-orca",
     brand: "Orbea",
     model: "Orca",
