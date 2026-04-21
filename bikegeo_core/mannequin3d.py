@@ -70,10 +70,19 @@ def solve_pose_3d(
     pts["shoulder_r"] = Vec3(joints.shoulder.x, joints.shoulder.y, -half_shoulder)
     pts["shoulder_center"] = Vec3(joints.shoulder.x, joints.shoulder.y, 0.0)
 
-    # Bilateral arms — elbow follows shoulder width, wrist at hood width
+    # Bilateral arms — elbow follows shoulder width, wrist/hand at hood width
     pts["elbow_l"] = Vec3(joints.elbow.x, joints.elbow.y, +half_shoulder)
     pts["elbow_r"] = Vec3(joints.elbow.x, joints.elbow.y, -half_shoulder)
     pts["wrist_l"] = Vec3(joints.wrist.x, joints.wrist.y, +half_hood)
     pts["wrist_r"] = Vec3(joints.wrist.x, joints.wrist.y, -half_hood)
+    pts["hand_l"] = Vec3(joints.hand.x, joints.hand.y, +half_hood)
+    pts["hand_r"] = Vec3(joints.hand.x, joints.hand.y, -half_hood)
+
+    # Spine joint (centerline only — splits torso into upper/lower)
+    pts["spine_joint"] = Vec3(joints.spine_joint.x, joints.spine_joint.y, 0.0)
+
+    # Head and neck base (centerline only)
+    pts["head_center"] = Vec3(joints.head.x, joints.head.y, 0.0)
+    pts["neck_base_center"] = Vec3(joints.neck_base.x, joints.neck_base.y, 0.0)
 
     return pts

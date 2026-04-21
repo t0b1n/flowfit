@@ -80,6 +80,7 @@ class RiderAnthropometrics(BaseModel):
     shoulder_width: float
     hip_width: Optional[float] = None
     stance_width: Optional[float] = None
+    weight_kg: Optional[float] = Field(None, description="Rider weight in kg. Drives anatomical scaling of mannequin body part radii. Default: 75 kg.")
     flexibility: float = Field(1.0, description="Scalar to widen/narrow posture bands.")
     hip_joint_offset: float = Field(95.0, description="Vertical offset from saddle contact to hip joint centre (femoral head), in mm.")
 

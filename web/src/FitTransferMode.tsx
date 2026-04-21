@@ -117,8 +117,8 @@ export const FitTransferMode: React.FC = () => {
 
   const modelA = getModelById(selectionA.modelId);
   const modelB = getModelById(selectionB.modelId);
-  const sizeA = getSizeData(selectionA.modelId, selectionA.size);
-  const sizeB = getSizeData(selectionB.modelId, selectionB.size);
+  const sizeA = useMemo(() => getSizeData(selectionA.modelId, selectionA.size), [selectionA.modelId, selectionA.size]);
+  const sizeB = useMemo(() => getSizeData(selectionB.modelId, selectionB.size), [selectionB.modelId, selectionB.size]);
 
   const effectiveFrameA = useMemo(
     () => withTyreSize(sizeA.geometry, tyreSizeA),

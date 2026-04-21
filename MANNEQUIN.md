@@ -12,11 +12,12 @@ Describes how the 2D sagittal-plane skeleton and its 3D bilateral expansion are 
 | `shank_length` | Knee joint centre → ankle joint centre |
 | `torso_length` | **Femoral head → glenohumeral joint centre** (hip-to-shoulder, joint-to-joint; _not_ hip bone to base of neck) |
 | `upper_arm_length` | Glenohumeral → elbow joint centre |
-| `forearm_length` | Elbow joint centre → wrist |
-| `foot_length` | Not used in current IK chain |
+| `forearm_length` | Elbow joint centre → hand (hoods contact) |
+| `foot_length` | Shoe/foot length; used for visual rendering |
 | `shoulder_width` | Bilateral shoulder spread (centre-to-centre) in mm |
 | `hip_width` | Bilateral hip spread; defaults to 200 mm if absent |
 | `hip_joint_offset` | Vertical rise from saddle contact surface to femoral head (default 95 mm) |
+| `weight_kg` | Rider weight in kg; drives anatomical scaling of mannequin radii (default 75 kg) |
 
 ---
 
@@ -29,7 +30,7 @@ All coordinates live in the sagittal plane (X = forward, Y = up, origin = bottom
 ```
 saddle contact  →  hip joint     : hip.y = saddle.y + hip_joint_offset
 cleat contact   →  ankle joint   : ankle.y = cleat.y + pedal_stack_height
-hoods                             : wrist = hoods (hands pin to hoods)
+hoods                             : hand = hoods (hands pin to hoods)
 ```
 
 ### IK chains
@@ -45,8 +46,22 @@ Step 2  Shoulder
         The 0.1 mm trim keeps the inner elbow IK non-degenerate.
 
 Step 3  Elbow
-        Circle(shoulder, upper_arm) ∩ Circle(wrist, forearm)
-        → prefer_upper=False  (elbow drops below shoulder–wrist line)
+        Circle(shoulder, hand, upper_arm, forearm)
+        → prefer_upper=False  (elbow drops below shoulder–hand line)
+
+Step 4  Wrist
+        Along elbow→hand vector at (forearm − palm_length) from elbow.
+        palm_length = 0.055 × height (~100 mm for 1800 mm rider).
+
+Step 5  Spine joint
+        Midpoint of hip and shoulder (splits torso into upper/lower).
+
+Step 6  Head & neck base
+        neckAngle = 55° − 0.6 × trunk_angle
+        headDir = trunk_angle + neckAngle
+        neckLength = 185 × (height / 1800)
+        head = shoulder + neckLength × headDir
+        neck_base = shoulder + 0.15 × (head − shoulder)
 ```
 
 ### Derived angles
@@ -56,7 +71,7 @@ Step 3  Elbow
 | `trunk_angle_deg` | `atan2(shoulder.y − hip.y, shoulder.x − hip.x)` — angle of torso vector from horizontal |
 | `hip_angle_deg` | Interior angle at hip: shoulder → hip → knee |
 | `shoulder_flexion_deg` | Interior angle at shoulder: hip → shoulder → elbow |
-| `elbow_flexion_deg` | `180° − interior_angle(shoulder, elbow, wrist)` |
+| `elbow_flexion_deg` | `180° − interior_angle(shoulder, elbow, hand)` |
 | `knee_extension_deg` | Interior angle at knee: hip → knee → ankle |
 
 ### 2D joint graph
@@ -72,11 +87,15 @@ graph LR
     ankle["ankle joint"]
     shoulder["shoulder joint\n(glenohumeral)"]
     elbow["elbow joint"]
-    wrist["wrist\n= hoods"]
+    wrist["wrist joint"]
+    hand["hand\n= hoods"]
+    spine["spine joint\n(torso midpoint)"]
+    neckBase["neck base"]
+    head["head"]
 
     saddle -- "+hip_joint_offset (Y)" --> hip
     cleat -- "+pedal_stack_height (Y)" --> ankle
-    hoods --> wrist
+    hoods --> hand
 
     hip -- "thigh_length (IK Step 1)" --> knee
     ankle -- "shank_length (IK Step 1)" --> knee
@@ -85,7 +104,15 @@ graph LR
     hoods -- "upper_arm+forearm (IK Step 2)" --> shoulder
 
     shoulder -- "upper_arm (IK Step 3)" --> elbow
-    wrist -- "forearm (IK Step 3)" --> elbow
+    hand -- "forearm (IK Step 3)" --> elbow
+    elbow -- "forearm−palm (Step 4)" --> wrist
+    wrist -- "palm_length (Step 4)" --> hand
+
+    hip -- "midpoint (Step 5)" --> spine
+    shoulder -- "midpoint (Step 5)" --> spine
+
+    shoulder -- "15% neck (Step 6)" --> neckBase
+    neckBase -- "neck direction (Step 6)" --> head
 ```
 
 ---
@@ -101,7 +128,8 @@ The 3D solver runs the 2D solver first, then expands the sagittal joints into bi
 | Cleat / ankle / knee | `stance_width / 2` | `components.stance_width` or 155 mm default |
 | Hip | `hip_width / 2` | `rider.hip_width` or 200 mm default |
 | Shoulder / elbow | `shoulder_width / 2` | `rider.shoulder_width` |
-| Wrist | `hood_width / 2` | `components.hood_width` or `bar_width` |
+| Wrist / hand | `hood_width / 2` | `components.hood_width` or `bar_width` |
+| Spine joint / neck base / head | 0 (centerline) | — |
 
 All bilateral points carry the same XY position as their 2D counterpart; only Z differs.
 
@@ -109,69 +137,82 @@ All bilateral points carry the same XY position as their 2D counterpart; only Z 
 
 ```
 hip_center, hip_l, hip_r
+spine_joint
 shoulder_center, shoulder_l, shoulder_r
+neck_base_center, head_center
 knee_l, knee_r
 ankle_l, ankle_r
 elbow_l, elbow_r
 wrist_l, wrist_r
+hand_l, hand_r
 cleat_l, cleat_r
 ```
 
-### 3D edge groups and tube radii
+### 3D edge groups and primitives
 
-| Edge group | Edges | Render radius |
+Base radii are derived from 2D SVG stroke widths (`strokeWidth = diameter`, so `radius = strokeWidth / 2`). 2D reference at height=1800: torso 175, thigh 110, shin 82, upper arm 70, forearm 55, head 88r.
+
+| Edge group | Edges | Primitive | Base radius |
+|---|---|---|---|
+| `mannequin_foot` | cleat→ankle (×2) | Tapered cylinder | 41→25 mm |
+| `mannequin_shin` | ankle→knee (×2) | Cylinder | 41 mm |
+| `mannequin_thigh` | knee→hip (×2) | Cylinder | 55 mm |
+| `mannequin_hip_bar` | hip_l→hip_r | Cylinder | 65 mm |
+| `mannequin_lower_torso` | hip_center→spine_joint | Cylinder | 80 mm |
+| `mannequin_upper_torso` | spine_joint→shoulder_center | Cylinder | 88 mm |
+| `mannequin_neck` | neck_base_center→head_center | Cylinder | 28 mm |
+| `mannequin_shoulder_bar` | shoulder_l→shoulder_r | Cylinder | 35 mm |
+| `mannequin_upper_arm` | shoulder→elbow (×2) | Cylinder | 35 mm |
+| `mannequin_forearm` | elbow→wrist (×2) | Cylinder | 28 mm |
+| `mannequin_hand` | wrist→hand (×2) | Capsule | 23 mm |
+
+Joint spheres are rendered at key points:
+
+| Joint | Points | Base radius |
 |---|---|---|
-| `mannequin_leg` | cleat→ankle, ankle→knee, knee→hip (×2), hip_l→hip_r | 55 mm |
-| `mannequin_torso` | hip_center→shoulder_center | 80 mm |
-| `mannequin_arm` | shoulder→elbow, elbow→wrist (×2), shoulder_l→shoulder_r | 35 mm |
-
-### 3D construction graph
-
-```mermaid
-graph TD
-    subgraph 2D["2D sagittal solve"]
-        hip2["hip (x,y)"]
-        knee2["knee (x,y)"]
-        ankle2["ankle (x,y)"]
-        shoulder2["shoulder (x,y)"]
-        elbow2["elbow (x,y)"]
-        wrist2["wrist (x,y)"]
-    end
-
-    subgraph 3D["3D bilateral expansion"]
-        hip_l["hip_l (+Z)"] & hip_r["hip_r (-Z)"]
-        hip_c["hip_center (Z=0)"]
-        knee_l["knee_l (+Z)"] & knee_r["knee_r (-Z)"]
-        ankle_l["ankle_l (+Z)"] & ankle_r["ankle_r (-Z)"]
-        shoulder_l["shoulder_l (+Z)"] & shoulder_r["shoulder_r (-Z)"]
-        shoulder_c["shoulder_center (Z=0)"]
-        elbow_l["elbow_l (+Z)"] & elbow_r["elbow_r (-Z)"]
-        wrist_l["wrist_l (+Z)"] & wrist_r["wrist_r (-Z)"]
-    end
-
-    hip2 --> hip_l & hip_r & hip_c
-    knee2 --> knee_l & knee_r
-    ankle2 --> ankle_l & ankle_r
-    shoulder2 --> shoulder_l & shoulder_r & shoulder_c
-    elbow2 --> elbow_l & elbow_r
-    wrist2 --> wrist_l & wrist_r
-```
+| Head | `head_center` | 88 mm |
+| Spine | `spine_joint` | 84 mm |
+| Shoulder | `shoulder_l/r` | 38 mm |
+| Elbow | `elbow_l/r` | 35 mm |
+| Wrist | `wrist_l/r` | 26 mm |
+| Hip | `hip_l/r` | 58 mm |
+| Knee | `knee_l/r` | 55 mm |
+| Ankle | `ankle_l/r` | 41 mm |
 
 ---
 
-## Posture constraints (`constraints.py`)
+## Weight-based anatomical radius scaling
 
-The solver checks each pose metric against the active `PosePreset` angle bands:
+Body part radii scale with rider weight using per-region sensitivity exponents.
 
-| Constraint | Pose metric checked |
+**Formula:** `radius = baseRadius × (weight_kg / 75)^sensitivity`
+
+| Region | Sensitivity | Rationale |
+|---|---|---|
+| Torso (upper + lower) | 0.45 | Largest fat depot — belly, chest |
+| Hip bar / Hip joint | 0.40 | Hips widen significantly |
+| Thigh / Knee joint | 0.35 | Major weight-bearing muscle/fat |
+| Neck | 0.25 | Noticeable with weight |
+| Upper arm / Shoulder / Elbow | 0.20 | Moderate fat storage |
+| Shin / Ankle | 0.15 | Lean, mostly bone/tendon |
+| Forearm / Wrist | 0.10 | Lean region |
+| Foot | 0.10 | Minimal change |
+| Head / Hand | 0.05 | Nearly constant |
+
+**Examples (upper torso base=88, thigh base=55, forearm base=28):**
+- 90 kg rider (w=1.2): upper torso 95 mm (+8%), thigh 58 mm (+6%), forearm 28.5 mm (+2%)
+- 60 kg rider (w=0.8): upper torso 81 mm (-8%), thigh 52 mm (-6%)
+
+---
+
+## Visual style
+
+| Property | Value |
 |---|---|
-| `trunk_angle` | `trunk_angle_deg` |
-| `hip_angle` | `hip_angle_deg` |
-| `shoulder_flexion` | `shoulder_flexion_deg` |
-| `elbow_flexion` | `elbow_flexion_deg` |
-| `knee_extension` | `knee_extension_deg` |
-
-Out-of-band values produce `ConstraintViolation` entries; the overall status becomes `FEASIBLE_WITH_COMPROMISES`.
+| Shading | Toon/cel-shaded (`MeshToonMaterial` with 3-step gradient) |
+| Outline | Inverted-hull technique (back-face black mesh, scale 1.03×) |
+| Opacity | 0.4 (semi-transparent) |
+| Color | `#c8a87a` (warm tan) |
 
 ---
 
@@ -190,10 +231,10 @@ Out-of-band values produce `ConstraintViolation` entries; the overall status bec
 ```mermaid
 flowchart LR
     A["RiderAnthropometrics\n+ BikePoints"] --> B["solve_pose_2d_full\n(mannequin2d.py)"]
-    B --> C["PoseMetrics\n+ MannequinJoints2D"]
+    B --> C["PoseMetrics\n+ MannequinJoints2D\n(10 joints)"]
     C --> D["solve_pose_3d\n(mannequin3d.py)"]
-    D --> E["pts_3d dict\n(bilateral joints)"]
-    E --> F["build_export\n(geometry_export.py:\nseat_cluster + true head_tube_bottom)"]
+    D --> E["pts_3d dict\n(bilateral joints\n+ head/neck/spine)"]
+    E --> F["build_export\n(geometry_export.py:\n11 granular edge groups)"]
     F --> G["Geometry3DResponse\n(points + edges)"]
 
     G --> H["BikeScene3D.tsx"]
@@ -202,7 +243,7 @@ flowchart LR
     J --> K["buildMannequin3DPoints\n(geometry.ts)\nbilateral expansion"]
     K -->|"mannequin3DOverride"| H
 
-    H -->|"replace backend\nmannequin edges"| L["R3F cylinders\n(merged scene)"]
+    H -->|"frame: buildTubes\nmannequin: buildMannequinParts\n(weight-scaled radii)"| L["R3F scene\n(spheres, cylinders,\ncapsules, tapered cyl)"]
 
     C -.->|"2D overlay"| I["Overlay2D\n(green cylinders, z=0)"]
 ```
@@ -218,8 +259,25 @@ For visualization, the frontend builds its own 3D mannequin using `buildMannequi
 **How it works:**
 
 1. The backend `Geometry3DResponse` provides bike contact points (saddle, hoods, cleat) that anchor the mannequin to the 3D frame.
-2. `buildMannequin()` (geometry.ts) runs forward kinematics from the hip joint using `targetTrunkAngleDeg` to place the shoulder, then solves elbow position via circle–circle intersection.
+2. `buildMannequin()` (geometry.ts) runs forward kinematics from the hip joint using `targetTrunkAngleDeg` to place the shoulder, then solves elbow position via circle-circle intersection, and computes wrist (along forearm), spine joint (torso midpoint), neck base, and head.
 3. `buildMannequin3DPoints()` expands the 2D sagittal-plane mannequin into bilateral 3D using the same Z-spread rules and point/edge names as the backend (`mannequin3d.py` / `geometry_export.py`).
-4. `BikeScene3D` merges the frontend mannequin with the backend frame geometry by filtering out `mannequin*` edge groups from the backend response and replacing them with the frontend-generated mannequin edges. The backend frame payload now distinguishes the seat cluster from the full seat-tube top, so sloping top tubes and integrated seat masts do not collapse into one point.
+4. `BikeScene3D` merges the frontend mannequin with the backend frame geometry. Frame edges go through `buildTubes()` (unchanged cylinders). Mannequin edges go through `buildMannequinParts()` which produces distinct primitives (spheres, cylinders, capsules, tapered cylinders) with weight-scaled radii.
 
 **Contract:** The frontend bilateral expansion must produce the same point names, edge definitions, and Z-spread rules as the backend. This is enforced by regression tests in `tests/test_bilateral_expansion.py`.
+
+---
+
+## Skeleton hierarchy (procedural rider specification)
+
+The mannequin follows an articulated skeleton with distinct primitives per body part:
+
+```
+Head (sphere) ← Neck (cylinder) ← Upper Torso (cylinder) ← Spine Joint (sphere)
+  ← Lower Torso (cylinder) ← Hip Joint (sphere)
+
+Shoulder Joint (sphere) ← Upper Arm (cylinder) ← Elbow Joint (sphere)
+  ← Forearm (cylinder) ← Wrist Joint (sphere) ← Hand (capsule)
+
+Hip Joint (sphere) ← Thigh (cylinder) ← Knee Joint (sphere)
+  ← Shin (cylinder) ← Ankle Joint (sphere) ← Foot (tapered cylinder)
+```

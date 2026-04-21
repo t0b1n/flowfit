@@ -119,10 +119,7 @@ def _setup_input(frame: FrameGeometry) -> SetupInput:
 
 
 def test_geometry_export_uses_catalog_head_tube_length() -> None:
-    frame = FrameGeometry(
-        **_frame().model_dump(),
-        head_tube=120.0,
-    )
+    frame = _frame().model_copy(update={"head_tube": 120.0})
     result = solve_setup(_setup_input(frame))
     export = build_export(result, synthesize_bike(result.frame, result.components))
     pts = {p.name: p.pos for p in export.points}
@@ -138,11 +135,7 @@ def test_geometry_export_uses_catalog_head_tube_length() -> None:
 
 
 def test_geometry_export_separates_seat_cluster_from_seat_tube_top() -> None:
-    frame = FrameGeometry(
-        **_frame().model_dump(),
-        seat_tube_ct=740.0,
-        top_tube_effective=550.0,
-    )
+    frame = _frame().model_copy(update={"seat_tube_ct": 740.0, "top_tube_effective": 550.0})
     result = solve_setup(_setup_input(frame))
     export = build_export(result, synthesize_bike(result.frame, result.components))
     pts = {p.name: p.pos for p in export.points}
@@ -155,10 +148,7 @@ def test_geometry_export_separates_seat_cluster_from_seat_tube_top() -> None:
 
 
 def test_visible_seatpost_extension_uses_post_top_not_clamp_center() -> None:
-    frame = FrameGeometry(
-        **_frame().model_dump(),
-        seat_tube_ct=500.0,
-    )
+    frame = _frame().model_copy(update={"seat_tube_ct": 500.0})
     components = _components(saddle_clamp_offset=650.0)
     result = solve_setup(_setup_input(frame).model_copy(update={"components": components}))
     export = build_export(result, synthesize_bike(result.frame, result.components))

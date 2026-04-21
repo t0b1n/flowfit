@@ -67,26 +67,35 @@ _FRAME_EDGES: list[tuple[str, str]] = [
     ("hoods_r", "bar_drop_r"),
 ]
 
-_LEG_EDGES: list[tuple[str, str]] = [
-    ("cleat_l", "ankle_l"),
-    ("ankle_l", "knee_l"),
-    ("knee_l", "hip_l"),
-    ("cleat_r", "ankle_r"),
-    ("ankle_r", "knee_r"),
-    ("knee_r", "hip_r"),
-    ("hip_l", "hip_r"),
-]
-
-_TORSO_EDGES: list[tuple[str, str]] = [
-    ("hip_center", "shoulder_center"),
-]
-
-_ARM_EDGES: list[tuple[str, str]] = [
-    ("shoulder_l", "elbow_l"),
-    ("elbow_l", "wrist_l"),
-    ("shoulder_r", "elbow_r"),
-    ("elbow_r", "wrist_r"),
-    ("shoulder_l", "shoulder_r"),
+_MANNEQUIN_EDGES: list[tuple[str, str, str]] = [
+    # Legs — feet (tapered cylinder)
+    ("cleat_l", "ankle_l", "mannequin_foot"),
+    ("cleat_r", "ankle_r", "mannequin_foot"),
+    # Legs — shins
+    ("ankle_l", "knee_l", "mannequin_shin"),
+    ("ankle_r", "knee_r", "mannequin_shin"),
+    # Legs — thighs
+    ("knee_l", "hip_l", "mannequin_thigh"),
+    ("knee_r", "hip_r", "mannequin_thigh"),
+    # Hip bar (pelvis crossbar)
+    ("hip_l", "hip_r", "mannequin_hip_bar"),
+    # Torso — lower (hip_center → spine_joint)
+    ("hip_center", "spine_joint", "mannequin_lower_torso"),
+    # Torso — upper (spine_joint → shoulder_center)
+    ("spine_joint", "shoulder_center", "mannequin_upper_torso"),
+    # Neck
+    ("neck_base_center", "head_center", "mannequin_neck"),
+    # Shoulder bar (collarbone crossbar)
+    ("shoulder_l", "shoulder_r", "mannequin_shoulder_bar"),
+    # Arms — upper
+    ("shoulder_l", "elbow_l", "mannequin_upper_arm"),
+    ("shoulder_r", "elbow_r", "mannequin_upper_arm"),
+    # Arms — forearms
+    ("elbow_l", "wrist_l", "mannequin_forearm"),
+    ("elbow_r", "wrist_r", "mannequin_forearm"),
+    # Arms — hands (capsule)
+    ("wrist_l", "hand_l", "mannequin_hand"),
+    ("wrist_r", "hand_r", "mannequin_hand"),
 ]
 
 _FRAME_PT_NAMES = {
@@ -104,6 +113,8 @@ _MANNEQUIN_PT_NAMES = {
     "hip_l", "hip_r", "hip_center",
     "shoulder_l", "shoulder_r", "shoulder_center",
     "elbow_l", "elbow_r", "wrist_l", "wrist_r",
+    "hand_l", "hand_r",
+    "head_center", "neck_base_center", "spine_joint",
 }
 
 
@@ -170,15 +181,19 @@ def _add_frame_structural_points(
     else:
         pts_3d["seat_cluster"] = pts_3d["seat_tube_top"]
 
-    # ── Saddle clamp / seatpost top (at rail clamp position) ─────────────────
+    # ── Saddle clamp / seatpost top ─────────────────────────────────────────
     pts_3d["saddle_clamp"] = Vec3(
         -cos(seat_angle_rad) * components.saddle_clamp_offset - components.seatpost_offset,
         sin(seat_angle_rad) * components.saddle_clamp_offset,
         0.0,
     )
+    # Visual top of the seatpost extends a short distance above the clamp
+    # centre so the rendered post is not truncated at the rail support.
+    _SEATPOST_HEAD_EXTENSION = 5.0  # mm above clamp centre
+    seatpost_top_dist = components.saddle_clamp_offset + _SEATPOST_HEAD_EXTENSION
     pts_3d["seatpost_top"] = Vec3(
-        pts_3d["saddle_clamp"].x,
-        pts_3d["saddle_clamp"].y,
+        -cos(seat_angle_rad) * seatpost_top_dist - components.seatpost_offset,
+        sin(seat_angle_rad) * seatpost_top_dist,
         0.0,
     )
 
@@ -222,12 +237,8 @@ def build_export(setup_output: SetupOutput, bike_points: BikePoints) -> BikeGeoE
     edges: list[GeometryEdge] = []
     for a, b in _FRAME_EDGES:
         edges.append(GeometryEdge(a=a, b=b, group="frame"))
-    for a, b in _LEG_EDGES:
-        edges.append(GeometryEdge(a=a, b=b, group="mannequin_leg"))
-    for a, b in _TORSO_EDGES:
-        edges.append(GeometryEdge(a=a, b=b, group="mannequin_torso"))
-    for a, b in _ARM_EDGES:
-        edges.append(GeometryEdge(a=a, b=b, group="mannequin_arm"))
+    for a, b, group in _MANNEQUIN_EDGES:
+        edges.append(GeometryEdge(a=a, b=b, group=group))
 
     pose_metrics = setup_output.pose_metrics.model_dump()
 

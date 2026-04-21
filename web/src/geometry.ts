@@ -53,6 +53,7 @@ export const DEFAULT_RIDER = {
 export const DEFAULT_RIDER_FIT: RiderFit = {
   height: 1760,
   inseam: 860, // floor-to-crotch inseam, mm
+  weight: 75,  // kg — drives anatomical radius scaling
   targetKneeFlexDeg: 10,
 };
 
@@ -66,9 +67,9 @@ export const DEFAULT_TARGETS = {
 const SEATPOST_BEND_LENGTH = 40;
 
 export const MANNEQUIN_PRESETS = {
-  endurance: { trunkAngleDeg: 55, forearmHorizontalBias: 0.2, elbowBarHeightBias: 0.1 },
-  race: { trunkAngleDeg: 33, forearmHorizontalBias: 1.1, elbowBarHeightBias: 1.3 },
-  fast: { trunkAngleDeg: 43, forearmHorizontalBias: 0.65, elbowBarHeightBias: 0.8 },
+  endurance: { trunkAngleDeg: 55, backBendDeg: 5, forearmHorizontalBias: 0.2, elbowBarHeightBias: 0.1 },
+  race: { trunkAngleDeg: 33, backBendDeg: 12, forearmHorizontalBias: 1.1, elbowBarHeightBias: 1.3 },
+  fast: { trunkAngleDeg: 43, backBendDeg: 8, forearmHorizontalBias: 0.65, elbowBarHeightBias: 0.8 },
 } as const;
 
 export type MannequinPresetKey = keyof typeof MANNEQUIN_PRESETS;
@@ -89,17 +90,22 @@ export type BodyMeasurements = {
 
 export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   const heightScale = fit.height / 1800;
+  const hipOffset = body?.hipJointOffset ?? 95;
+  // The IK chain runs from hip joint center (above the saddle by hipOffset) to
+  // ankle. Inseam measures sit-bones-to-floor, so the articulating leg length
+  // is inseam + hipOffset.
+  const articulatingLeg = fit.inseam + hipOffset;
   return {
     ...DEFAULT_RIDER,
     height: fit.height,
-    thigh_length: fit.inseam * 0.53,
-    shank_length: fit.inseam * 0.47,
+    thigh_length: articulatingLeg * 0.53,
+    shank_length: articulatingLeg * 0.47,
     torso_length: body?.torsoLength ?? DEFAULT_RIDER.torso_length * heightScale,
     upper_arm_length: body?.upperArmLength ?? DEFAULT_RIDER.upper_arm_length * heightScale,
     forearm_length: body?.forearmLength ?? DEFAULT_RIDER.forearm_length * heightScale,
     foot_length: body?.footLength ?? DEFAULT_RIDER.foot_length * heightScale,
     shoulder_width: body?.shoulderWidth ?? DEFAULT_RIDER.shoulder_width * heightScale,
-    hip_joint_offset: body?.hipJointOffset ?? 95,
+    hip_joint_offset: hipOffset,
   };
 };
 
@@ -178,7 +184,8 @@ export const buildMannequin = (
   rider: ReturnType<typeof buildRider>,
   barWidth: number = 0,
   pedalStackHeight: number = 0,
-  targetTrunkAngleDeg?: number
+  targetTrunkAngleDeg?: number,
+  backBendDeg: number = 0,
 ): MannequinSketch => {
   // The ischial tuberosity (sit bones) contacts the saddle; the hip joint centre
   // (femoral head) is hip_joint_offset mm above, where the femur actually rotates.
@@ -189,7 +196,7 @@ export const buildMannequin = (
   };
 
   const ankle = { x: bike.cleat.x, y: bike.cleat.y + pedalStackHeight };
-  const [knee] = circleIntersections(saddleContact, ankle, rider.thigh_length, rider.shank_length, true);
+  const [knee] = circleIntersections(hipJoint, ankle, rider.thigh_length, rider.shank_length, true);
 
   const targetHands = bike.hoods;
 
@@ -208,6 +215,29 @@ export const buildMannequin = (
     const armLengthFull = rider.upper_arm_length + rider.forearm_length - 0.1;
     const [ikShoulder] = circleIntersections(hipJoint, targetHands, rider.torso_length, armLengthFull, true);
     shoulder = ikShoulder;
+    trunkAngle = Math.atan2(shoulder.y - hipJoint.y, shoulder.x - hipJoint.x);
+  }
+
+  // Spine joint at 40% from hip toward shoulder (closer to hip = lumbar/thoracic split)
+  const SPINE_FRACTION = 0.4;
+  const spineJoint: ContactPoint = {
+    x: hipJoint.x + (shoulder.x - hipJoint.x) * SPINE_FRACTION,
+    y: hipJoint.y + (shoulder.y - hipJoint.y) * SPINE_FRACTION,
+  };
+
+  // Back bend: rotate upper torso (shoulder) around spine_joint hinge.
+  // Positive backBendDeg = forward rounding (kyphosis), negative = arched (lordosis).
+  if (backBendDeg !== 0) {
+    const bendRad = radiansFromDegrees(-backBendDeg); // negate: positive bend = rotate shoulder down/forward
+    const cos = Math.cos(bendRad);
+    const sin = Math.sin(bendRad);
+    const dx = shoulder.x - spineJoint.x;
+    const dy = shoulder.y - spineJoint.y;
+    shoulder = {
+      x: spineJoint.x + dx * cos - dy * sin,
+      y: spineJoint.y + dx * sin + dy * cos,
+    };
+    // Update trunk angle to reflect the bent posture
     trunkAngle = Math.atan2(shoulder.y - hipJoint.y, shoulder.x - hipJoint.x);
   }
 
@@ -244,16 +274,33 @@ export const buildMannequin = (
       ? elbowCandidateA
       : elbowCandidateB;
 
-  // Head direction: starts at ~55° from horizontal when trunk is flat (aero),
-  // decreasing neckAngle toward 0° as trunk rises to vertical (upright).
-  // Formula: neckAngle = 55° − 0.6 × trunkAngle → head_direction ≈ 55° + 0.4 × trunkAngle
-  const neckAngle = (55 * Math.PI) / 180 - 0.6 * Math.max(trunkAngle, 0);
-  const neckLength = 185 * rider.height / 1800;
-  const head = {
-    x: shoulder.x + Math.cos(trunkAngle + neckAngle) * neckLength,
-    y: shoulder.y + Math.sin(trunkAngle + neckAngle) * neckLength,
+  // Wrist: positioned along elbow→hands vector at (forearm − palm_length) from elbow
+  const palmLength = 0.055 * rider.height;
+  const forearmNoPalm = Math.max(0, (rider.forearm_length - palmLength));
+  const elbowToHandsDx = hands.x - elbow.x;
+  const elbowToHandsDy = hands.y - elbow.y;
+  const elbowToHandsDist = Math.max(Math.hypot(elbowToHandsDx, elbowToHandsDy), 1e-6);
+  const wrist: ContactPoint = {
+    x: elbow.x + (elbowToHandsDx / elbowToHandsDist) * forearmNoPalm,
+    y: elbow.y + (elbowToHandsDy / elbowToHandsDist) * forearmNoPalm,
   };
-  return { hip: saddleContact, knee, ankle, shoulder, elbow, hands, head };
+
+  // Head direction: use upper-torso angle (spine_joint → shoulder) for head orientation
+  const upperTrunkAngle = Math.atan2(shoulder.y - spineJoint.y, shoulder.x - spineJoint.x);
+  const neckAngle = (55 * Math.PI) / 180 - 0.6 * Math.max(upperTrunkAngle, 0);
+  const neckLength = 185 * rider.height / 1800;
+  const headDir = upperTrunkAngle + neckAngle;
+  const head = {
+    x: shoulder.x + Math.cos(headDir) * neckLength,
+    y: shoulder.y + Math.sin(headDir) * neckLength,
+  };
+  // Neck base: 15% along shoulder→head vector
+  const neckBase: ContactPoint = {
+    x: shoulder.x + (head.x - shoulder.x) * 0.15,
+    y: shoulder.y + (head.y - shoulder.y) * 0.15,
+  };
+
+  return { hip: hipJoint, knee, ankle, shoulder, elbow, wrist, hands, head, neckBase, spineJoint };
 };
 
 export type FrontalMannequin = {
@@ -262,8 +309,11 @@ export type FrontalMannequin = {
   hipL: ContactPoint;   hipR: ContactPoint;
   shoulderL: ContactPoint; shoulderR: ContactPoint;
   elbowL: ContactPoint; elbowR: ContactPoint;
+  wristL: ContactPoint; wristR: ContactPoint;
   handsL: ContactPoint; handsR: ContactPoint;
   head: ContactPoint;
+  neckBase: ContactPoint;
+  spineJoint: ContactPoint;
 };
 
 export const buildFrontalMannequin = (
@@ -276,6 +326,9 @@ export const buildFrontalMannequin = (
   const halfStance = halfShoulder * 0.72;
   const totalArm = rider.upper_arm_length + rider.forearm_length;
   const halfElbow = halfShoulder + (halfBar - halfShoulder) * (rider.upper_arm_length / totalArm);
+  const palmLength = 0.055 * rider.height;
+  const forearmNoPalmRatio = Math.max(0, (rider.forearm_length - palmLength)) / Math.max(rider.forearm_length, 1e-6);
+  const halfWrist = halfElbow + (halfBar - halfElbow) * forearmNoPalmRatio;
 
   const mkLR = (lateral: number, y: number) => ({
     L: { x: -lateral, y },
@@ -287,6 +340,7 @@ export const buildFrontalMannequin = (
   const hip      = mkLR(halfStance * 0.8,  mannequin.hip.y);
   const shoulder = mkLR(halfShoulder,      mannequin.shoulder.y);
   const elbow    = mkLR(halfElbow,         mannequin.elbow.y);
+  const wrist    = mkLR(halfWrist,         mannequin.wrist.y);
   const hands    = mkLR(halfBar,           mannequin.hands.y);
 
   return {
@@ -295,8 +349,11 @@ export const buildFrontalMannequin = (
     hipL:   hip.L,      hipR:   hip.R,
     shoulderL: shoulder.L, shoulderR: shoulder.R,
     elbowL: elbow.L,    elbowR: elbow.R,
+    wristL: wrist.L,    wristR: wrist.R,
     handsL: hands.L,    handsR: hands.R,
     head: { x: 0, y: mannequin.head.y },
+    neckBase: { x: 0, y: mannequin.neckBase.y },
+    spineJoint: { x: 0, y: mannequin.spineJoint.y },
   };
 };
 
@@ -469,7 +526,7 @@ export const expandBoundsForMannequins = (
 ) => {
   const points = mannequins
     .filter((m): m is MannequinSketch => m !== null)
-    .flatMap((m) => [m.hip, m.knee, m.ankle, m.shoulder, m.elbow, m.hands, m.head]);
+    .flatMap((m) => [m.hip, m.knee, m.ankle, m.shoulder, m.elbow, m.wrist, m.hands, m.head, m.neckBase, m.spineJoint]);
 
   if (!points.length) return bounds;
 
@@ -518,8 +575,9 @@ export const idealContactsFromRider = (
       x: -Math.cos(seatAngle) * mid,
       y: Math.sin(seatAngle) * mid + saddleStack,
     };
-    const [knee] = circleIntersections(saddleMid, ankle, rider.thigh_length, rider.shank_length, true);
-    const ext = angleAtPoint(saddleMid, knee, ankle);
+    const hipMid: ContactPoint = { x: saddleMid.x, y: saddleMid.y + rider.hip_joint_offset };
+    const [knee] = circleIntersections(hipMid, ankle, rider.thigh_length, rider.shank_length, true);
+    const ext = angleAtPoint(hipMid, knee, ankle);
     if (ext < clampedTargetExt) {
       lo = mid; // saddle too low → raise
     } else {
@@ -555,6 +613,50 @@ export const idealContactsFromRider = (
   // Each hood is barWidth/2 laterally off the centreline; reduce to side-view reach.
   const armReach = Math.sqrt(Math.max(0, armReach3D ** 2 - (barWidth / 2) ** 2));
   // Arm direction: perpendicular to trunk pointing forward-down
+  const armAngle = trunkRad - Math.PI / 2;
+  const hoods: ContactPoint = {
+    x: shoulder.x + Math.cos(armAngle) * armReach,
+    y: shoulder.y + Math.sin(armAngle) * armReach,
+  };
+
+  return { saddle, hoods, cleat };
+};
+
+export const idealContactsFromSaddleHeight = (
+  rider: ReturnType<typeof buildRider>,
+  saddleHeightMm: number,
+  targetTrunkAngleDeg: number,
+  crankLength: number,
+  seatAngleDeg: number,
+  barWidth: number = 0,
+  saddleStack: number = 0
+): IdealContacts => {
+  const seatAngle = radiansFromDegrees(seatAngleDeg);
+  const cleat: ContactPoint = { x: 0, y: -crankLength };
+
+  const clampOffset = (saddleHeightMm - saddleStack) / Math.sin(seatAngle);
+  const saddle: ContactPoint = {
+    x: -Math.cos(seatAngle) * clampOffset,
+    y: saddleHeightMm,
+  };
+  const hipJoint: ContactPoint = {
+    x: saddle.x,
+    y: saddle.y + rider.hip_joint_offset,
+  };
+
+  const trunkRad = radiansFromDegrees(targetTrunkAngleDeg);
+  const shoulder: ContactPoint = {
+    x: hipJoint.x + Math.cos(trunkRad) * rider.torso_length,
+    y: hipJoint.y + Math.sin(trunkRad) * rider.torso_length,
+  };
+
+  const targetElbowInteriorRad = radiansFromDegrees(165);
+  const armReach3D = Math.sqrt(
+    rider.upper_arm_length ** 2 +
+      rider.forearm_length ** 2 -
+      2 * rider.upper_arm_length * rider.forearm_length * Math.cos(targetElbowInteriorRad)
+  );
+  const armReach = Math.sqrt(Math.max(0, armReach3D ** 2 - (barWidth / 2) ** 2));
   const armAngle = trunkRad - Math.PI / 2;
   const hoods: ContactPoint = {
     x: shoulder.x + Math.cos(armAngle) * armReach,
@@ -656,18 +758,35 @@ export const barReachNeeded = (
 const _DEFAULT_STANCE_WIDTH = 155;
 const _DEFAULT_HIP_WIDTH = 200;
 
-const _LEG_EDGES: [string, string][] = [
-  ["cleat_l", "ankle_l"], ["ankle_l", "knee_l"], ["knee_l", "hip_l"],
-  ["cleat_r", "ankle_r"], ["ankle_r", "knee_r"], ["knee_r", "hip_r"],
-  ["hip_l", "hip_r"],
-];
-const _TORSO_EDGES: [string, string][] = [
-  ["hip_center", "shoulder_center"],
-];
-const _ARM_EDGES: [string, string][] = [
-  ["shoulder_l", "elbow_l"], ["elbow_l", "wrist_l"],
-  ["shoulder_r", "elbow_r"], ["elbow_r", "wrist_r"],
-  ["shoulder_l", "shoulder_r"],
+const _MANNEQUIN_EDGES: [string, string, string][] = [
+  // Feet (tapered cylinder)
+  ["cleat_l", "ankle_l", "mannequin_foot"],
+  ["cleat_r", "ankle_r", "mannequin_foot"],
+  // Shins
+  ["ankle_l", "knee_l", "mannequin_shin"],
+  ["ankle_r", "knee_r", "mannequin_shin"],
+  // Thighs
+  ["knee_l", "hip_l", "mannequin_thigh"],
+  ["knee_r", "hip_r", "mannequin_thigh"],
+  // Hip bar
+  ["hip_l", "hip_r", "mannequin_hip_bar"],
+  // Torso — lower
+  ["hip_center", "spine_joint", "mannequin_lower_torso"],
+  // Torso — upper
+  ["spine_joint", "shoulder_center", "mannequin_upper_torso"],
+  // Neck
+  ["neck_base_center", "head_center", "mannequin_neck"],
+  // Shoulder bar
+  ["shoulder_l", "shoulder_r", "mannequin_shoulder_bar"],
+  // Upper arms
+  ["shoulder_l", "elbow_l", "mannequin_upper_arm"],
+  ["shoulder_r", "elbow_r", "mannequin_upper_arm"],
+  // Forearms
+  ["elbow_l", "wrist_l", "mannequin_forearm"],
+  ["elbow_r", "wrist_r", "mannequin_forearm"],
+  // Hands (capsule)
+  ["wrist_l", "hand_l", "mannequin_hand"],
+  ["wrist_r", "hand_r", "mannequin_hand"],
 ];
 
 /**
@@ -707,28 +826,33 @@ export function buildMannequin3DPoints(
   p("hip_r", mannequin.hip.x, mannequin.hip.y, -halfHip);
   p("hip_center", mannequin.hip.x, mannequin.hip.y, 0);
 
+  // Spine joint (centerline)
+  p("spine_joint", mannequin.spineJoint.x, mannequin.spineJoint.y, 0);
+
   // Shoulders at ±half_shoulder + centerline
   p("shoulder_l", mannequin.shoulder.x, mannequin.shoulder.y, +halfShoulder);
   p("shoulder_r", mannequin.shoulder.x, mannequin.shoulder.y, -halfShoulder);
   p("shoulder_center", mannequin.shoulder.x, mannequin.shoulder.y, 0);
+
+  // Neck base + head (centerline)
+  p("neck_base_center", mannequin.neckBase.x, mannequin.neckBase.y, 0);
+  p("head_center", mannequin.head.x, mannequin.head.y, 0);
 
   // Elbows at ±half_shoulder
   p("elbow_l", mannequin.elbow.x, mannequin.elbow.y, +halfShoulder);
   p("elbow_r", mannequin.elbow.x, mannequin.elbow.y, -halfShoulder);
 
   // Wrists at ±half_hood
-  p("wrist_l", mannequin.hands.x, mannequin.hands.y, +halfHood);
-  p("wrist_r", mannequin.hands.x, mannequin.hands.y, -halfHood);
+  p("wrist_l", mannequin.wrist.x, mannequin.wrist.y, +halfHood);
+  p("wrist_r", mannequin.wrist.x, mannequin.wrist.y, -halfHood);
+
+  // Hands at ±half_hood
+  p("hand_l", mannequin.hands.x, mannequin.hands.y, +halfHood);
+  p("hand_r", mannequin.hands.x, mannequin.hands.y, -halfHood);
 
   const edges: Geometry3DEdge[] = [];
-  for (const [a, b] of _LEG_EDGES) {
-    edges.push({ a, b, group: "mannequin_leg" });
-  }
-  for (const [a, b] of _TORSO_EDGES) {
-    edges.push({ a, b, group: "mannequin_torso" });
-  }
-  for (const [a, b] of _ARM_EDGES) {
-    edges.push({ a, b, group: "mannequin_arm" });
+  for (const [a, b, group] of _MANNEQUIN_EDGES) {
+    edges.push({ a, b, group });
   }
 
   return { points, edges };

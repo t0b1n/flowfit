@@ -17,10 +17,8 @@ import pytest
 from bikegeo_core import Components, FrameGeometry
 from bikegeo_core.geometry import synthesize_bike
 from bikegeo_core.geometry_export import (
-    _ARM_EDGES,
-    _LEG_EDGES,
+    _MANNEQUIN_EDGES,
     _MANNEQUIN_PT_NAMES,
-    _TORSO_EDGES,
 )
 from bikegeo_core.mannequin3d import solve_pose_3d
 from bikegeo_core.models import RiderAnthropometrics
@@ -94,18 +92,25 @@ def _bike(**comp_overrides):
 _FE_DEFAULT_STANCE_WIDTH = 155.0
 _FE_DEFAULT_HIP_WIDTH = 200.0
 
-_FE_LEG_EDGES = [
-    ("cleat_l", "ankle_l"), ("ankle_l", "knee_l"), ("knee_l", "hip_l"),
-    ("cleat_r", "ankle_r"), ("ankle_r", "knee_r"), ("knee_r", "hip_r"),
-    ("hip_l", "hip_r"),
-]
-_FE_TORSO_EDGES = [
-    ("hip_center", "shoulder_center"),
-]
-_FE_ARM_EDGES = [
-    ("shoulder_l", "elbow_l"), ("elbow_l", "wrist_l"),
-    ("shoulder_r", "elbow_r"), ("elbow_r", "wrist_r"),
-    ("shoulder_l", "shoulder_r"),
+# Frontend edge definitions (mirrors geometry.ts _MANNEQUIN_EDGES)
+_FE_MANNEQUIN_EDGES = [
+    ("cleat_l", "ankle_l", "mannequin_foot"),
+    ("cleat_r", "ankle_r", "mannequin_foot"),
+    ("ankle_l", "knee_l", "mannequin_shin"),
+    ("ankle_r", "knee_r", "mannequin_shin"),
+    ("knee_l", "hip_l", "mannequin_thigh"),
+    ("knee_r", "hip_r", "mannequin_thigh"),
+    ("hip_l", "hip_r", "mannequin_hip_bar"),
+    ("hip_center", "spine_joint", "mannequin_lower_torso"),
+    ("spine_joint", "shoulder_center", "mannequin_upper_torso"),
+    ("neck_base_center", "head_center", "mannequin_neck"),
+    ("shoulder_l", "shoulder_r", "mannequin_shoulder_bar"),
+    ("shoulder_l", "elbow_l", "mannequin_upper_arm"),
+    ("shoulder_r", "elbow_r", "mannequin_upper_arm"),
+    ("elbow_l", "wrist_l", "mannequin_forearm"),
+    ("elbow_r", "wrist_r", "mannequin_forearm"),
+    ("wrist_l", "hand_l", "mannequin_hand"),
+    ("wrist_r", "hand_r", "mannequin_hand"),
 ]
 
 
@@ -116,34 +121,23 @@ def _frontend_bilateral_point_names() -> set[str]:
         "ankle_l", "ankle_r",
         "knee_l", "knee_r",
         "hip_l", "hip_r", "hip_center",
+        "spine_joint",
         "shoulder_l", "shoulder_r", "shoulder_center",
+        "neck_base_center", "head_center",
         "elbow_l", "elbow_r",
         "wrist_l", "wrist_r",
+        "hand_l", "hand_r",
     }
 
 
 def _frontend_edge_tuples() -> set[tuple[str, str, str]]:
     """(a, b, group) tuples produced by the frontend."""
-    edges: set[tuple[str, str, str]] = set()
-    for a, b in _FE_LEG_EDGES:
-        edges.add((a, b, "mannequin_leg"))
-    for a, b in _FE_TORSO_EDGES:
-        edges.add((a, b, "mannequin_torso"))
-    for a, b in _FE_ARM_EDGES:
-        edges.add((a, b, "mannequin_arm"))
-    return edges
+    return set((a, b, g) for a, b, g in _FE_MANNEQUIN_EDGES)
 
 
 def _backend_edge_tuples() -> set[tuple[str, str, str]]:
     """(a, b, group) tuples from the backend geometry_export edge lists."""
-    edges: set[tuple[str, str, str]] = set()
-    for a, b in _LEG_EDGES:
-        edges.add((a, b, "mannequin_leg"))
-    for a, b in _TORSO_EDGES:
-        edges.add((a, b, "mannequin_torso"))
-    for a, b in _ARM_EDGES:
-        edges.add((a, b, "mannequin_arm"))
-    return edges
+    return set((a, b, g) for a, b, g in _MANNEQUIN_EDGES)
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
@@ -213,10 +207,14 @@ def test_frontend_bilateral_z_spread_matches_backend():
         "knee_l":  +half_stance,   "knee_r":  -half_stance,
         "hip_l":   +half_hip,      "hip_r":   -half_hip,
         "hip_center": 0.0,
+        "spine_joint": 0.0,
         "shoulder_l": +half_shoulder, "shoulder_r": -half_shoulder,
         "shoulder_center": 0.0,
+        "neck_base_center": 0.0,
+        "head_center": 0.0,
         "elbow_l": +half_shoulder, "elbow_r": -half_shoulder,
         "wrist_l": +half_hood,     "wrist_r": -half_hood,
+        "hand_l": +half_hood,      "hand_r": -half_hood,
     }
 
     for name, expected in expected_z.items():
@@ -246,6 +244,10 @@ def test_frontend_bilateral_xy_preserves_2d_joints():
         "shoulder_center": "shoulder",
         "elbow_l": "elbow", "elbow_r": "elbow",
         "wrist_l": "wrist", "wrist_r": "wrist",
+        "hand_l": "hand", "hand_r": "hand",
+        "head_center": "head",
+        "neck_base_center": "neck_base",
+        "spine_joint": "spine_joint",
     }
 
     for pt3d_name, joint2d_name in mapping.items():
@@ -283,3 +285,33 @@ def test_frontend_bilateral_with_null_widths_uses_defaults():
     assert abs(pts_3d["wrist_r"].z - (-half_hood)) < TOLERANCE
     assert abs(pts_3d["shoulder_l"].z - half_shoulder) < TOLERANCE
     assert abs(pts_3d["shoulder_r"].z - (-half_shoulder)) < TOLERANCE
+
+
+def test_new_joints_are_anatomically_valid():
+    """The new joints (head, neck_base, spine_joint, hand) must have
+    sensible positions relative to their parent joints."""
+    pts_3d = solve_pose_3d(_bike(), _components(), _rider())
+
+    # Spine joint should be between hip_center and shoulder_center
+    spine = pts_3d["spine_joint"]
+    hip = pts_3d["hip_center"]
+    shoulder = pts_3d["shoulder_center"]
+    assert min(hip.y, shoulder.y) <= spine.y <= max(hip.y, shoulder.y)
+
+    # Head should be above shoulder
+    head = pts_3d["head_center"]
+    assert head.y > shoulder.y
+
+    # Neck base should be between shoulder and head
+    neck = pts_3d["neck_base_center"]
+    assert shoulder.y <= neck.y <= head.y
+
+    # Hand should be further from elbow than wrist
+    from math import sqrt
+    for side in ("l", "r"):
+        elbow = pts_3d[f"elbow_{side}"]
+        wrist = pts_3d[f"wrist_{side}"]
+        hand = pts_3d[f"hand_{side}"]
+        d_wrist = sqrt((wrist.x - elbow.x)**2 + (wrist.y - elbow.y)**2)
+        d_hand = sqrt((hand.x - elbow.x)**2 + (hand.y - elbow.y)**2)
+        assert d_hand > d_wrist, f"hand_{side} should be further from elbow than wrist_{side}"

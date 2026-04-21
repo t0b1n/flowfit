@@ -30,12 +30,13 @@ import {
   expandBoundsForMannequins,
   fitWarnings,
   idealContactsFromRider,
+  idealContactsFromSaddleHeight,
   radiansFromDegrees,
   seatpostRecommendation,
   synthesizeBike,
   withTyreSize,
 } from "./geometry";
-import type { BikeSelection, Components, ContactPoint, RiderFit, SeatpostRecommendation } from "./types";
+import type { BikeSelection, Components, ContactPoint, FitMode, RiderFit, SeatpostRecommendation } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
 import { fetchGeometry3D } from "./api";
 import type { Geometry3DResponse } from "./bike3d";
@@ -195,6 +196,7 @@ export const FitBuilderMode: React.FC = () => {
   const [riderFit, setRiderFit] = useState<RiderFit>(DEFAULT_RIDER_FIT);
   const [preset, setPreset] = useState<MannequinPresetKey>("endurance");
   const [trunkAngleOverride, setTrunkAngleOverride] = useState<number | null>(35);
+  const [backBendOverride, setBackBendOverride] = useState<number | null>(null);
   const [hoodPresetId, setHoodPresetId] = useState(HOOD_PRESETS[0].id);
   const [showFrameGeometry, setShowFrameGeometry] = useState(false);
   const [showFitPositions, setShowFitPositions] = useState(false);
@@ -220,9 +222,14 @@ export const FitBuilderMode: React.FC = () => {
   });
   const [pedalPresetId, setPedalPresetId] = useState<string>("keo-blade");
   const [shoePresetId, setShoePresetId] = useState<string>(SHOE_PRESETS[0].id);
+  const [fitMode, setFitMode] = useState<FitMode>("contact");
+  const [targetSaddleHeightMm, setTargetSaddleHeightMm] = useState(700);
 
   const model = getModelById(selection.modelId);
-  const sizeData = getSizeData(selection.modelId, selection.size);
+  const sizeData = useMemo(
+    () => getSizeData(selection.modelId, selection.size),
+    [selection.modelId, selection.size]
+  );
   const effectiveFrame = useMemo(
     () => withTyreSize(sizeData.geometry, tyreSize),
     [sizeData.geometry, tyreSize]
@@ -236,11 +243,24 @@ export const FitBuilderMode: React.FC = () => {
 
   const targetTrunkAngleDeg =
     trunkAngleOverride !== null ? trunkAngleOverride : MANNEQUIN_PRESETS[preset].trunkAngleDeg;
+  const backBendDeg =
+    backBendOverride !== null ? backBendOverride : MANNEQUIN_PRESETS[preset].backBendDeg;
   const targetKneeExtension = 180 - riderFit.targetKneeFlexDeg;
 
   const idealContacts = useMemo(
-    () =>
-      idealContactsFromRider(
+    () => {
+      if (fitMode === "saddle_height") {
+        return idealContactsFromSaddleHeight(
+          rider,
+          targetSaddleHeightMm,
+          targetTrunkAngleDeg,
+          components.crank_length,
+          effectiveFrame.seat_angle_deg,
+          components.bar_width,
+          components.saddle_stack
+        );
+      }
+      return idealContactsFromRider(
         rider,
         targetKneeExtension,
         targetTrunkAngleDeg,
@@ -249,8 +269,9 @@ export const FitBuilderMode: React.FC = () => {
         components.bar_width,
         components.pedal_stack_height,
         components.saddle_stack
-      ),
-    [rider, targetKneeExtension, targetTrunkAngleDeg, components.crank_length, effectiveFrame.seat_angle_deg, components.bar_width, components.pedal_stack_height, components.saddle_stack]
+      );
+    },
+    [fitMode, rider, targetSaddleHeightMm, targetKneeExtension, targetTrunkAngleDeg, components.crank_length, effectiveFrame.seat_angle_deg, components.bar_width, components.pedal_stack_height, components.saddle_stack]
   );
 
   // Build mannequin: hip/cleat at actual bike contacts (so seatpost/rail offsets move the body),
@@ -266,8 +287,8 @@ export const FitBuilderMode: React.FC = () => {
   );
 
   const mannequin = useMemo(
-    () => buildMannequin(bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg),
-    [bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg]
+    () => buildMannequin(bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg),
+    [bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg]
   );
   const frontalMannequin = useMemo(
     () => buildFrontalMannequin(mannequin, rider, components.bar_width),
@@ -286,15 +307,16 @@ export const FitBuilderMode: React.FC = () => {
     [idealContacts.hoods, bike.barClamp, components.hood_reach_offset]
   );
 
-  // Auto-seatpost: when rider body, preset, or saddle_stack changes, back-derive
-  // saddle_clamp_offset so the contact point stays at the ideal height.
+  // Auto-seatpost: keep saddle_clamp_offset in sync with the ideal saddle position.
+  // Works for both modes: in knee-flex mode it tracks IK output, in saddle-height mode
+  // it tracks the user's target height.
   useEffect(() => {
     const seatAngle = radiansFromDegrees(effectiveFrame.seat_angle_deg);
     const clampY = idealContacts.saddle.y - components.saddle_stack;
     const offset = clampY / Math.sin(seatAngle);
     setComponents((c) => ({ ...c, saddle_clamp_offset: Math.max(400, Math.min(950, offset)) }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riderFit.inseam, riderFit.targetKneeFlexDeg, selection.modelId, selection.size, preset, components.saddle_stack, bodyMeasurements?.hipJointOffset, components.pedal_stack_height]);
+  }, [idealContacts.saddle.y, effectiveFrame.seat_angle_deg, components.saddle_stack]);
 
   // Fetch 3D geometry from API when 3D view is active and inputs change
   useEffect(() => {
@@ -339,14 +361,14 @@ export const FitBuilderMode: React.FC = () => {
     // Build 2D mannequin with forward kinematics using target trunk angle
     const mannequin2dFor3d = buildMannequin(
       bike3dSide, rider, components.bar_width,
-      components.pedal_stack_height, targetTrunkAngleDeg
+      components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg
     );
     // Bilaterally expand to 3D
     return {
       mannequin2d: mannequin2dFor3d,
       ...buildMannequin3DPoints(mannequin2dFor3d, rider, components),
     };
-  }, [geo3d, bike, rider, components, targetTrunkAngleDeg]);
+  }, [geo3d, bike, rider, components, targetTrunkAngleDeg, backBendDeg]);
 
   const kneeExtension = angleAtPoint(mannequin.hip, mannequin.knee, mannequin.ankle);
   const kneeFlex = 180 - kneeExtension;
@@ -371,7 +393,7 @@ export const FitBuilderMode: React.FC = () => {
       bike.bb, bike.seatCluster, bike.seatTubeTop, bike.headTubeBottom, bike.headTubeTop,
       bike.saddle, bike.hoods, bike.cleat, bike.barClamp,
       mannequin.hip, mannequin.knee, mannequin.ankle,
-      mannequin.shoulder, mannequin.elbow, mannequin.hands, mannequin.head,
+      mannequin.shoulder, mannequin.elbow, mannequin.wrist, mannequin.hands, mannequin.head,
       idealContacts.saddle, idealContacts.hoods,
     ];
     const xs = pts.map((p) => p.x);
@@ -394,6 +416,13 @@ export const FitBuilderMode: React.FC = () => {
 
   const updateComponent = (key: keyof Components, value: number) =>
     setComponents((c) => ({ ...c, [key]: value }));
+
+  const handleFitModeChange = (mode: FitMode) => {
+    if (mode === "saddle_height" && fitMode === "contact") {
+      setTargetSaddleHeightMm(Math.round(idealContacts.saddle.y));
+    }
+    setFitMode(mode);
+  };
 
   const updateBodyMeasurement = (key: keyof BodyMeasurements, value: number) =>
     setBodyMeasurements((b: Partial<BodyMeasurements>) => ({ ...b, [key]: value }));
@@ -508,7 +537,7 @@ export const FitBuilderMode: React.FC = () => {
               <button
                 key={p}
                 className={`tab-pill ${preset === p ? "tab-pill--active" : ""}`}
-                onClick={() => { setPreset(p); setTrunkAngleOverride(null); }}
+                onClick={() => { setPreset(p); setTrunkAngleOverride(null); setBackBendOverride(null); }}
               >
                 {PRESET_LABELS[p]}
               </button>
@@ -527,16 +556,41 @@ export const FitBuilderMode: React.FC = () => {
                 onChange={(e) => setTrunkAngleOverride(Number(e.target.value))}
               />
             </label>
+            <label className="slider-card slider-card--target">
+              <div className="slider-card__header">
+                <span>Back bend</span>
+                <strong>{backBendDeg}°</strong>
+              </div>
+              <input
+                className="slider-card__input slider-card__input--target"
+                type="range"
+                min={-10} max={30} step={1} value={backBendDeg}
+                onChange={(e) => setBackBendOverride(Number(e.target.value))}
+              />
+            </label>
           </div>
         </CollapsibleSection>
 
         <CollapsibleSection eyebrow="Rider" title="Fit targets">
+          <div className="preset-row" style={{ marginBottom: 8 }}>
+            <button
+              className={`preset-pill ${fitMode === "contact" ? "preset-pill--active" : ""}`}
+              onClick={() => handleFitModeChange("contact")}
+            >
+              Knee flex
+            </button>
+            <button
+              className={`preset-pill ${fitMode === "saddle_height" ? "preset-pill--active" : ""}`}
+              onClick={() => handleFitModeChange("saddle_height")}
+            >
+              Saddle height
+            </button>
+          </div>
           <div className="slider-grid slider-grid--compact">
             {(
               [
                 ["Height", riderFit.height, 1500, 2050, 5, "height", "mm"],
                 ["Inseam", riderFit.inseam, 700, 1000, 5, "inseam", "mm"],
-                ["Target knee flex", riderFit.targetKneeFlexDeg, 0, 45, 1, "targetKneeFlexDeg", "°"],
               ] as const
             ).map(([label, value, min, max, step, key, unit]) => (
               <label className="slider-card slider-card--target" key={key}>
@@ -552,6 +606,52 @@ export const FitBuilderMode: React.FC = () => {
                 />
               </label>
             ))}
+
+            {/* Target knee flex — disabled in saddle_height mode */}
+            <label
+              className="slider-card slider-card--target"
+              style={{ opacity: fitMode === "saddle_height" ? 0.45 : 1 }}
+            >
+              <div className="slider-card__header">
+                <span>Target knee flex</span>
+                <strong>
+                  {fitMode === "saddle_height"
+                    ? `${kneeFlex.toFixed(1)}°`
+                    : `${riderFit.targetKneeFlexDeg}°`}
+                </strong>
+              </div>
+              <input
+                className="slider-card__input slider-card__input--target"
+                type="range"
+                min={0} max={45} step={1}
+                value={fitMode === "saddle_height" ? Math.round(kneeFlex) : riderFit.targetKneeFlexDeg}
+                disabled={fitMode === "saddle_height"}
+                onChange={(e) => setRiderFit((r) => ({ ...r, targetKneeFlexDeg: Number(e.target.value) }))}
+              />
+            </label>
+
+            {/* Saddle height — disabled in contact (knee flex) mode */}
+            <label
+              className="slider-card slider-card--target"
+              style={{ opacity: fitMode === "contact" ? 0.45 : 1 }}
+            >
+              <div className="slider-card__header">
+                <span>Saddle height</span>
+                <strong>
+                  {fitMode === "contact"
+                    ? `${idealSaddleY.toFixed(0)} mm`
+                    : `${targetSaddleHeightMm} mm`}
+                </strong>
+              </div>
+              <input
+                className="slider-card__input slider-card__input--target"
+                type="range"
+                min={550} max={850} step={1}
+                value={fitMode === "contact" ? Math.round(idealSaddleY) : targetSaddleHeightMm}
+                disabled={fitMode === "contact"}
+                onChange={(e) => setTargetSaddleHeightMm(Number(e.target.value))}
+              />
+            </label>
           </div>
         </CollapsibleSection>
 
@@ -603,6 +703,18 @@ export const FitBuilderMode: React.FC = () => {
                 type="range"
                 min={36} max={48} step={1} value={Math.round(rider.foot_length / 6.67)}
                 onChange={(e) => updateBodyMeasurement("footLength", Number(e.target.value) * 6.67)}
+              />
+            </label>
+            <label className="slider-card">
+              <div className="slider-card__header">
+                <span>Body weight</span>
+                <strong>{riderFit.weight} kg</strong>
+              </div>
+              <input
+                className="slider-card__input slider-card__input--frame"
+                type="range"
+                min={40} max={130} step={1} value={riderFit.weight}
+                onChange={(e) => setRiderFit((f) => ({ ...f, weight: Number(e.target.value) }))}
               />
             </label>
           </div>
@@ -898,6 +1010,7 @@ export const FitBuilderMode: React.FC = () => {
                 geo={geo3d}
                 mannequin2D={mannequin3DData?.mannequin2d ?? mannequin}
                 mannequin3DOverride={mannequin3DData ?? undefined}
+                weightKg={riderFit.weight}
               />
             )
           ) : viewMode === 'side' ? (
@@ -1003,7 +1116,10 @@ export const FitBuilderMode: React.FC = () => {
                           strokeWidth={Math.round(80 * s)}
                           opacity={0.45}
                         />
-                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.shoulder.x} y2={-mannequin.shoulder.y} className="geometry-mannequin__line" strokeWidth={Math.round(175 * s)} />
+                        {/* Lower torso: hip → spine joint */}
+                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.spineJoint.x} y2={-mannequin.spineJoint.y} className="geometry-mannequin__line" strokeWidth={Math.round(160 * s)} />
+                        {/* Upper torso: spine joint → shoulder */}
+                        <line x1={mannequin.spineJoint.x} y1={-mannequin.spineJoint.y} x2={mannequin.shoulder.x} y2={-mannequin.shoulder.y} className="geometry-mannequin__line" strokeWidth={Math.round(175 * s)} />
                       </>
                     )}
                     {riderVisibility.legs && (
@@ -1015,12 +1131,16 @@ export const FitBuilderMode: React.FC = () => {
                     {riderVisibility.arms && (
                       <>
                         <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.elbow.x} y2={-mannequin.elbow.y} className="geometry-mannequin__line" strokeWidth={Math.round(70 * s)} />
-                        <line x1={mannequin.elbow.x} y1={-mannequin.elbow.y} x2={mannequin.hands.x} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        <line x1={mannequin.elbow.x} y1={-mannequin.elbow.y} x2={mannequin.wrist.x} y2={-mannequin.wrist.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        <line x1={mannequin.wrist.x} y1={-mannequin.wrist.y} x2={mannequin.hands.x} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(45 * s)} />
                       </>
                     )}
                     {riderVisibility.head && (
                       <>
-                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.head.x} y2={-mannequin.head.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        {/* Neck: shoulder → neck base */}
+                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.neckBase.x} y2={-mannequin.neckBase.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        {/* Neck → head */}
+                        <line x1={mannequin.neckBase.x} y1={-mannequin.neckBase.y} x2={mannequin.head.x} y2={-mannequin.head.y} className="geometry-mannequin__line" strokeWidth={Math.round(45 * s)} />
                         <circle cx={mannequin.head.x} cy={-mannequin.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
                       </>
                     )}
@@ -1153,7 +1273,7 @@ export const FitBuilderMode: React.FC = () => {
           <div className="metric-grid">
             <div className="metric-card"
               title="Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface. This is the height that gives your target knee flex angle at bottom dead centre.">
-              <div className="metric-card__label">Ideal saddle height</div>
+              <div className="metric-card__label">{fitMode === "saddle_height" ? "Target saddle height" : "Ideal saddle height"}</div>
               <div className="metric-card__compare"><strong>{idealSaddleY.toFixed(0)} mm</strong></div>
             </div>
             <div className="metric-card"
@@ -1175,7 +1295,9 @@ export const FitBuilderMode: React.FC = () => {
             <div className="metric-card">
               <div className="metric-card__label">Knee flex at BDC</div>
               <div className="metric-card__compare"><strong>{kneeFlex.toFixed(1)}°</strong></div>
-              <div className="metric-card__delta">Target {riderFit.targetKneeFlexDeg}°</div>
+              {fitMode === "contact" && (
+                <div className="metric-card__delta">Target {riderFit.targetKneeFlexDeg}°</div>
+              )}
             </div>
             <div className="metric-card">
               <div className="metric-card__label">Trunk angle</div>

@@ -149,18 +149,18 @@ def test_saddle_3d_matches_bike_saddle_and_hip_is_above():
     assert abs(j2.hip.y - (bike.saddle.y + r.hip_joint_offset)) < TOLERANCE
 
 
-def test_hoods_3d_matches_wrist_2d():
-    """The 3D hoods_l/r XY must match the 2D wrist (= hoods contact point)."""
+def test_hoods_3d_matches_hand_2d():
+    """The 3D hoods_l/r XY must match the 2D hand (= hoods contact point)."""
     j2 = _2d_joints()
     pts3d = _3d_pts()
     bike = _bike()
 
     for key in ("hoods_l", "hoods_r"):
-        assert abs(pts3d[key].x - j2.wrist.x) < TOLERANCE, f"{key}.x mismatch"
-        assert abs(pts3d[key].y - j2.wrist.y) < TOLERANCE, f"{key}.y mismatch"
-    # sanity: bike hoods == 2D wrist
-    assert abs(bike.hoods.x - j2.wrist.x) < TOLERANCE
-    assert abs(bike.hoods.y - j2.wrist.y) < TOLERANCE
+        assert abs(pts3d[key].x - j2.hand.x) < TOLERANCE, f"{key}.x mismatch"
+        assert abs(pts3d[key].y - j2.hand.y) < TOLERANCE, f"{key}.y mismatch"
+    # sanity: bike hoods == 2D hand
+    assert abs(bike.hoods.x - j2.hand.x) < TOLERANCE
+    assert abs(bike.hoods.y - j2.hand.y) < TOLERANCE
 
 
 def test_cleat_3d_matches_bike_cleat_and_ankle_is_above():
@@ -228,12 +228,22 @@ def test_upper_arm_length_preserved_2d():
 
 
 def test_forearm_length_preserved_2d():
-    """2D wrist must be exactly forearm_length from elbow."""
+    """2D elbow-to-hand distance must be approximately forearm_length.
+    The wrist is at forearm_length - palm_length from elbow; the hand
+    extends to the hoods position at full forearm reach."""
     j2 = _feasible_2d_joints()
     r = _rider()
-    dist = ((j2.wrist.x - j2.elbow.x) ** 2 + (j2.wrist.y - j2.elbow.y) ** 2) ** 0.5
-    assert abs(dist - r.forearm_length) < TOLERANCE, (
-        f"forearm dist={dist:.4f}, expected {r.forearm_length}"
+    # elbow→hand should be close to forearm_length (hand is at the hoods)
+    dist_hand = ((j2.hand.x - j2.elbow.x) ** 2 + (j2.hand.y - j2.elbow.y) ** 2) ** 0.5
+    assert abs(dist_hand - r.forearm_length) < 1.0, (
+        f"elbow→hand dist={dist_hand:.4f}, expected ~{r.forearm_length}"
+    )
+    # wrist should be at forearm_length - palm_length from elbow
+    palm_length = 0.055 * r.height
+    expected_wrist_dist = r.forearm_length - palm_length
+    dist_wrist = ((j2.wrist.x - j2.elbow.x) ** 2 + (j2.wrist.y - j2.elbow.y) ** 2) ** 0.5
+    assert abs(dist_wrist - expected_wrist_dist) < 1.0, (
+        f"elbow→wrist dist={dist_wrist:.4f}, expected ~{expected_wrist_dist:.4f}"
     )
 
 
@@ -269,19 +279,19 @@ def test_trunk_angle_positive_for_typical_road_bike():
 
 
 def test_arm_can_reach_hoods():
-    """Shoulder-to-wrist distance must be less than upper_arm + forearm so the
+    """Shoulder-to-hand distance must be less than upper_arm + forearm so the
     arm IK has a valid solution (circles intersect).  The outer IK places the
-    shoulder at arm_length - 0.1 mm from the wrist, so reach ≈ arm_len - 0.1."""
+    shoulder at arm_length - 0.1 mm from the hand, so reach ≈ arm_len - 0.1."""
     r = _rider()
     _, j2 = solve_pose_2d_full(_feasible_bike(), r)
-    reach = ((j2.wrist.x - j2.shoulder.x) ** 2 + (j2.wrist.y - j2.shoulder.y) ** 2) ** 0.5
+    reach = ((j2.hand.x - j2.shoulder.x) ** 2 + (j2.hand.y - j2.shoulder.y) ** 2) ** 0.5
     arm_len = r.upper_arm_length + r.forearm_length
     assert reach < arm_len, (
-        f"shoulder-to-wrist dist {reach:.4f} must be < arm len {arm_len}"
+        f"shoulder-to-hand dist {reach:.4f} must be < arm len {arm_len}"
     )
     # And the reach should be close to the full arm length (within 1 mm)
     assert reach > arm_len - 1.0, (
-        f"shoulder-to-wrist dist {reach:.4f} unexpectedly far below arm len {arm_len}"
+        f"shoulder-to-hand dist {reach:.4f} unexpectedly far below arm len {arm_len}"
     )
 
 

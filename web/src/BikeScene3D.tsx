@@ -20,8 +20,10 @@ import {
   Geometry3DPoint,
   Geometry3DEdge,
   buildTubes,
+  buildMannequinParts,
   getWheelCenters,
   Tube3D,
+  MannequinPart3D,
 } from "./bike3d";
 import type { MannequinSketch } from "./types";
 
@@ -31,8 +33,16 @@ const FRAME_MATERIAL = (
   <meshStandardMaterial metalness={0.55} roughness={0.25} color="#9aa5b8" />
 );
 
-const MANNEQUIN_MATERIAL = (
-  <meshStandardMaterial metalness={0.0} roughness={0.65} color="#c8a87a" transparent opacity={0.8} />
+const MANNEQUIN_BODY_MATERIAL = (
+  <meshStandardMaterial color="#7a8fa6" roughness={0.55} metalness={0.05} />
+);
+
+const MANNEQUIN_JOINT_MATERIAL_ELEM = (
+  <meshStandardMaterial color="#5c6e82" roughness={0.4} metalness={0.1} />
+);
+
+const MANNEQUIN_OUTLINE_MATERIAL = (
+  <meshBasicMaterial color="#2a3540" side={THREE.BackSide} />
 );
 
 const WHEEL_MATERIAL = (
@@ -54,8 +64,6 @@ const JOINT_MATERIAL = (
 type SaddleType = "arione" | "power";
 
 // ── Curve utilities ────────────────────────────────────────────────────────────
-
-function _lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
 
 function _smoothstep(e0: number, e1: number, x: number) {
   const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
@@ -452,13 +460,103 @@ function TubeMesh({ tube }: { tube: Tube3D }) {
   const axis = new THREE.Vector3(0, 1, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(axis, dir.clone().normalize());
 
-  const isMannequin = tube.group.startsWith("mannequin");
-
   return (
     <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
       <cylinderGeometry args={[tube.radius, tube.radius, length, 12, 1]} />
-      {isMannequin ? MANNEQUIN_MATERIAL : FRAME_MATERIAL}
+      {FRAME_MATERIAL}
     </mesh>
+  );
+}
+
+// ── Mannequin primitive meshes ──────────────────────────────────────────────
+
+/** Outline scale factor for inverted-hull outlines */
+const OUTLINE_SCALE = 1.015;
+
+function MannequinPartMesh({ part }: { part: MannequinPart3D }) {
+  if (part.type === "sphere") {
+    return <MannequinSphereMesh part={part} />;
+  }
+  // cylinder, tapered_cylinder, capsule all share directional positioning
+  const [sx, sy, sz] = part.start;
+  const [ex, ey, ez] = part.end;
+  const start = new THREE.Vector3(sx, sy, sz);
+  const end = new THREE.Vector3(ex, ey, ez);
+  const dir = new THREE.Vector3().subVectors(end, start);
+  const length = dir.length();
+  if (length < 1) return null;
+
+  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  const axis = new THREE.Vector3(0, 1, 0);
+  const quat = new THREE.Quaternion().setFromUnitVectors(axis, dir.clone().normalize());
+  const posArr = mid.toArray();
+  const quatArr = quat.toArray() as [number, number, number, number];
+
+  if (part.type === "capsule") {
+    const bodyLength = Math.max(0, length - part.radiusStart * 2);
+    return (
+      <group position={posArr} quaternion={quatArr}>
+        <mesh>
+          <capsuleGeometry args={[part.radiusStart, bodyLength, 16, 32]} />
+          {MANNEQUIN_BODY_MATERIAL}
+        </mesh>
+        <mesh scale={[OUTLINE_SCALE, OUTLINE_SCALE, OUTLINE_SCALE]}>
+          <capsuleGeometry args={[part.radiusStart, bodyLength, 16, 32]} />
+          {MANNEQUIN_OUTLINE_MATERIAL}
+        </mesh>
+      </group>
+    );
+  }
+
+  if (part.type === "tapered_cylinder") {
+    // Use average radius as a uniform capsule for rounded ends
+    const avgR = (part.radiusStart + part.radiusEnd) / 2;
+    const bodyLength = Math.max(0, length - avgR * 2);
+    return (
+      <group position={posArr} quaternion={quatArr}>
+        <mesh>
+          <capsuleGeometry args={[avgR, bodyLength, 16, 32]} />
+          {MANNEQUIN_BODY_MATERIAL}
+        </mesh>
+        <mesh scale={[OUTLINE_SCALE, OUTLINE_SCALE, OUTLINE_SCALE]}>
+          <capsuleGeometry args={[avgR, bodyLength, 16, 32]} />
+          {MANNEQUIN_OUTLINE_MATERIAL}
+        </mesh>
+      </group>
+    );
+  }
+
+  // cylinder — render as capsule for rounded ends
+  const bodyLength = Math.max(0, length - part.radiusStart * 2);
+  // Elliptical torso: widen laterally, narrow front-to-back
+  const isTorso = part.group === "mannequin_upper_torso" || part.group === "mannequin_lower_torso";
+  const meshScale: [number, number, number] = isTorso ? [0.85, 1.0, 1.2] : [1, 1, 1];
+  return (
+    <group position={posArr} quaternion={quatArr}>
+      <mesh scale={meshScale}>
+        <capsuleGeometry args={[part.radiusStart, bodyLength, 16, 32]} />
+        {MANNEQUIN_BODY_MATERIAL}
+      </mesh>
+      <mesh scale={meshScale.map(s => s * OUTLINE_SCALE) as [number, number, number]}>
+        <capsuleGeometry args={[part.radiusStart, bodyLength, 16, 32]} />
+        {MANNEQUIN_OUTLINE_MATERIAL}
+      </mesh>
+    </group>
+  );
+}
+
+function MannequinSphereMesh({ part }: { part: MannequinPart3D }) {
+  return (
+    <group position={part.start}>
+      <mesh>
+        <sphereGeometry args={[part.radiusStart, 32, 32]} />
+        {MANNEQUIN_JOINT_MATERIAL_ELEM}
+      </mesh>
+      <mesh scale={[OUTLINE_SCALE, OUTLINE_SCALE, OUTLINE_SCALE]}>
+        <sphereGeometry args={[part.radiusStart, 32, 32]} />
+        {MANNEQUIN_OUTLINE_MATERIAL}
+      </mesh>
+    </group>
   );
 }
 
@@ -598,9 +696,13 @@ function Overlay2D({ mannequin2D }: { mannequin2D: MannequinSketch }) {
   const segments: [[number, number], [number, number]][] = [
     [[m.hip.x, m.hip.y], [m.knee.x, m.knee.y]],
     [[m.knee.x, m.knee.y], [m.ankle.x, m.ankle.y]],
-    [[m.hip.x, m.hip.y], [m.shoulder.x, m.shoulder.y]],
+    [[m.hip.x, m.hip.y], [m.spineJoint.x, m.spineJoint.y]],
+    [[m.spineJoint.x, m.spineJoint.y], [m.shoulder.x, m.shoulder.y]],
+    [[m.shoulder.x, m.shoulder.y], [m.neckBase.x, m.neckBase.y]],
+    [[m.neckBase.x, m.neckBase.y], [m.head.x, m.head.y]],
     [[m.shoulder.x, m.shoulder.y], [m.elbow.x, m.elbow.y]],
-    [[m.elbow.x, m.elbow.y], [m.hands.x, m.hands.y]],
+    [[m.elbow.x, m.elbow.y], [m.wrist.x, m.wrist.y]],
+    [[m.wrist.x, m.wrist.y], [m.hands.x, m.hands.y]],
   ];
 
   return (
@@ -639,6 +741,7 @@ function SceneContent({
   show2dOverlay,
   mannequin2D,
   mannequin3DOverride,
+  weightKg = 75,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -649,6 +752,7 @@ function SceneContent({
   show2dOverlay: boolean;
   mannequin2D?: MannequinSketch;
   mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
+  weightKg?: number;
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
@@ -665,10 +769,18 @@ function SceneContent({
       ]
     : geo.edges;
 
-  const allTubes = buildTubes(effectivePoints, effectiveEdges);
-  const tubes = showMannequin
-    ? allTubes
-    : allTubes.filter((t) => !t.group.startsWith("mannequin"));
+  // Frame tubes (non-mannequin edges only)
+  const framePts = effectivePoints.filter((p) => p.group !== "mannequin");
+  const frameEdges = effectiveEdges.filter((e) => !e.group.startsWith("mannequin"));
+  const frameTubes = buildTubes(framePts, frameEdges);
+
+  // Mannequin parts (sphere joints + cylinders + capsules + tapered)
+  const mannequinPts = effectivePoints.filter((p) => p.group === "mannequin");
+  const mannequinEdges = effectiveEdges.filter((e) => e.group.startsWith("mannequin"));
+  const mannequinParts = showMannequin
+    ? buildMannequinParts(mannequinPts, mannequinEdges, weightKg)
+    : [];
+
   const wheelRadius = geo.frame.wheel_radius ?? 311;
 
   return (
@@ -681,8 +793,13 @@ function SceneContent({
       <directionalLight position={[-500, 600, -600]} intensity={0.5} />
 
       {/* Frame tubes */}
-      {tubes.map((tube, i) => (
-        <TubeMesh key={i} tube={tube} />
+      {frameTubes.map((tube, i) => (
+        <TubeMesh key={`frame-${i}`} tube={tube} />
+      ))}
+
+      {/* Mannequin body parts */}
+      {mannequinParts.map((part, i) => (
+        <MannequinPartMesh key={`mann-${i}`} part={part} />
       ))}
 
       {/* Joints */}
@@ -717,6 +834,7 @@ interface BikeScene3DProps {
   geo: Geometry3DResponse;
   mannequin2D?: MannequinSketch;
   mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
+  weightKg?: number;
 }
 
 function exportJson(geo: Geometry3DResponse) {
@@ -743,7 +861,7 @@ function exportCsv(geo: Geometry3DResponse) {
   URL.revokeObjectURL(url);
 }
 
-export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mannequin3DOverride }) => {
+export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mannequin3DOverride, weightKg = 75 }) => {
   const [devMode, setDevMode] = useState(false);
   const [showMannequin, setShowMannequin] = useState(true);
   const [show2dOverlay, setShow2dOverlay] = useState(false);
@@ -878,6 +996,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
             show2dOverlay={show2dOverlay}
             mannequin2D={mannequin2D}
             mannequin3DOverride={mannequin3DOverride}
+            weightKg={weightKg}
           />
         </Canvas>
       </div>

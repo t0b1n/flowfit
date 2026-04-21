@@ -76,13 +76,17 @@ export type MannequinSketch = {
   ankle: ContactPoint;
   shoulder: ContactPoint;
   elbow: ContactPoint;
+  wrist: ContactPoint;
   hands: ContactPoint;
   head: ContactPoint;
+  neckBase: ContactPoint;
+  spineJoint: ContactPoint;
 };
 
 export type RiderFit = {
   height: number;
   inseam: number;
+  weight: number;
   targetKneeFlexDeg: number;
 };
 

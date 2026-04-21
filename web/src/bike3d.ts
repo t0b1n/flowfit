@@ -57,9 +57,6 @@ const TUBE_RADIUS: Record<string, number> = {
   bar_drop: 9,
   // fallback by group
   frame: 10,
-  mannequin_leg: 55,
-  mannequin_arm: 35,
-  mannequin_torso: 80,
 };
 
 // Which tube name to use for a given edge a→b pair
@@ -135,4 +132,126 @@ export function getNamedPoint(
   name: string
 ): [number, number, number] | null {
   return points.find((p) => p.name === name)?.pos ?? null;
+}
+
+// ── Mannequin primitives ────────────────────────────────────────────────────
+
+export type PrimitiveType = "cylinder" | "sphere" | "capsule" | "tapered_cylinder";
+
+export interface MannequinPart3D {
+  type: PrimitiveType;
+  start: [number, number, number];
+  end: [number, number, number];
+  radiusStart: number;
+  radiusEnd: number;
+  group: string;
+}
+
+interface PartSpec {
+  type: PrimitiveType;
+  baseRadius: number;
+  /** Weight sensitivity exponent: radius = baseRadius * (weight/75)^sensitivity */
+  sensitivity: number;
+  /** For tapered_cylinder: end radius base value */
+  baseRadiusEnd?: number;
+}
+
+// Base radii derived from 2D SVG stroke widths (strokeWidth = diameter, so radius = strokeWidth/2).
+// 2D reference at height=1800: torso 175, thigh 110, shin 82, upper arm 70, forearm 55, head 88r.
+const MANNEQUIN_EDGE_SPEC: Record<string, PartSpec> = {
+  mannequin_foot:          { type: "tapered_cylinder", baseRadius: 41, sensitivity: 0.10, baseRadiusEnd: 25 },
+  mannequin_shin:          { type: "cylinder",         baseRadius: 48, sensitivity: 0.15 },
+  mannequin_thigh:         { type: "cylinder",         baseRadius: 65, sensitivity: 0.35 },
+  mannequin_hip_bar:       { type: "cylinder",         baseRadius: 75, sensitivity: 0.40 },
+  mannequin_lower_torso:   { type: "cylinder",         baseRadius: 95, sensitivity: 0.45 },
+  mannequin_upper_torso:   { type: "cylinder",         baseRadius: 105, sensitivity: 0.45 },
+  mannequin_neck:          { type: "cylinder",         baseRadius: 28, sensitivity: 0.25 },
+  mannequin_shoulder_bar:  { type: "cylinder",         baseRadius: 35, sensitivity: 0.20 },
+  mannequin_upper_arm:     { type: "cylinder",         baseRadius: 35, sensitivity: 0.20 },
+  mannequin_forearm:       { type: "cylinder",         baseRadius: 28, sensitivity: 0.10 },
+  mannequin_hand:          { type: "capsule",          baseRadius: 23, sensitivity: 0.05 },
+};
+
+// Joint sphere radii — smaller than adjacent limbs so they sit recessed in articulation gaps.
+const MANNEQUIN_JOINT_SPEC: Record<string, PartSpec> = {
+  head_center:      { type: "sphere", baseRadius: 88, sensitivity: 0.05 },
+  spine_joint:      { type: "sphere", baseRadius: 80, sensitivity: 0.45 },
+  shoulder_l:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
+  shoulder_r:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
+  elbow_l:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
+  elbow_r:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
+  wrist_l:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
+  wrist_r:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
+  hip_l:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
+  hip_r:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
+  knee_l:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
+  knee_r:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
+  ankle_l:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
+  ankle_r:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
+};
+
+/** Fraction of segment length to trim from EACH end to reveal joint spheres */
+const GAP_FRACTION = 0.06;
+
+function scaleRadius(base: number, weightKg: number, sensitivity: number): number {
+  const w = weightKg / 75;
+  return base * Math.pow(w, sensitivity);
+}
+
+/**
+ * Build mannequin part descriptors from 3D points and edges.
+ * Supports sphere joints, cylinders, capsules, and tapered cylinders.
+ * Body part radii scale anatomically with rider weight.
+ */
+export function buildMannequinParts(
+  points: Geometry3DPoint[],
+  edges: Geometry3DEdge[],
+  weightKg: number = 75,
+): MannequinPart3D[] {
+  const ptMap = new Map<string, [number, number, number]>();
+  for (const p of points) {
+    ptMap.set(p.name, p.pos);
+  }
+
+  const parts: MannequinPart3D[] = [];
+
+  // Edge-based parts (cylinders, tapered cylinders, capsules)
+  // Inset each segment to create articulation gaps that reveal joint spheres
+  for (const edge of edges) {
+    const spec = MANNEQUIN_EDGE_SPEC[edge.group];
+    if (!spec) continue;
+    const startPt = ptMap.get(edge.a);
+    const endPt = ptMap.get(edge.b);
+    if (!startPt || !endPt) continue;
+    const r1 = scaleRadius(spec.baseRadius, weightKg, spec.sensitivity);
+    const r2 = spec.baseRadiusEnd != null
+      ? scaleRadius(spec.baseRadiusEnd, weightKg, spec.sensitivity)
+      : r1;
+
+    // Inset start/end along segment axis to create articulation gap
+    const dx = endPt[0] - startPt[0];
+    const dy = endPt[1] - startPt[1];
+    const dz = endPt[2] - startPt[2];
+    const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    let start: [number, number, number] = startPt;
+    let end: [number, number, number] = endPt;
+    if (len > 1) {
+      const inset = len * GAP_FRACTION;
+      const nx = dx / len, ny = dy / len, nz = dz / len;
+      start = [startPt[0] + nx * inset, startPt[1] + ny * inset, startPt[2] + nz * inset];
+      end = [endPt[0] - nx * inset, endPt[1] - ny * inset, endPt[2] - nz * inset];
+    }
+
+    parts.push({ type: spec.type, start, end, radiusStart: r1, radiusEnd: r2, group: edge.group });
+  }
+
+  // Joint spheres
+  for (const [name, spec] of Object.entries(MANNEQUIN_JOINT_SPEC)) {
+    const pos = ptMap.get(name);
+    if (!pos) continue;
+    const r = scaleRadius(spec.baseRadius, weightKg, spec.sensitivity);
+    parts.push({ type: "sphere", start: pos, end: pos, radiusStart: r, radiusEnd: r, group: `joint_${name}` });
+  }
+
+  return parts;
 }

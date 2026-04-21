@@ -158,13 +158,23 @@ def _backend_joints(bike, rider: RiderAnthropometrics, comp: Components) -> dict
     # Elbow: 2-circle IK from shoulder (upper_arm) ∩ hoods (forearm), prefer lower
     ex, ey = _circle_intersections(sx, sy, wx, wy, rider.upper_arm_length, rider.forearm_length, False)
 
+    # Wrist: positioned along elbow→hand vector at (forearm - palm_length)
+    palm_length = 0.055 * rider.height
+    forearm_no_palm = rider.forearm_length - palm_length
+    e2h_dx = wx - ex
+    e2h_dy = wy - ey
+    e2h_dist = max(math.hypot(e2h_dx, e2h_dy), 1e-6)
+    wrist_x = ex + (e2h_dx / e2h_dist) * forearm_no_palm
+    wrist_y = ey + (e2h_dy / e2h_dist) * forearm_no_palm
+
     return dict(
         hip=Vec2(hx, hy),
         knee=Vec2(kx, ky),
         ankle=Vec2(ax, ay),
         shoulder=Vec2(sx, sy),
         elbow=Vec2(ex, ey),
-        wrist=Vec2(wx, wy),
+        wrist=Vec2(wrist_x, wrist_y),
+        hand=Vec2(wx, wy),
     )
 
 
@@ -249,9 +259,20 @@ def _frontend_joints(
         shoulder.y + math.sin(trunk_rad + neck_angle) * neck_length,
     )
 
+    # Wrist: along elbow→hands at (forearm - palm_length)
+    palm_length = 0.055 * rider.height
+    forearm_no_palm = rider.forearm_length - palm_length
+    e2h_dx = hands.x - elbow.x
+    e2h_dy = hands.y - elbow.y
+    e2h_dist = max(math.hypot(e2h_dx, e2h_dy), 1e-6)
+    wrist = Vec2(
+        elbow.x + (e2h_dx / e2h_dist) * forearm_no_palm,
+        elbow.y + (e2h_dy / e2h_dist) * forearm_no_palm,
+    )
+
     return dict(
         hip=hip, knee=knee, ankle=ankle,
-        shoulder=shoulder, elbow=elbow, hands=hands, head=head,
+        shoulder=shoulder, elbow=elbow, wrist=wrist, hands=hands, head=head,
     )
 
 
@@ -639,7 +660,7 @@ def test_leg_segment_centre_matches_2d_overlay(be_a, be_b, fe_a, fe_b, label):
 @pytest.mark.xfail(strict=True, reason="BUG 3: frontend elbow uses projected arm lengths (bar_width/2 reduction), backend uses full anatomical lengths")
 @pytest.mark.parametrize("be_a,be_b,fe_a,fe_b,label", [
     ("shoulder", "elbow",  "shoulder", "elbow",   "upper arm (shoulder→elbow)"),
-    ("elbow",    "wrist",  "elbow",    "hands",   "forearm   (elbow→wrist)"),
+    ("elbow",    "hand",   "elbow",    "hands",   "forearm   (elbow→hand)"),
 ])
 def test_arm_segment_centre_matches_2d_overlay(be_a, be_b, fe_a, fe_b, label):
     """

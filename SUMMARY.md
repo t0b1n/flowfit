@@ -2,7 +2,7 @@
 
 ## What It Is
 
-A bike fit tool that computes optimal saddle height and cockpit setup for a given rider and frame. The user inputs their body measurements, selects a frame from a catalog, and the tool finds component settings that place the rider within a target posture band (Endurance / Regular / Fast). A 2D SVG visualization shows the resulting bike geometry and a stick-figure mannequin.
+A bike fit tool that computes optimal saddle height and cockpit setup for a given rider and frame. The user inputs their body measurements, selects a frame from a catalog, and the tool finds component settings that place the rider within a target posture band (Endurance / Regular / Fast). A 2D SVG visualization shows the resulting bike geometry and an articulated mannequin with distinct body-part primitives (sphere joints, cylinders, capsules, tapered cylinders), toon/cel-shaded with weight-based anatomical radius scaling.
 
 ---
 
