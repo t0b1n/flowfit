@@ -2,143 +2,143 @@ brand,model,year,category,geometrygeeks_slug,in_catalog
 Specialized,Tarmac SL8,2024,All-round race,specialized-tarmac-sl8-2024,true
 Specialized,Tarmac SL7,2021,All-round race,specialized-tarmac-sl7-2021,true
 Specialized,Tarmac SL6,2019,All-round race,specialized-tarmac-sl6-2019,true
-Specialized,Allez Sprint,2021,Aero race,specialized-allez-sprint-2021,false
+Specialized,Allez Sprint,2022,Aero race,specialized-allez-sprint-2022,true
 Specialized,Roubaix SL8,2024,Endurance road,specialized-roubaix-sl8-2024,true
 Specialized,Aethos,2021,Climbing,specialized-aethos-2021,true
 Specialized,Crux,2022,Gravel,specialized-crux-2022,true
-Specialized,Venge,2019,Aero race,specialized-venge-2019,false
-Specialized,Diverge STR,2023,Gravel,specialized-diverge-str-2023,false
-Specialized,Diverge Gen 5,2026,Gravel,specialized-diverge-2026,false
+Specialized,S-Works Venge,2019,Aero race,specialized-s-works-venge-2019,true
+Specialized,S-Works Diverge STR,2022,Gravel,specialized-s-works-diverge-str-2022,false
+Specialized,Diverge 4,2026,Gravel,specialized-diverge-4-2026,true
 Trek,Madone Gen 8,2024,Aero race,trek-madone-gen8-2024,true
-Trek,Madone Gen 7,2022,Aero race,trek-madone-gen7-2022,false
-Trek,Emonda SLR,2021,Cliƒmbing,trek-emonda-slr-2021,false
-Trek,Domane SLR,2022,Endurance road,trek-domane-slr-2022,false
-Trek,Boone,2023,Gravel,trek-boone-2023,false
-Trek,Checkpoint SL,2021,Gravel,trek-checkpoint-sl-2021,false
-Trek,Checkpoint SL Gen 3,2026,Gravel,trek-checkpoint-sl-2026,false
-Giant,TCR Advanced SL,2024,All-round race,giant-tcr-advanced-sl-2024,false
-Giant,TCR Advanced Pro,2021,All-round race,giant-tcr-advanced-pro-2021,false
+Trek,Madone SLR Gen 7,2023,Aero race,trek-madone-slr-gen-7-2023,false
+Trek,Emonda SLR 7,2021,Climbing,trek-emonda-slr-7-2021,false
+Trek,Domane SLR Gen 4,2023,Endurance road,trek-domane-slr-gen-4-2023,false
+Trek,Boone,2024,Gravel,trek-boone-2024,false
+Trek,Checkpoint SL 6,2021,Gravel,trek-checkpoint-sl-6-2021,false
+Trek,Checkpoint SL 7 Gen 3,2026,Gravel,trek-checkpoint-sl-7-gen-3-2026,false
+Giant,TCR Advanced SL 0,2024,All-round race,giant-tcr-advanced-sl-0-2024,false
+Giant,TCR Advanced Pro Disc,2021,All-round race,giant-tcr-advanced-pro-disc-2021,false
 Giant,Propel Advanced SL,2024,Aero race,giant-propel-advanced-sl-2024,true
-Giant,Defy Advanced Pro,2022,Endurance road,giant-defy-advanced-pro-2022,false
+Giant,Defy Advanced Pro 1,2022,Endurance road,giant-defy-advanced-pro-1-2022,false
 Giant,Revolt Advanced Pro,2022,Gravel,giant-revolt-advanced-pro-2022,true
-Giant,Revolt X,2023,Gravel,giant-revolt-x-2023,false
-Cannondale,SuperSix EVO,2022,All-round race,cannondale-supersix-evo-2022,false
+Giant,Revolt X Advanced Pro,2023,Gravel,giant-revolt-x-advanced-pro-2023,false
+Cannondale,SuperSix EVO,2022,All-round race,cannondale-super-six-evo-2022,false
 Cannondale,SuperSix EVO Hi-MOD,2024,All-round race,cannondale-supersix-evo-hi-mod-2024,false
-Cannondale,CAAD14,2021,All-round race,cannondale-caad14-2021,false
+Cannondale,CAAD 13,2021,All-round race,cannondale-caad-13-2021,false
 Cannondale,Synapse,2022,Endurance road,cannondale-synapse-2022,false
 Cannondale,SuperX,2021,Gravel,cannondale-superx-2021,false
 Cannondale,Topstone Carbon Gen 2,2023,Gravel,cannondale-topstone-carbon-2023,false
-Cannondale,Topstone Carbon Gen 3,2025,Gravel,cannondale-topstone-carbon-2025,false
-Scott,Addict RC,2024,All-round race,scott-addict-rc-2024,false
+Cannondale,Topstone Carbon,2025,Gravel,cannondale-topstone-carbon-2025-1,false
+Scott,Addict RC,2023,All-round race,scott-addict-rc-2023,false
 Scott,Addict RC Ultimate,2021,All-round race,scott-addict-rc-ultimate-2021,false
 Scott,Foil RC,2023,Aero race,scott-foil-rc-2023,false
 Scott,Speedster,2021,All-round race,scott-speedster-2021,false
-Scott,Addict Gravel,2023,Gravel,scott-addict-gravel-2023,false
+Scott,Addict Gravel,2022,Gravel,scott-addict-gravel-2022,false
 Canyon,Aeroad CFR,2021,Aero race,canyon-aeroad-cfr-2021,true
-Canyon,Ultimate CFR,2024,All-round race,canyon-ultimate-cfr-2024,false
-Canyon,Endurace CFR,2022,Endurance road,canyon-endurace-cfr-2022,false
-Canyon,Inflite CFR,2022,Gravel,canyon-inflite-cfr-2022,false
-Canyon,Grail CFR,2023,Gravel,canyon-grail-cfr-2023,false
+Canyon,Ultimate CFR,2023,All-round race,canyon-ultimate-cfr-2023,false
+Canyon,Endurance CFR Di2,2023,Endurance road,canyon-endurance-cfr-di2-2023,false
+Canyon,Inflite CFR,2023,Gravel,canyon-inflite-cfr-2023,false
+Canyon,Grail CFR,2024,Gravel,canyon-grail-cfr-2024,false
 Cervelo,S5,2023,Aero race,cervelo-s5-2023,true
 Cervelo,R5,2023,All-round race,cervelo-r5-2023,false
 Cervelo,Caledonia,2021,Endurance road,cervelo-caledonia-2021,true
-Cervelo,Soloist,2022,Aero race,cervelo-soloist-2022,false
+Cervelo,Soloist,2023,Aero race,cervelo-soloist-2023,false
 Cervelo,Aspero,2024,Gravel,cervelo-aspero-2024,false
-Cervelo,Aspero-5,2025,Gravel,cervelo-aspero-5-2025,false
-BMC,Teammachine SLR01,2023,All-round race,bmc-teammachine-slr01-2023,false
-BMC,Roadmachine01,2024,Endurance road,bmc-roadmachine01-2024,false
-BMC,Timemachine01,2022,Aero race,bmc-timemachine01-2022,false
-BMC,URS 01,2024,Gravel,bmc-urs-01-2024,false
+Cervelo,New Aspero-5,2025,Gravel,cervelo-new-aspero-5-2025,false
+BMC,Teammachine SLR,2023,All-round race,bmc-teammachine-slr-2023,false
+BMC,Roadmachine,2024,Endurance road,bmc-roadmachine-2024,false
+BMC,Timemachine 01 Disc One,2022,Aero race,bmc-timemachine-01-disc-one-2022,false
+BMC,URS One,2022,Gravel,bmc-urs-one-2022,false
 Pinarello,Dogma F,2022,All-round race,pinarello-dogma-f-2022,false
-Pinarello,Dogma X,2022,Gravel,pinarello-dogma-x-2022,false
-Pinarello,Prince,2022,All-round race,pinarello-prince-2022,false
+Pinarello,Dogma X,2023,Gravel,pinarello-dogma-x-2023-3,false
+Pinarello,Prince Disc,2022,All-round race,pinarello-prince-disc-2022,false
 Pinarello,Paris,2022,Endurance road,pinarello-paris-2022,false
 Pinarello,X1,2023,Endurance road,pinarello-x1-2023,false
-Colnago,V4Rs,2022,All-round race,colnago-v4rs-2022,false
+Colnago,V4Rs,2023,All-round race,colnago-v4rs-2023,false
 Colnago,C68,2022,All-round race,colnago-c68-2022,false
 Colnago,V3Rs,2020,All-round race,colnago-v3rs-2020,false
-Colnago,G4X,2023,Gravel,colnago-g4x-2023,false
+Colnago,G4-X,2024,Gravel,colnago-g4-x-2024,false
 Colnago,Epoi,2023,Endurance road,colnago-epoi-2023,false
 Colnago,Y1Rs,2023,Aero race,colnago-y1rs-2023,true
-Wilier,Cento10 SL,2024,Aero race,wilier-cento10-sl-2024,false
+Wilier,Cento 10 SL,2021,Aero race,wilier-triestina-cento-10-sl-2021,false
 Wilier,Cento10 Air,2022,Aero race,wilier-cento10-air-2022,false
-Wilier,Zero SLR,2022,Climbing,wilier-zero-slr-2022,false
-Wilier,Filante SLR,2023,Aero race,wilier-filante-slr-2023,false
+Wilier,0 SLR (Zero),2024,Climbing,wilier-0-slr-zero-2024,false
+Wilier,Filante SLR,2024,Aero race,wilier-filante-slr-2024,false
 Wilier,Filante SLR ID2,2025,Aero race,wilier-filante-slr-id2-2025,false
-Wilier,Verticale SLR,2023,Climbing,wilier-verticale-slr-2023,false
-Wilier,Rave SLR,2023,Gravel,wilier-rave-slr-2023,false
+Wilier,Verticale SLR,2024,Climbing,wilier-verticale-slr-2024,false
+Wilier,Rave SLR,2022,Gravel,wilier-triestina-rave-slr-2022,false
 Wilier,Rave SL,2024,Gravel,wilier-rave-sl-2024,false
-Wilier,Rave SLR ID2,2025,Gravel,wilier-rave-slr-id2-2025,false
-De Rosa,Protos,2022,All-round race,de-rosa-protos-2022,false
-De Rosa,Merak,2022,All-round race,de-rosa-merak-2022,false
-De Rosa,SK Pininfarina,2022,All-round race,de-rosa-sk-pininfarina-2022,false
-Bianchi,Oltre RC,2023,All-round race,bianchi-oltre-rc-2023,false
+Wilier,Rave SLR ID2,2026,Gravel,wilier-rave-slr-id2-2026,false
+De Rosa,Protos,2020,All-round race,de-rosa-protos-2020,false
+De Rosa,Merak,2023,All-round race,de-rosa-merak-2023,false
+De Rosa,SK Pininfarina,2020,All-round race,de-rosa-sk-pininfarina-2020,false
+Bianchi,Oltre RC/Pro,2023,All-round race,bianchi-oltre-rcpro-2023,false
 Bianchi,Infinito XE,2023,Endurance road,bianchi-infinito-xe-2023,false
-Bianchi,Aria,2023,Aero race,bianchi-aria-2023,false
-Bianchi,Arcadex,2025,Gravel,bianchi-arcadex-2025,false
+Bianchi,Aria,2021,Aero race,bianchi-aria-2021,false
+Bianchi,Arcadex Comp,2025,Gravel,bianchi-arcadex-comp-2025,false
 Orbea,Orca,2023,All-round race,orbea-orca-2023,true
 Orbea,Orca Aero,2022,Aero race,orbea-orca-aero-2022,false
 Orbea,Avant,2022,Endurance road,orbea-avant-2022,false
-Orbea,Terra,2025,Gravel,orbea-terra-2025,false
-Orbea,Terra Race,2026,Gravel,orbea-terra-race-2026,false
-Merida,Scultura Team,2022,All-round race,merida-scultura-team-2022,false
-Merida,Reacto Team,2022,Aero race,merida-reacto-team-2022,false
-Merida,Silex,2022,Gravel,merida-silex-2022,false
+Orbea,Terra,2025,Gravel,orbea-terra-2025-1,false
+Orbea,Terra Race,2025,Gravel,orbea-terra-race-2025,false
+Merida,Scultura V Team,2022,All-round race,merida-scultura-v-team-2022,false
+Merida,Reacto Team,2023,Aero race,merida-reacto-team-2023,false
+Merida,Silex 700,2023,Gravel,merida-silex-700-2023,false
 Lapierre,Xelius SL,2022,All-round race,lapierre-xelius-sl-2022,false
 Lapierre,Aircode SL,2022,Aero race,lapierre-aircode-sl-2022,false
-Lapierre,Pulsium,2022,Endurance road,lapierre-pulsium-2022,false
+Lapierre,Pulsium 3.0,2024,Endurance road,lapierre-pulsium-30-2024,false
 Lapierre,Crosshill CF,2025,Gravel,lapierre-crosshill-cf-2025,false
-Factor,O2,2022,All-round race,factor-o2-2022,false
-Factor,O2 VAM,2023,Climbing,factor-o2-vam-2023,false
-Factor,Ostro VAM Gen 1,2020,Aero race,factor-ostro-vam-2020,false
-Factor,Ostro VAM Gen 2,2024,Aero race,factor-ostro-vam-2024,false
-Ridley,Helium SLX,2022,Climbing,ridley-helium-slx-2022,false
-Ridley,Noah Fast,2022,Aero race,ridley-noah-fast-2022,false
-Ridley,Noah Fast 3.0,2025,Aero race,ridley-noah-fast-3-2025,false
+Factor,O2,2020,All-round race,factor-o2-2020,false
+Factor,O2 VAM,2023,Climbing,factor-o2-vam-2023-2,false
+Factor,OSTRO VAM,2021,Aero race,factor-ostro-vam-2021-2022,false
+Factor,Ostro VAM v2,2024,Aero race,factor-ostro-vam-v2-2024,false
+Ridley,Helium SLX Disc,2022,Climbing,ridley-helium-slx-disc-2022,false
+Ridley,Noah Fast,2023,Aero race,ridley-noah-fast-2023,false
+Ridley,Noah Fast 3.0,2025,Aero race,ridley-noah-fast-30-2025,false
 Ridley,Fenix SLiC,2022,Endurance road,ridley-fenix-slic-2022,false
-Ridley,Kanzo Fast,2024,Gravel,ridley-kanzo-fast-2024,false
-Ridley,Kanzo Adventure,2026,Gravel,ridley-kanzo-adventure-2026,false
-3T,Strada,2022,Aero race,3t-strada-2022,false
+Ridley,Kanzo Fast,2021,Gravel,ridley-kanzo-fast-2021,false
+Ridley,Kanzo Adventure,2024,Gravel,ridley-kanzo-adventure-2024,false
+3T,Strada iCR,2022,Aero race,3t-cycling-strada-icr-2022,false
 3T,Strada Italia,2024,Aero race,3t-strada-italia-2024,false
-3T,Exploro RaceMax,2024,Gravel,3t-exploro-racemax-2024,false
-Argon 18,Gallium Pro,2022,All-round race,argon-18-gallium-pro-2022,false
+3T,RaceMax Exploro,2023,Gravel,3t-racemax-exploro-2023,false
+Argon 18,Gallium CS Disc,2022,All-round race,argon-18-gallium-cs-disc-2022,false
 Argon 18,Nitrogen,2022,Aero race,argon-18-nitrogen-2022,false
-Argon 18,Sum Pro,2022,Endurance road,argon-18-sum-pro-2022,false
-Look,795 Blade RS,2022,Aero race,look-795-blade-rs-2022,false
-Look,796 Monoblade,2022,Aero race,look-796-monoblade-2022,false
+Argon 18,Sum Pro,2022,Endurance road,argon-18-sum-pro-2022-1,false
+Look,795 BLADE RS,2023,Aero race,look-795-blade-rs-2023,false
+Look,796 monoblade RS,2023,Aero race,look-796-monoblade-rs-2023-2023,false
 Look,785 Huez RS,2022,Climbing,look-785-huez-rs-2022,false
 Storck,Aerfast.5,2024,Aero race,storck-aerfast-5-2024,false
 Storck,Fascenario.5,2024,All-round race,storck-fascenario-5-2024,false
 Time,Alpe d'Huez,2022,All-round race,time-alpe-d-huez-2022,false
-Time,ADHX,2022,Gravel,time-adhx-2022,false
+Time,ADHX,2024,Gravel,time-adhx-2024,false
 Felt,AR,2022,Aero race,felt-ar-2022,false
-Felt,FR,2022,All-round race,felt-fr-2022,false
-Basso,Diamante,2024,All-round race,basso-diamante-2024,false
+Felt,FR,2024,All-round race,felt-fr-2024,false
+Basso,Diamante,2023,All-round race,basso-diamante-2023,false
 Basso,Venta,2022,Endurance road,basso-venta-2022,false
-Basso,Astra,2022,Endurance road,basso-astra-2022,false
-Cipollini,NK1K,2022,Aero race,cipollini-nk1k-2022,false
+Basso,Astra,2023,Endurance road,basso-astra-2023,false
+Cipollini,NK1K,2016,Aero race,cipollini-nk1k-2016-2017,false
 Cipollini,Bond Evo,2022,All-round race,cipollini-bond-evo-2022,false
-Cipollini,Dolomia,2022,Climbing,cipollini-dolomia-2022,false
+Cipollini,Dolomia,2021,Climbing,cipollini-dolomia-2021,false
 Parlee,Z5,2022,All-round race,parlee-z5-2022,false
 Parlee,Z4,2022,All-round race,parlee-z4-2022,false
-Parlee,Altum,2022,All-round race,parlee-altum-2022,false
-Eddy Merckx,Sallanches 64,2022,Endurance road,eddy-merckx-sallanches-64-2022,false
+Parlee,Altum Disc,2022,All-round race,parlee-altum-disc-2022-fitting-2020,false
+Eddy Merckx,Sallanches 64,2016,Endurance road,eddy-merckx-sallanches-64-2016,false
 Eddy Merckx,525,2022,All-round race,eddy-merckx-525-2022,false
-Open Cycle,WI.DE.,2024,Gravel,open-wi-de-2024,false
+Open Cycle,WIDE,2019,Gravel,open-wide-2019-2021,false
 Open Cycle,WI.DE. 2.0,2026,Gravel,open-wi-de-2-0-2026,false
-Open Cycle,U.P.,2022,Gravel,open-u-p-2022,false
-Open Cycle,MIN.D.,2022,All-round race,open-min-d-2022,false
+Open Cycle,U.P.,2021,Gravel,open-u-p-u-p-p-e-r-2015-2021,false
+Open Cycle,MIND,2021,All-round race,open-mind-2020-2021,false
 Passoni,Corsa,2022,All-round race,passoni-corsa-2022,false
 Passoni,AT,2022,All-round race,passoni-at-2022,false
 Seka,Spear,2024,All-round race,seka-spear-2024,true
-Anchor,RS9s,2022,All-round race,anchor-rs9s-2022,false
+Anchor,RS9s,2021,All-round race,anchor-rs9s-2021,false
 Anchor,RNC7,2022,All-round race,anchor-rnc7-2022,false
-Bottecchia,SP9 Supernova,2022,All-round race,bottecchia-sp9-supernova-2022,false
+Bottecchia,SP9 Supernova,2014,All-round race,bottecchia-sp9-supernova-2014,false
 Bottecchia,Emme 3 Gara,2022,Aero race,bottecchia-emme-3-gara-2022,false
-Yoeleo,R9,2022,All-round race,yoeleo-r9-2022,false
+Yoeleo,R9,2020,All-round race,yoeleo-r9-2020,false
 Yoeleo,G21,2023,Gravel,yoeleo-g21-2023,false
 Niner,RLT9,2022,Gravel,niner-rlt9-2022,false
 Niner,RLT,2024,Gravel,niner-rlt-2024,false
-Salsa,Cutthroat,2024,Gravel,salsa-cutthroat-2024,false
-Pivot,Vault Gen 4,2024,Gravel,pivot-vault-2024,false
+Salsa,Cutthroat,2022,Gravel,salsa-cutthroat-2022,false
+Pivot,Vault,2023,Gravel,pivot-vault-2023,false
 Kona,Libre,2024,Gravel,kona-libre-2024,false

@@ -2462,6 +2462,435 @@ export const FRAME_CATALOG: FrameModel[] = [
         bb_height: 268
       }
     ]
+  },
+  {
+    id: "specialized-allez-sprint-2022",
+    brand: "Specialized",
+    model: "Allez Sprint",
+    launch_year: 2022,
+    category: "Aero race",
+    popularity: "Auto-populated from geometrygeeks.bike.",
+    sources: [
+      "https://geometrygeeks.bike/bike/specialized-allez-sprint-2022/"
+    ],
+    sizes: [
+      {
+        size: "49",
+        geometry: {
+          stack: 508,
+          reach: 378,
+          head_angle_deg: 71.75,
+          seat_angle_deg: 75.5,
+          bb_drop: 74,
+          chainstay_length: 410,
+          fork_length: 366,
+          fork_offset: 47,
+          seat_tube_ct: 470,
+          head_tube: 105,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 974,
+        front_center: 575,
+        trail: 63,
+        top_tube_effective: 509,
+        standover: 735,
+        bb_height: 266
+      },
+      {
+        size: "52",
+        geometry: {
+          stack: 520,
+          reach: 383,
+          head_angle_deg: 72.5,
+          seat_angle_deg: 74,
+          bb_drop: 74,
+          chainstay_length: 410,
+          fork_length: 366,
+          fork_offset: 47,
+          seat_tube_ct: 495,
+          head_tube: 115,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 976,
+        front_center: 578,
+        trail: 58,
+        top_tube_effective: 532,
+        standover: 755,
+        bb_height: 266
+      },
+      {
+        size: "54",
+        geometry: {
+          stack: 537,
+          reach: 387,
+          head_angle_deg: 73,
+          seat_angle_deg: 74,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 366,
+          fork_offset: 44,
+          seat_tube_ct: 510,
+          head_tube: 133,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 979,
+        front_center: 580,
+        trail: 58,
+        top_tube_effective: 541,
+        standover: 765,
+        bb_height: 268
+      },
+      {
+        size: "56",
+        geometry: {
+          stack: 558,
+          reach: 398,
+          head_angle_deg: 73.5,
+          seat_angle_deg: 73.5,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 366,
+          fork_offset: 44,
+          seat_tube_ct: 530,
+          head_tube: 153,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 992,
+        front_center: 592,
+        trail: 55,
+        top_tube_effective: 563,
+        standover: 795,
+        bb_height: 268
+      },
+      {
+        size: "58",
+        geometry: {
+          stack: 584,
+          reach: 405,
+          head_angle_deg: 73.5,
+          seat_angle_deg: 73.5,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 366,
+          fork_offset: 44,
+          seat_tube_ct: 550,
+          head_tube: 180,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1006,
+        front_center: 607,
+        trail: 55,
+        top_tube_effective: 578,
+        standover: 815,
+        bb_height: 268
+      },
+      {
+        size: "61",
+        geometry: {
+          stack: 605,
+          reach: 411,
+          head_angle_deg: 74,
+          seat_angle_deg: 73,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 366,
+          fork_offset: 44,
+          seat_tube_ct: 570,
+          head_tube: 200,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1013,
+        front_center: 614,
+        trail: 52,
+        top_tube_effective: 596,
+        standover: 835,
+        bb_height: 268
+      }
+    ]
+  },
+  {
+    id: "specialized-s-works-venge-2019",
+    brand: "Specialized",
+    model: "S-Works Venge",
+    launch_year: 2019,
+    category: "Aero race",
+    popularity: "Auto-populated from geometrygeeks.bike.",
+    sources: [
+      "https://geometrygeeks.bike/bike/specialized-s-works-venge-2019/"
+    ],
+    sizes: [
+      {
+        size: "49",
+        geometry: {
+          stack: 504,
+          reach: 378,
+          head_angle_deg: 71.75,
+          seat_angle_deg: 75.5,
+          bb_drop: 74,
+          chainstay_length: 410,
+          fork_length: 363,
+          fork_offset: 47,
+          seat_tube_ct: 455,
+          head_tube: 104,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 972,
+        front_center: 574,
+        trail: 63,
+        top_tube_effective: 508,
+        standover: 736,
+        bb_height: 266
+      },
+      {
+        size: "52",
+        geometry: {
+          stack: 517,
+          reach: 383,
+          head_angle_deg: 72.5,
+          seat_angle_deg: 74,
+          bb_drop: 74,
+          chainstay_length: 410,
+          fork_length: 363,
+          fork_offset: 47,
+          seat_tube_ct: 480,
+          head_tube: 115,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 975,
+        front_center: 577,
+        trail: 58,
+        top_tube_effective: 531,
+        standover: 756,
+        bb_height: 266
+      },
+      {
+        size: "54",
+        geometry: {
+          stack: 534,
+          reach: 387,
+          head_angle_deg: 73,
+          seat_angle_deg: 74,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 363,
+          fork_offset: 44,
+          seat_tube_ct: 495,
+          head_tube: 133,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 978,
+        front_center: 579,
+        trail: 58,
+        top_tube_effective: 540,
+        standover: 773,
+        bb_height: 268
+      },
+      {
+        size: "56",
+        geometry: {
+          stack: 555,
+          reach: 398,
+          head_angle_deg: 73.5,
+          seat_angle_deg: 73.5,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 363,
+          fork_offset: 44,
+          seat_tube_ct: 518,
+          head_tube: 153,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 991,
+        front_center: 591,
+        trail: 55,
+        top_tube_effective: 562,
+        standover: 795,
+        bb_height: 268
+      },
+      {
+        size: "58",
+        geometry: {
+          stack: 581,
+          reach: 405,
+          head_angle_deg: 73.5,
+          seat_angle_deg: 73.5,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 363,
+          fork_offset: 44,
+          seat_tube_ct: 537,
+          head_tube: 180,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1005,
+        front_center: 606,
+        trail: 55,
+        top_tube_effective: 577,
+        standover: 817,
+        bb_height: 268
+      },
+      {
+        size: "61",
+        geometry: {
+          stack: 602,
+          reach: 411,
+          head_angle_deg: 74,
+          seat_angle_deg: 73,
+          bb_drop: 72,
+          chainstay_length: 410,
+          fork_length: 363,
+          fork_offset: 44,
+          seat_tube_ct: 567,
+          head_tube: 200,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1012,
+        front_center: 613,
+        trail: 52,
+        top_tube_effective: 595,
+        standover: 841,
+        bb_height: 268
+      }
+    ]
+  },
+  {
+    id: "specialized-diverge-4-2026",
+    brand: "Specialized",
+    model: "Diverge 4",
+    launch_year: 2026,
+    category: "Gravel",
+    popularity: "Auto-populated from geometrygeeks.bike.",
+    sources: [
+      "https://geometrygeeks.bike/bike/specialized-diverge-4-2026/"
+    ],
+    sizes: [
+      {
+        size: "49",
+        geometry: {
+          stack: 563,
+          reach: 365,
+          head_angle_deg: 70,
+          seat_angle_deg: 74.5,
+          bb_drop: 85,
+          chainstay_length: 430,
+          fork_length: 391,
+          fork_offset: 55,
+          seat_tube_ct: 400,
+          head_tube: 90,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1019,
+        front_center: 604,
+        trail: 72,
+        top_tube_effective: 521,
+        standover: 700
+      },
+      {
+        size: "52",
+        geometry: {
+          stack: 578,
+          reach: 374,
+          head_angle_deg: 70.5,
+          seat_angle_deg: 74,
+          bb_drop: 85,
+          chainstay_length: 430,
+          fork_length: 391,
+          fork_offset: 55,
+          seat_tube_ct: 430,
+          head_tube: 104,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1031,
+        front_center: 613,
+        trail: 68,
+        top_tube_effective: 537,
+        standover: 725
+      },
+      {
+        size: "54",
+        geometry: {
+          stack: 592,
+          reach: 387,
+          head_angle_deg: 71,
+          seat_angle_deg: 74,
+          bb_drop: 85,
+          chainstay_length: 430,
+          fork_length: 391,
+          fork_offset: 55,
+          seat_tube_ct: 470,
+          head_tube: 116,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1041,
+        front_center: 626,
+        trail: 65,
+        top_tube_effective: 556,
+        standover: 754
+      },
+      {
+        size: "56",
+        geometry: {
+          stack: 610,
+          reach: 400,
+          head_angle_deg: 71,
+          seat_angle_deg: 74,
+          bb_drop: 85,
+          chainstay_length: 430,
+          fork_length: 391,
+          fork_offset: 55,
+          seat_tube_ct: 500,
+          head_tube: 135,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1060,
+        front_center: 645,
+        trail: 65,
+        top_tube_effective: 575,
+        standover: 779
+      },
+      {
+        size: "58",
+        geometry: {
+          stack: 634,
+          reach: 412,
+          head_angle_deg: 71,
+          seat_angle_deg: 74,
+          bb_drop: 85,
+          chainstay_length: 430,
+          fork_length: 391,
+          fork_offset: 55,
+          seat_tube_ct: 530,
+          head_tube: 161,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1081,
+        front_center: 665,
+        trail: 65,
+        top_tube_effective: 593,
+        standover: 805
+      },
+      {
+        size: "61",
+        geometry: {
+          stack: 659,
+          reach: 425,
+          head_angle_deg: 71,
+          seat_angle_deg: 74,
+          bb_drop: 85,
+          chainstay_length: 430,
+          fork_length: 391,
+          fork_offset: 55,
+          seat_tube_ct: 560,
+          head_tube: 187,
+          wheel_radius: defaultWheelRadius
+        },
+        wheelbase: 1102,
+        front_center: 686,
+        trail: 65,
+        top_tube_effective: 613,
+        standover: 832
+      }
+    ]
   }
 
 ];
