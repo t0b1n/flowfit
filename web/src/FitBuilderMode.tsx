@@ -409,7 +409,15 @@ export const FitBuilderMode: React.FC = () => {
   const viewBox = `${activeBounds.minX} ${-activeBounds.maxY} ${activeBounds.maxX - activeBounds.minX} ${activeBounds.maxY - activeBounds.minY}`;
   const groundY = effectiveFrame.wheel_radius - effectiveFrame.bb_drop;
 
-  const sourceModels = FRAME_CATALOG.map((m) => ({ label: `${m.brand} ${m.model}`, value: m.id }));
+  const brands = useMemo(
+    () => Array.from(new Set(FRAME_CATALOG.map((m) => m.brand))).sort(),
+    []
+  );
+  const currentBrand = model.brand;
+  const modelsForBrand = useMemo(
+    () => FRAME_CATALOG.filter((m) => m.brand === currentBrand),
+    [currentBrand]
+  );
 
   const severityColor = (s: "ok" | "warning" | "bad") =>
     s === "ok" ? "var(--teal)" : s === "warning" ? "#d4880a" : "var(--accent)";
@@ -500,6 +508,20 @@ export const FitBuilderMode: React.FC = () => {
 
         <CollapsibleSection eyebrow="Frame" title="Select frame">
           <label className="field">
+            <span>Brand</span>
+            <select
+              value={currentBrand}
+              onChange={(e) => {
+                const firstModel = FRAME_CATALOG.find((m) => m.brand === e.target.value)!;
+                setSelection({ modelId: firstModel.id, size: firstModel.sizes[0].size });
+              }}
+            >
+              {brands.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
             <span>Model</span>
             <select
               value={selection.modelId}
@@ -508,8 +530,8 @@ export const FitBuilderMode: React.FC = () => {
                 setSelection({ modelId: m.id, size: m.sizes[0].size });
               }}
             >
-              {sourceModels.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+              {modelsForBrand.map((m) => (
+                <option key={m.id} value={m.id}>{m.model}</option>
               ))}
             </select>
           </label>

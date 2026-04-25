@@ -104,6 +104,8 @@ export const FitTransferMode: React.FC = () => {
   const [fullscreen, setFullscreen] = useState(false);
 
   const [resultB, setResultB] = useState<SetupResult>(null);
+  const [tweaksB, setTweaksB] = useState<Partial<Components>>({});
+  const [solveNonce, setSolveNonce] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,9 +153,10 @@ export const FitTransferMode: React.FC = () => {
      bikeA.saddle.x, bikeA.saddle.y, bikeA.hoods.x, bikeA.hoods.y, bikeA.cleat.x, bikeA.cleat.y]
   );
 
-  // Frame B: use solved components when available, else initial components
+  // Frame B: use solved components when available, else initial components.
+  // Post-solve manual tweaks on solver-owned fields are merged on top.
   const solvedComponentsB: Components = resultB
-    ? (resultB.components as Components)
+    ? { ...(resultB.components as Components), ...tweaksB }
     : componentsB;
 
   const bikeB = useMemo(
@@ -201,6 +204,7 @@ export const FitTransferMode: React.FC = () => {
             );
             setSelectionB((s) => (s.size === winner.size ? s : { ...s, size: winner.size }));
             setResultB(winner.result);
+            setTweaksB({});
           }
         } else {
           const response = await solve({
@@ -213,7 +217,10 @@ export const FitTransferMode: React.FC = () => {
               schema_version: "0.1.0",
             },
           });
-          if (!cancelled) setResultB(response.result);
+          if (!cancelled) {
+            setResultB(response.result);
+            setTweaksB({});
+          }
         }
       } catch (e: any) {
         if (!cancelled) setError(e.message ?? String(e));
@@ -226,7 +233,7 @@ export const FitTransferMode: React.FC = () => {
       cancelled = true;
       window.clearTimeout(id);
     };
-  }, [contactsA, effectiveFrameB, componentsB, rider, autoSizeB, selectionB.modelId, tyreSizeB]);
+  }, [contactsA, effectiveFrameB, componentsB, rider, autoSizeB, selectionB.modelId, tyreSizeB, solveNonce]);
 
   // Component deltas (A components vs B solved components)
   const deltas = resultB ? computeComponentDeltas(componentsA, solvedComponentsB) : null;
@@ -284,7 +291,10 @@ export const FitTransferMode: React.FC = () => {
     effectiveFrameB.wheel_radius - effectiveFrameB.bb_drop
   );
 
-  const sourceModels = FRAME_CATALOG.map((m) => ({ label: `${m.brand} ${m.model}`, value: m.id }));
+  const brands = useMemo(
+    () => Array.from(new Set(FRAME_CATALOG.map((m) => m.brand))).sort(),
+    []
+  );
 
   const updateComponentA = (key: keyof Components, value: number) =>
     setComponentsA((c) => ({ ...c, [key]: value }));
@@ -381,7 +391,21 @@ export const FitTransferMode: React.FC = () => {
                 </strong>
               </div>
               <label className="field">
-                <span>Frame</span>
+                <span>Brand</span>
+                <select
+                  value={model.brand}
+                  onChange={(e) => {
+                    const firstModel = FRAME_CATALOG.find((m) => m.brand === e.target.value)!;
+                    setSel({ modelId: firstModel.id, size: firstModel.sizes[0].size });
+                  }}
+                >
+                  {brands.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Model</span>
                 <select
                   value={sel.modelId}
                   onChange={(e) => {
@@ -389,10 +413,8 @@ export const FitTransferMode: React.FC = () => {
                     setSel({ modelId: m.id, size: m.sizes[0].size });
                   }}
                 >
-                  {sourceModels.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
+                  {FRAME_CATALOG.filter((m) => m.brand === model.brand).map((m) => (
+                    <option key={m.id} value={m.id}>{m.model}</option>
                   ))}
                 </select>
               </label>
@@ -421,6 +443,20 @@ export const FitTransferMode: React.FC = () => {
                       Auto
                     </button>
                   )}
+                  {key === "b" && (
+                    <button
+                      className="preset-pill"
+                      style={{ whiteSpace: "nowrap" }}
+                      title={`Re-run solver for size ${sel.size}, clearing any tweaks`}
+                      onClick={() => {
+                        setAutoSizeB(false);
+                        setTweaksB({});
+                        setSolveNonce((n) => n + 1);
+                      }}
+                    >
+                      Solve for {sel.size}
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="bike-card__meta">
@@ -444,7 +480,27 @@ export const FitTransferMode: React.FC = () => {
                 ))}
               </div>
 
-              {/* Cockpit sliders — greyed on B to indicate solver overwrites key fields */}
+              {key === "b" && resultB && Object.keys(tweaksB).length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    marginTop: 8,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="preset-pill"
+                    onClick={() => setTweaksB({})}
+                  >
+                    Reset to solved
+                  </button>
+                </div>
+              )}
+
+              {/* Cockpit sliders. On Frame B, the four solver-owned fields display
+                  solver output (plus any tweak) and route edits to tweaksB so they
+                  don't retrigger a solve. */}
               <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
                 {(
                   [
@@ -465,20 +521,48 @@ export const FitTransferMode: React.FC = () => {
                   const solverOwns =
                     key === "b" &&
                     (k === "stem_length" || k === "spacer_stack" || k === "saddle_clamp_offset" || k === "stem_angle_deg");
+                  const isTweaked =
+                    solverOwns && tweaksB[k as keyof Components] !== undefined;
+                  // After a solve, solver-owned sliders display the solver output
+                  // (merged with any tweak) so they match what's rendered on the bike.
+                  const displayValue =
+                    solverOwns && resultB
+                      ? (solvedComponentsB[k as keyof Components] as number)
+                      : value;
                   return (
-                    <label
-                      className="slider-card"
-                      key={k}
-                      style={{ opacity: solverOwns ? 0.45 : 1 }}
-                    >
+                    <label className="slider-card" key={k}>
                       <div className="slider-card__header">
                         <span>
                           {label}
-                          {solverOwns ? " (solver)" : ""}
+                          {solverOwns && (isTweaked ? " (tweaked)" : " (solver)")}
                         </span>
-                        <strong>
-                          {Number(value).toFixed(step === 0.5 || step === 2.5 ? 1 : 0)} {unit}
-                        </strong>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <strong>
+                            {Number(displayValue).toFixed(step === 0.5 || step === 2.5 ? 1 : 0)} {unit}
+                          </strong>
+                          {isTweaked && (
+                            <button
+                              type="button"
+                              title="Reset to solver value"
+                              onClick={() =>
+                                setTweaksB((t) => {
+                                  const { [k as keyof Components]: _omit, ...rest } = t;
+                                  return rest;
+                                })
+                              }
+                              style={{
+                                background: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                                fontSize: 12,
+                                padding: "0 2px",
+                                lineHeight: 1,
+                              }}
+                            >
+                              ↺
+                            </button>
+                          )}
+                        </span>
                       </div>
                       <input
                         className="slider-card__input slider-card__input--frame"
@@ -486,12 +570,13 @@ export const FitTransferMode: React.FC = () => {
                         min={min}
                         max={max}
                         step={step}
-                        value={value}
-                        disabled={solverOwns}
+                        value={displayValue}
                         onChange={(e) => {
                           const v = Number(e.target.value);
                           if (k === "__tyre__") {
                             setTyreSize(v);
+                          } else if (solverOwns && resultB) {
+                            setTweaksB((t) => ({ ...t, [k]: v }));
                           } else {
                             updateComp(k as keyof Components, v);
                           }
