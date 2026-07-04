@@ -5,12 +5,8 @@ import {
   type FrameMeasurementId,
   type FrameMeasurementVisibility,
 } from "./BikeAnnotations";
-import {
-  FRAME_CATALOG,
-  FrameGeometry,
-  getModelById,
-  getSizeData,
-} from "./frameCatalog";
+import { FrameGeometry } from "./frameCatalog";
+import { useCatalog } from "./catalog/CatalogContext";
 import {
   DEFAULT_COMPONENTS,
   DEFAULT_RIDER_FIT,
@@ -187,6 +183,7 @@ const DEFAULT_FRAME_MEASUREMENT_VISIBILITY: FrameMeasurementVisibility = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const FitBuilderMode: React.FC = () => {
+  const { catalog: FRAME_CATALOG, getModelById, getSizeData } = useCatalog();
   const [selection, setSelection] = useState<BikeSelection>({
     modelId: "specialized-crux",
     size: "52",
@@ -411,12 +408,12 @@ export const FitBuilderMode: React.FC = () => {
 
   const brands = useMemo(
     () => Array.from(new Set(FRAME_CATALOG.map((m) => m.brand))).sort(),
-    []
+    [FRAME_CATALOG]
   );
   const currentBrand = model.brand;
   const modelsForBrand = useMemo(
     () => FRAME_CATALOG.filter((m) => m.brand === currentBrand),
-    [currentBrand]
+    [FRAME_CATALOG, currentBrand]
   );
 
   const severityColor = (s: "ok" | "warning" | "bad") =>
@@ -752,9 +749,9 @@ export const FitBuilderMode: React.FC = () => {
           <div className="slider-grid slider-grid--compact">
             {(
               [
-                ["Stem length", components.stem_length, 70, 150, 1, "stem_length", "mm"],
-                ["Stem angle", components.stem_angle_deg, -17, 17, 1, "stem_angle_deg", "°"],
-                ["Spacers", components.spacer_stack, 0, 40, 1, "spacer_stack", "mm"],
+                ["Stem length", components.stem_length, 50, 180, 1, "stem_length", "mm"],
+                ["Stem angle", components.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
+                ["Spacers", components.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
                 ["Bar reach", components.bar_reach, 65, 105, 1, "bar_reach", "mm"],
                 ["Bar width", components.bar_width, 200, 460, 10, "bar_width", "mm"],
               ] as const

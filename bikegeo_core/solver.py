@@ -92,22 +92,32 @@ def _grid_search_components(
 
 
 def solve_setup(setup: SetupInput) -> SetupOutput:
-    saddle_heights = np.linspace(
-        setup.target_contact_points.saddle.y - 20.0,
-        setup.target_contact_points.saddle.y + 20.0,
-        9,
+    pinned = set(setup.pinned_components)
+
+    saddle_heights = (
+        np.array([setup.components.saddle_clamp_offset])
+        if "saddle_clamp_offset" in pinned
+        else np.linspace(
+            setup.target_contact_points.saddle.y - 20.0,
+            setup.target_contact_points.saddle.y + 20.0,
+            9,
+        )
     )
-    spacer_stacks = np.linspace(
-        max(0.0, setup.components.spacer_stack - 10.0),
-        setup.components.spacer_stack + 10.0,
-        5,
+    spacer_stacks = (
+        np.array([setup.components.spacer_stack])
+        if "spacer_stack" in pinned
+        else np.linspace(0.0, 60.0, 13)
     )
-    stem_lengths = np.linspace(
-        max(60.0, setup.components.stem_length - 20.0),
-        setup.components.stem_length + 20.0,
-        5,
+    stem_lengths = (
+        np.array([setup.components.stem_length])
+        if "stem_length" in pinned
+        else np.linspace(50.0, 180.0, 14)
     )
-    stem_angles = np.array([-6.0, -7.0, -8.0])
+    stem_angles = (
+        np.array([setup.components.stem_angle_deg])
+        if "stem_angle_deg" in pinned
+        else np.arange(-20.0, 20.0 + 1e-9, 2.0)
+    )
 
     components, bike_points = _grid_search_components(
         setup=setup,

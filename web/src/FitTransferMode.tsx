@@ -1,12 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
 import { solve } from "./api";
-import {
-  FRAME_CATALOG,
-  FrameGeometry,
-  getModelById,
-  getSizeData,
-} from "./frameCatalog";
+import { useCatalog } from "./catalog/CatalogContext";
 import {
   DEFAULT_COMPONENTS,
   DEFAULT_RIDER_FIT,
@@ -76,6 +71,7 @@ const ENDURANCE_PRESET = {
 };
 
 export const FitTransferMode: React.FC = () => {
+  const { catalog: FRAME_CATALOG, getModelById, getSizeData } = useCatalog();
   const firstModel = FRAME_CATALOG[0];
   const secondModel = FRAME_CATALOG[1];
 
@@ -105,6 +101,7 @@ export const FitTransferMode: React.FC = () => {
 
   const [resultB, setResultB] = useState<SetupResult>(null);
   const [tweaksB, setTweaksB] = useState<Partial<Components>>({});
+  const [pinnedB, setPinnedB] = useState<Set<keyof Components>>(new Set());
   const [solveNonce, setSolveNonce] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +174,7 @@ export const FitTransferMode: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
+        const pinnedList = Array.from(pinnedB);
         if (autoSizeB) {
           const results = await Promise.all(
             modelB.sizes.map(async (entry) => {
@@ -189,6 +187,7 @@ export const FitTransferMode: React.FC = () => {
                   target_contact_points: contactsA,
                   rider,
                   preset: ENDURANCE_PRESET,
+                  pinned_components: pinnedList,
                   schema_version: "0.1.0",
                 },
               });
@@ -214,6 +213,7 @@ export const FitTransferMode: React.FC = () => {
               target_contact_points: contactsA,
               rider,
               preset: ENDURANCE_PRESET,
+              pinned_components: pinnedList,
               schema_version: "0.1.0",
             },
           });
@@ -233,7 +233,7 @@ export const FitTransferMode: React.FC = () => {
       cancelled = true;
       window.clearTimeout(id);
     };
-  }, [contactsA, effectiveFrameB, componentsB, rider, autoSizeB, selectionB.modelId, tyreSizeB, solveNonce]);
+  }, [contactsA, effectiveFrameB, componentsB, rider, autoSizeB, selectionB.modelId, tyreSizeB, pinnedB, solveNonce]);
 
   // Component deltas (A components vs B solved components)
   const deltas = resultB ? computeComponentDeltas(componentsA, solvedComponentsB) : null;
@@ -480,7 +480,7 @@ export const FitTransferMode: React.FC = () => {
                 ))}
               </div>
 
-              {key === "b" && resultB && Object.keys(tweaksB).length > 0 && (
+              {key === "b" && resultB && (Object.keys(tweaksB).length > 0 || pinnedB.size > 0) && (
                 <div
                   style={{
                     display: "flex",
@@ -491,9 +491,12 @@ export const FitTransferMode: React.FC = () => {
                   <button
                     type="button"
                     className="preset-pill"
-                    onClick={() => setTweaksB({})}
+                    onClick={() => {
+                      setTweaksB({});
+                      setPinnedB(new Set());
+                    }}
                   >
-                    Reset to solved
+                    Reset overrides
                   </button>
                 </div>
               )}
@@ -504,9 +507,9 @@ export const FitTransferMode: React.FC = () => {
               <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
                 {(
                   [
-                    ["Stem length", comps.stem_length, 70, 150, 1, "stem_length", "mm"],
-                    ["Stem angle", comps.stem_angle_deg, -17, 17, 1, "stem_angle_deg", "°"],
-                    ["Spacers", comps.spacer_stack, 0, 40, 1, "spacer_stack", "mm"],
+                    ["Stem length", comps.stem_length, 50, 180, 1, "stem_length", "mm"],
+                    ["Stem angle", comps.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
+                    ["Spacers", comps.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
                     ["Saddle offset", comps.saddle_clamp_offset, 550, 900, 5, "saddle_clamp_offset", "mm"],
                     ["Saddle stack", comps.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
                     ["Seatpost offset", comps.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
@@ -521,20 +524,67 @@ export const FitTransferMode: React.FC = () => {
                   const solverOwns =
                     key === "b" &&
                     (k === "stem_length" || k === "spacer_stack" || k === "saddle_clamp_offset" || k === "stem_angle_deg");
+                  const fieldKey = k as keyof Components;
+                  const isPinned = solverOwns && pinnedB.has(fieldKey);
                   const isTweaked =
-                    solverOwns && tweaksB[k as keyof Components] !== undefined;
-                  // After a solve, solver-owned sliders display the solver output
-                  // (merged with any tweak) so they match what's rendered on the bike.
+                    solverOwns && !isPinned && tweaksB[fieldKey] !== undefined;
+                  // Pinned fields display the user's input (componentsB).
+                  // Otherwise after a solve, solver-owned sliders display the solver
+                  // output (merged with any tweak) so they match what's rendered.
                   const displayValue =
-                    solverOwns && resultB
-                      ? (solvedComponentsB[k as keyof Components] as number)
+                    solverOwns && isPinned
+                      ? (componentsB[fieldKey] as number)
+                      : solverOwns && resultB
+                      ? (solvedComponentsB[fieldKey] as number)
                       : value;
+                  const badge = solverOwns
+                    ? isPinned
+                      ? " (pinned)"
+                      : isTweaked
+                      ? " (tweaked)"
+                      : " (solver)"
+                    : "";
                   return (
                     <label className="slider-card" key={k}>
                       <div className="slider-card__header">
-                        <span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {solverOwns && (
+                            <input
+                              type="checkbox"
+                              title="Pin this value — solver will hold it fixed"
+                              checked={isPinned}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setPinnedB((s) => {
+                                  const next = new Set(s);
+                                  if (checked) next.add(fieldKey);
+                                  else next.delete(fieldKey);
+                                  return next;
+                                });
+                                if (checked) {
+                                  // Promote any existing tweak to the pinned input,
+                                  // then clear the tweak entry so it can't fight the pin.
+                                  const tweaked = tweaksB[fieldKey];
+                                  if (tweaked !== undefined) {
+                                    updateComp(fieldKey, tweaked as number);
+                                    setTweaksB((t) => {
+                                      const { [fieldKey]: _omit, ...rest } = t;
+                                      return rest;
+                                    });
+                                  } else if (resultB) {
+                                    // Seed pinned value from the solver result so the
+                                    // visible slider value doesn't jump on pin.
+                                    updateComp(
+                                      fieldKey,
+                                      solvedComponentsB[fieldKey] as number
+                                    );
+                                  }
+                                }
+                              }}
+                            />
+                          )}
                           {label}
-                          {solverOwns && (isTweaked ? " (tweaked)" : " (solver)")}
+                          {badge}
                         </span>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <strong>
@@ -546,7 +596,7 @@ export const FitTransferMode: React.FC = () => {
                               title="Reset to solver value"
                               onClick={() =>
                                 setTweaksB((t) => {
-                                  const { [k as keyof Components]: _omit, ...rest } = t;
+                                  const { [fieldKey]: _omit, ...rest } = t;
                                   return rest;
                                 })
                               }
@@ -575,6 +625,8 @@ export const FitTransferMode: React.FC = () => {
                           const v = Number(e.target.value);
                           if (k === "__tyre__") {
                             setTyreSize(v);
+                          } else if (solverOwns && isPinned) {
+                            updateComp(fieldKey, v);
                           } else if (solverOwns && resultB) {
                             setTweaksB((t) => ({ ...t, [k]: v }));
                           } else {

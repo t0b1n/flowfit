@@ -72,9 +72,8 @@ def test_solve_and_roundtrip_fragment() -> None:
     fragment = encode_setup_to_fragment(setup)
     decoded = decode_setup_from_fragment(fragment)
     assert decoded.frame.stack == setup.frame.stack
-    # solver may adjust stem_length within ±20 mm of the initial value
-    initial = setup.components.stem_length
-    assert initial - 20.0 <= solved.components.stem_length <= initial + 20.0
+    # solver searches stem_length across the full 50-180 mm range
+    assert 50.0 <= solved.components.stem_length <= 180.0
 
 
 def test_solve_returns_actual_contact_points_not_requested_targets() -> None:
@@ -86,3 +85,30 @@ def test_solve_returns_actual_contact_points_not_requested_targets() -> None:
     assert solved.contact_points.hoods.x != setup.target_contact_points.hoods.x
     # BDC: cleat is directly below BB at y = -crank_length
     assert solved.contact_points.cleat.y == -setup.components.crank_length
+
+
+def test_pinned_components_held_fixed() -> None:
+    setup = _minimal_setup().model_copy(
+        update={"pinned_components": ["stem_length", "stem_angle_deg"]}
+    )
+    solved = solve_setup(setup)
+    assert solved.components.stem_length == setup.components.stem_length
+    assert solved.components.stem_angle_deg == setup.components.stem_angle_deg
+
+
+def test_all_pinned_returns_seed_components() -> None:
+    setup = _minimal_setup().model_copy(
+        update={
+            "pinned_components": [
+                "stem_length",
+                "stem_angle_deg",
+                "spacer_stack",
+                "saddle_clamp_offset",
+            ]
+        }
+    )
+    solved = solve_setup(setup)
+    assert solved.components.stem_length == setup.components.stem_length
+    assert solved.components.stem_angle_deg == setup.components.stem_angle_deg
+    assert solved.components.spacer_stack == setup.components.spacer_stack
+    assert solved.components.saddle_clamp_offset == setup.components.saddle_clamp_offset

@@ -1,0 +1,32 @@
+{
+  "brand": "Brand Name",
+  "model": "Model Name",
+  "launch_year": 2026,
+  "category": "Road",
+  "popularity": "Notes about source / popularity.",
+  "sources": ["https://example.com/spec-page"],
+  "sizes": [
+    {
+      "size": "M",
+      "geometry": {
+        "stack": 560,
+        "reach": 385,
+        "head_angle_deg": 73,
+        "seat_angle_deg": 73.5,
+        "bb_drop": 70,
+        "chainstay_length": 410,
+        "fork_length": 370,
+        "fork_offset": 45,
+        "wheel_radius": 340,
+        "seat_tube_ct": 520,
+        "head_tube": 150,
+        "top_tube_effective": 550
+      },
+      "wheelbase": 990,
+      "front_center": 590,
+      "trail": 60,
+      "standover": 780,
+      "bb_height": 270
+    }
+  ]
+}

@@ -2897,13 +2897,24 @@ export const FRAME_CATALOG: FrameModel[] = [
 
 validateFrameCatalog(FRAME_CATALOG);
 
-export const getModelById = (modelId: string) =>
-  FRAME_CATALOG.find((model) => model.id === modelId) ?? FRAME_CATALOG[0];
+export const makeCatalogHelpers = (catalog: FrameModel[]) => {
+  const list = catalog.length > 0 ? catalog : FRAME_CATALOG;
+  const fallback = list[0];
 
-export const getSizeData = (modelId: string, size: string) => {
-  const model = getModelById(modelId);
-  const entry = model.sizes.find((candidate) => candidate.size === size) ?? model.sizes[0];
-  const normalized = normalizeSizeData(entry);
-  validateSizeData(model, normalized);
-  return normalized;
+  const getModelById = (modelId: string) =>
+    list.find((model) => model.id === modelId) ?? fallback;
+
+  const getSizeData = (modelId: string, size: string) => {
+    const model = getModelById(modelId);
+    const entry = model.sizes.find((candidate) => candidate.size === size) ?? model.sizes[0];
+    const normalized = normalizeSizeData(entry);
+    validateSizeData(model, normalized);
+    return normalized;
+  };
+
+  return { catalog: list, getModelById, getSizeData };
 };
+
+const defaultHelpers = makeCatalogHelpers(FRAME_CATALOG);
+export const getModelById = defaultHelpers.getModelById;
+export const getSizeData = defaultHelpers.getSizeData;

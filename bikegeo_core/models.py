@@ -135,6 +135,7 @@ class SetupInput(BaseModel):
     target_contact_points: ContactPoints
     rider: RiderAnthropometrics
     preset: PosePreset
+    pinned_components: List[str] = Field(default_factory=list)
 
 
 class SetupOutput(BaseModel):

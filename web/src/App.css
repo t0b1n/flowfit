@@ -1269,3 +1269,250 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Phase 1: auth + add bike */
+.auth-layout {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+.auth-card {
+  background: var(--card, #11151c);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+}
+.auth-card__brand .eyebrow {
+  text-decoration: none;
+  display: block;
+  margin-bottom: 4px;
+}
+.auth-card__subtitle {
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 4px;
+}
+.auth-card__footer {
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+}
+.auth-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+}
+.auth-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.auth-form input,
+.add-bike-form input,
+.add-bike-form textarea,
+.add-bike-json textarea,
+.modal textarea {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f7fa;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+}
+.auth-form input:focus,
+.add-bike-form input:focus,
+.add-bike-form textarea:focus,
+.add-bike-json textarea:focus,
+.modal textarea:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+}
+.auth-form input::placeholder,
+.add-bike-form input::placeholder,
+.add-bike-form textarea::placeholder,
+.add-bike-json textarea::placeholder,
+.modal textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.auth-form label {
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+}
+.auth-error {
+  background: rgba(229, 90, 92, 0.12);
+  border: 1px solid rgba(229, 90, 92, 0.4);
+  color: #ffd1d2;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.auth-success {
+  background: rgba(60, 180, 130, 0.12);
+  border: 1px solid rgba(60, 180, 130, 0.4);
+  color: #c0f0d8;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.auth-loading {
+  padding: 32px;
+  text-align: center;
+}
+.primary-btn {
+  background: var(--accent, #e55a5c);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.link-btn {
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mode-nav__auth {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+.mode-nav__auth a.link-btn,
+.mode-nav__auth button.link-btn {
+  text-decoration: none;
+}
+
+/* Add bike */
+.add-bike-mode {
+  max-width: 880px;
+  margin: 24px auto;
+  padding: 0 24px 80px;
+}
+.add-bike-mode__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.add-bike-form,
+.add-bike-json {
+  display: grid;
+  gap: 16px;
+}
+.add-bike-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.add-bike-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.size-block {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+}
+.size-block legend {
+  padding: 0 6px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.add-bike-json textarea {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+.submissions-list {
+  display: grid;
+  gap: 8px;
+}
+.submission-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+.submission-row__id {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: ui-monospace, monospace;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: var(--card, #11151c);
+  border-radius: 12px;
+  padding: 24px;
+  width: min(420px, 92vw);
+  display: grid;
+  gap: 12px;
+}
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.profile-page {
+  max-width: 760px;
+  margin: 24px auto;
+  padding: 0 24px 80px;
+}
+.profile-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.profile-bikes {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.profile-bikes li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
