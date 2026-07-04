@@ -27,7 +27,12 @@ export const RegisterPage: React.FC = () => {
       await register(email, password);
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError("Registration failed. Try a different email or check your password.");
+      const message = (err as Error).message;
+      setError(
+        message === "registration_failed"
+          ? "Registration failed. Try a different email."
+          : message,
+      );
     } finally {
       setBusy(false);
     }

@@ -18,6 +18,8 @@ SafeStr = Annotated[
 def _check_safe_str(v: str) -> str:
     if _BAD_CHARS.search(v):
         raise ValueError("contains_disallowed_characters")
+    if not re.search(r"[a-z0-9]", v.lower()):
+        raise ValueError("must_contain_alphanumeric")
     return v
 
 

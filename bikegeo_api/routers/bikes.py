@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
@@ -140,8 +141,6 @@ def flag_bike(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="forbidden")
     if bike.flagged_at is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="already_flagged")
-
-    from datetime import datetime, timezone
 
     bike.flagged_at = datetime.now(timezone.utc)
     bike.flagged_reason = payload.reason

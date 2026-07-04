@@ -47,7 +47,7 @@ export const AddBikeMode: React.FC = () => {
 
   useEffect(() => {
     fetchBrands().then(setServerBrands).catch(() => setServerBrands([]));
-  }, [userBikes.length]);
+  }, [userBikes]);
 
   const allBrands = useMemo(() => {
     const fromCatalog = catalog.map((m) => m.brand);

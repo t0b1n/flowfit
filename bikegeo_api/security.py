@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hmac
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -20,8 +19,8 @@ SESSION_REFRESH_THRESHOLD_SECONDS = 24 * 60 * 60  # refresh if <1 day used (slid
 APP_ENV = os.environ.get("APP_ENV", "dev")
 _SECRET_KEY = os.environ.get("SECRET_KEY")
 if not _SECRET_KEY:
-    if APP_ENV == "prod":
-        raise RuntimeError("SECRET_KEY env var is required in prod")
+    if APP_ENV != "dev":
+        raise RuntimeError("SECRET_KEY env var is required outside dev")
     _SECRET_KEY = "dev-insecure-secret-change-me"
 
 _serializer = URLSafeTimedSerializer(_SECRET_KEY, salt="bikegeo-session")
@@ -36,10 +35,6 @@ def verify_password(password: str, password_hash: str) -> bool:
         return argon2.verify(password, password_hash)
     except (ValueError, TypeError):
         return False
-
-
-def constant_time_eq(a: str, b: str) -> bool:
-    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
 
 
 def make_session_token(user_id: str) -> str:
@@ -112,7 +107,6 @@ __all__ = [
     "SESSION_TTL_SECONDS",
     "hash_password",
     "verify_password",
-    "constant_time_eq",
     "make_session_token",
     "parse_session_token",
     "set_session_cookie",

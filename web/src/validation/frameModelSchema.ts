@@ -9,7 +9,11 @@ const optInRange = (v: unknown, min: number, max: number): boolean =>
   v == null || inRange(v, min, max);
 
 const safeStr = (v: unknown, max = 200): v is string =>
-  typeof v === "string" && v.trim().length >= 1 && v.length <= max && !BAD_CHAR_RE.test(v);
+  typeof v === "string" &&
+  v.trim().length >= 1 &&
+  v.length <= max &&
+  !BAD_CHAR_RE.test(v) &&
+  /[a-z0-9]/i.test(v);
 
 export type ValidationResult =
   | { ok: true; value: Omit<FrameModel, "id"> }
@@ -130,11 +134,11 @@ function validateSize(raw: unknown, i: number, errors: string[]): void {
   if (!optInRange(s.wheelbase, 800, 1400)) errors.push(`sizes[${i}].wheelbase: 800–1400 mm.`);
   if (!optInRange(s.front_center, 400, 900)) errors.push(`sizes[${i}].front_center: 400–900 mm.`);
   if (!optInRange(s.trail, 30, 120)) errors.push(`sizes[${i}].trail: 30–120 mm.`);
-  if (!optInRange(s.top_tube_effective, 400, 700)) errors.push(`sizes[${i}].top_tube_effective.`);
+  if (!optInRange(s.top_tube_effective, 400, 700)) errors.push(`sizes[${i}].top_tube_effective: 400–700 mm.`);
   if (!optInRange(s.standover, 500, 950)) errors.push(`sizes[${i}].standover: 500–950 mm.`);
   if (!optInRange(s.bb_height, 200, 400)) errors.push(`sizes[${i}].bb_height: 200–400 mm.`);
-  if (!optInRange(s.seat_tube_ct, 300, 800)) errors.push(`sizes[${i}].seat_tube_ct.`);
-  if (!optInRange(s.head_tube, 50, 400)) errors.push(`sizes[${i}].head_tube.`);
+  if (!optInRange(s.seat_tube_ct, 300, 800)) errors.push(`sizes[${i}].seat_tube_ct: 300–800 mm.`);
+  if (!optInRange(s.head_tube, 50, 400)) errors.push(`sizes[${i}].head_tube: 50–400 mm.`);
 
   for (const k of Object.keys(s)) {
     if (!ALLOWED_SIZE.has(k)) errors.push(`sizes[${i}]: unknown field ${k}.`);

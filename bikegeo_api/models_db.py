@@ -71,6 +71,8 @@ class Bike(Base):
             func.lower(model),
             "launch_year",
             unique=True,
+            # TODO: sqlite_where is dialect-specific; on a Postgres migration
+            # this needs postgresql_where= (or a dialect-aware Alembic def).
             sqlite_where=flagged_at.is_(None),
         ),
         Index("ix_bike_brand_lower", func.lower(brand)),

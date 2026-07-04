@@ -9,7 +9,6 @@ from ..models_db import User
 from ..schemas_auth import LoginRequest, RegisterRequest, UserOut
 from ..security import (
     clear_session_cookie,
-    constant_time_eq,
     current_user,
     hash_password,
     invalid_credentials,
@@ -36,10 +35,8 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     email_normalized = payload.email.lower().strip()
 
     existing = db.query(User).filter(func.lower(User.email) == email_normalized).first()
-    # Constant-time branch: compare a fixed string regardless of existence so
-    # timing doesn't leak whether the email is taken.
-    _ = constant_time_eq(email_normalized, email_normalized)
-
+    # Email enumeration via the 409 is accepted; login is the hardened path
+    # (see _DUMMY_ARGON2_HASH above).
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="registration_failed")
 

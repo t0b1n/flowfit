@@ -8,7 +8,7 @@ from bikegeo_core.geometry import synthesize_bike
 from bikegeo_core.geometry_export import build_export
 from bikegeo_core.solver import solve_setup
 
-from .db import init_db
+from .db import engine, init_db
 from .middleware import RequestSizeLimitMiddleware, StrictJsonContentTypeMiddleware
 from .routers import auth as auth_router
 from .routers import bikes as bikes_router
@@ -18,7 +18,10 @@ from .schemas import Geometry3DEdge, Geometry3DPoint, Geometry3DResponse, SolveR
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    yield
+    try:
+        yield
+    finally:
+        engine.dispose()
 
 
 app = FastAPI(title="Bikegeo API", version="0.1.0", lifespan=lifespan)

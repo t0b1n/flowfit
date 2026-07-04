@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
+import {
+  BikeGeometryAnnotations,
+  BikeFitAnnotations,
+  FRAME_MEASUREMENT_IDS,
+  type FrameMeasurementVisibility,
+} from "./BikeAnnotations";
 import { solve } from "./api";
 import { useCatalog } from "./catalog/CatalogContext";
 import {
@@ -17,6 +22,10 @@ import {
   withTyreSize,
 } from "./geometry";
 import type { BikeSelection, Components, ContactPoint, ReferenceMode, RiderFit, SetupResult } from "./types";
+
+const ALL_FRAME_MEASUREMENTS_VISIBLE: FrameMeasurementVisibility = Object.fromEntries(
+  FRAME_MEASUREMENT_IDS.map((id) => [id, true]),
+) as FrameMeasurementVisibility;
 
 // ── Saddle shape SVG sub-component ────────────────────────────────────────────
 
@@ -829,8 +838,18 @@ export const FitTransferMode: React.FC = () => {
               )}
               {showGeometry && (
                 <>
-                  <BikeGeometryAnnotations bike={bikeA} frame={effectiveFrameA} />
-                  <BikeGeometryAnnotations bike={bikeB} frame={effectiveFrameB} />
+                  <BikeGeometryAnnotations
+                    bike={bikeA}
+                    frame={effectiveFrameA}
+                    sizeData={sizeA}
+                    visibleMeasurements={ALL_FRAME_MEASUREMENTS_VISIBLE}
+                  />
+                  <BikeGeometryAnnotations
+                    bike={bikeB}
+                    frame={effectiveFrameB}
+                    sizeData={sizeB}
+                    visibleMeasurements={ALL_FRAME_MEASUREMENTS_VISIBLE}
+                  />
                 </>
               )}
             </svg>
