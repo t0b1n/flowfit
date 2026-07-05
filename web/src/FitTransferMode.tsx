@@ -69,16 +69,6 @@ const HOOD_PRESETS = [
   { id: "sram-force", label: "SRAM Force E1", hoodReachOffset: 28 },
 ];
 
-const ENDURANCE_PRESET = {
-  name: "Endurance",
-  trunk_angle: { min_deg: 50, max_deg: 60, weight: 1 },
-  hip_angle: { min_deg: 95, max_deg: 105, weight: 1 },
-  shoulder_flexion: { min_deg: 70, max_deg: 90, weight: 1 },
-  elbow_flexion: { min_deg: 10, max_deg: 25, weight: 0.5 },
-  knee_extension: { min_deg: 140, max_deg: 150, weight: 1 },
-  shoulder_abduction: null,
-};
-
 export const FitTransferMode: React.FC = () => {
   const { catalog: FRAME_CATALOG, getModelById, getSizeData } = useCatalog();
   const firstModel = FRAME_CATALOG[0];
@@ -195,7 +185,6 @@ export const FitTransferMode: React.FC = () => {
                   components: componentsB,
                   target_contact_points: contactsA,
                   rider,
-                  preset: ENDURANCE_PRESET,
                   pinned_components: pinnedList,
                   schema_version: "0.1.0",
                 },
@@ -221,7 +210,6 @@ export const FitTransferMode: React.FC = () => {
               components: componentsB,
               target_contact_points: contactsA,
               rider,
-              preset: ENDURANCE_PRESET,
               pinned_components: pinnedList,
               schema_version: "0.1.0",
             },

@@ -112,3 +112,28 @@ def test_all_pinned_returns_seed_components() -> None:
     assert solved.components.stem_angle_deg == setup.components.stem_angle_deg
     assert solved.components.spacer_stack == setup.components.spacer_stack
     assert solved.components.saddle_clamp_offset == setup.components.saddle_clamp_offset
+
+
+def test_solve_without_preset_matches_contacts_only() -> None:
+    """preset=None solves on contact-point error alone: no posture penalty,
+    no posture violations, and the match is at least as close as with bands."""
+    setup_no_preset = _minimal_setup().model_copy(update={"preset": None})
+    setup_banded = _minimal_setup()
+
+    solved_free = solve_setup(setup_no_preset)
+    solved_banded = solve_setup(setup_banded)
+
+    assert solved_free.preset is None
+    assert all(not v.name.startswith(("trunk", "hip", "shoulder", "elbow", "knee"))
+               for v in solved_free.constraints.violations)
+
+    def residual(out):
+        t = setup_no_preset.target_contact_points
+        return (
+            (out.contact_points.saddle.x - t.saddle.x) ** 2
+            + (out.contact_points.saddle.y - t.saddle.y) ** 2
+            + (out.contact_points.hoods.x - t.hoods.x) ** 2
+            + (out.contact_points.hoods.y - t.hoods.y) ** 2
+        )
+
+    assert residual(solved_free) <= residual(solved_banded) + 1e-9

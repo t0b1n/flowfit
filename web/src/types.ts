@@ -43,7 +43,7 @@ export type SetupResult = {
 
 export type Side = "a" | "b";
 export type FitMode = "contact" | "saddle_height";
-export type MannequinMode = "off" | "endurance" | "race" | "fast";
+export type MannequinMode = "off" | "endurance" | "sport" | "race";
 export type AppMode = "builder" | "transfer";
 
 export type BikeSelection = {

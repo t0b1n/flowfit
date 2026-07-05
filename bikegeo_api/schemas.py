@@ -32,7 +32,7 @@ class Geometry3DResponse(BaseModel):
     points: list[Geometry3DPoint]
     edges: list[Geometry3DEdge]
     pose_metrics: dict[str, float]
-    frame: dict[str, float]
+    frame: dict[str, float | None]  # optional geometry fields export as None
     components: dict[str, Any]
     rider: dict[str, Any]
     constraints: dict[str, Any]

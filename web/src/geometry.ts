@@ -66,10 +66,15 @@ export const DEFAULT_TARGETS = {
 /** Distance (along seat tube) of the visible offset/bend section of the seatpost */
 const SEATPOST_BEND_LENGTH = 40;
 
+/** Hoods never point below this angle from horizontal, whatever the stem does. */
+const HOOD_ANGLE_MIN_DEG = 8;
+/** The hood ramp sits slightly steeper than the stem angle. */
+const HOOD_ANGLE_VS_STEM_DEG = 6;
+
 export const MANNEQUIN_PRESETS = {
-  endurance: { trunkAngleDeg: 55, backBendDeg: 5, forearmHorizontalBias: 0.2, elbowBarHeightBias: 0.1 },
-  race: { trunkAngleDeg: 33, backBendDeg: 12, forearmHorizontalBias: 1.1, elbowBarHeightBias: 1.3 },
-  fast: { trunkAngleDeg: 43, backBendDeg: 8, forearmHorizontalBias: 0.65, elbowBarHeightBias: 0.8 },
+  endurance: { trunkAngleDeg: 55, backBendDeg: 5 },
+  sport: { trunkAngleDeg: 43, backBendDeg: 8 },
+  race: { trunkAngleDeg: 33, backBendDeg: 12 },
 } as const;
 
 export type MannequinPresetKey = keyof typeof MANNEQUIN_PRESETS;
@@ -376,15 +381,6 @@ export const buildSetup = (
   components,
   target_contact_points: targets,
   rider,
-  preset: {
-    name: "Endurance",
-    trunk_angle: { min_deg: 50, max_deg: 60, weight: 1 },
-    hip_angle: { min_deg: 95, max_deg: 105, weight: 1 },
-    shoulder_flexion: { min_deg: 70, max_deg: 90, weight: 1 },
-    elbow_flexion: { min_deg: 10, max_deg: 25, weight: 0.5 },
-    knee_extension: { min_deg: 140, max_deg: 150, weight: 1 },
-    shoulder_abduction: null,
-  },
   schema_version: "0.1.0",
 });
 
@@ -459,7 +455,9 @@ export const synthesizeBike = (
     x: steererTop.x + Math.cos(stemAngle) * components.stem_length,
     y: steererTop.y + Math.sin(stemAngle) * components.stem_length,
   };
-  const hoodAngle = radiansFromDegrees(Math.max(8, components.stem_angle_deg + 6));
+  const hoodAngle = radiansFromDegrees(
+    Math.max(HOOD_ANGLE_MIN_DEG, components.stem_angle_deg + HOOD_ANGLE_VS_STEM_DEG)
+  );
   const hoodLength = components.bar_reach + components.hood_reach_offset;
   const hoods = {
     x: barClamp.x + Math.cos(hoodAngle) * hoodLength,

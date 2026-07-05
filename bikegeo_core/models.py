@@ -134,7 +134,8 @@ class SetupInput(BaseModel):
     components: Components
     target_contact_points: ContactPoints
     rider: RiderAnthropometrics
-    preset: PosePreset
+    # When omitted, the solver matches contact points only (no posture bands).
+    preset: Optional[PosePreset] = None
     pinned_components: List[str] = Field(default_factory=list)
 
 
@@ -144,6 +145,6 @@ class SetupOutput(BaseModel):
     components: Components
     contact_points: ContactPoints
     rider: RiderAnthropometrics
-    preset: PosePreset
+    preset: Optional[PosePreset] = None
     pose_metrics: PoseMetrics
     constraints: ConstraintResult

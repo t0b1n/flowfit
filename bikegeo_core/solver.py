@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -25,7 +25,7 @@ def _objective(
     target_hoods: Tuple[float, float],
     bike_points: BikePoints,
     pose: PoseMetrics,
-    preset: PosePreset,
+    preset: Optional[PosePreset],
 ) -> float:
     ts = np.array(target_saddle)
     th = np.array(target_hoods)
@@ -33,13 +33,16 @@ def _objective(
     ph = np.array([bike_points.hoods.x, bike_points.hoods.y])
     cp_error = float(np.sum((ps - ts) ** 2) + np.sum((ph - th) ** 2))
 
-    posture_penalty = (
-        _posture_band_penalty(pose.trunk_angle_deg, preset.trunk_angle)
-        + _posture_band_penalty(pose.hip_angle_deg, preset.hip_angle)
-        + _posture_band_penalty(pose.shoulder_flexion_deg, preset.shoulder_flexion)
-        + _posture_band_penalty(pose.elbow_flexion_deg, preset.elbow_flexion)
-        + _posture_band_penalty(pose.knee_extension_deg, preset.knee_extension)
-    )
+    if preset is None:
+        posture_penalty = 0.0
+    else:
+        posture_penalty = (
+            _posture_band_penalty(pose.trunk_angle_deg, preset.trunk_angle)
+            + _posture_band_penalty(pose.hip_angle_deg, preset.hip_angle)
+            + _posture_band_penalty(pose.shoulder_flexion_deg, preset.shoulder_flexion)
+            + _posture_band_penalty(pose.elbow_flexion_deg, preset.elbow_flexion)
+            + _posture_band_penalty(pose.knee_extension_deg, preset.knee_extension)
+        )
 
     return cp_error + posture_penalty
 
@@ -129,11 +132,11 @@ def solve_setup(setup: SetupInput) -> SetupOutput:
 
     pose_metrics: PoseMetrics = solve_pose_2d(bike_points=bike_points, rider=setup.rider, pedal_stack_height=components.pedal_stack_height)
     component_constraints: ConstraintResult = evaluate_component_constraints(components=components)
-    posture_constraints: ConstraintResult = evaluate_posture_constraints(
-        pose=pose_metrics,
-        preset=setup.preset,
-    )
-    constraints: ConstraintResult = merge_constraint_results(component_constraints, posture_constraints)
+    if setup.preset is not None:
+        posture_constraints = evaluate_posture_constraints(pose=pose_metrics, preset=setup.preset)
+        constraints: ConstraintResult = merge_constraint_results(component_constraints, posture_constraints)
+    else:
+        constraints = component_constraints
 
     contact_points = ContactPoints(
         saddle=ContactPoint(x=bike_points.saddle.x, y=bike_points.saddle.y),

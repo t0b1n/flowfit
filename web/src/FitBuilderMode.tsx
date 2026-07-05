@@ -123,10 +123,17 @@ const SHOE_PRESETS = [
 
 const DEFAULT_COMPONENTS_BUILDER: Components = { ...DEFAULT_COMPONENTS };
 
+/** Typical distance from the saddle contact point (sit bones) forward to the
+ *  nose; approximation used only for the UCI setback note. */
+const SADDLE_NOSE_AHEAD_OF_CONTACT_MM = 130;
+
+/** Low-level saddle hardware sliders hidden behind the Advanced toggle. */
+const ADVANCED_SADDLE_KEYS = new Set(["saddle_stack", "seatpost_offset", "saddle_rail_offset"]);
+
 const PRESET_LABELS: Record<MannequinPresetKey, string> = {
   endurance: "Endurance",
+  sport: "Sport",
   race: "Race",
-  fast: "Fast",
 };
 
 type RiderVisibilityPart = "legs" | "torso" | "arms" | "head" | "feet" | "contactMarkers";
@@ -219,6 +226,7 @@ export const FitBuilderMode: React.FC = () => {
   });
   const [pedalPresetId, setPedalPresetId] = useState<string>("keo-blade");
   const [shoePresetId, setShoePresetId] = useState<string>(SHOE_PRESETS[0].id);
+  const [showAdvSaddle, setShowAdvSaddle] = useState(false);
   const [fitMode, setFitMode] = useState<FitMode>("contact");
   const [targetSaddleHeightMm, setTargetSaddleHeightMm] = useState(700);
 
@@ -700,7 +708,8 @@ export const FitBuilderMode: React.FC = () => {
                 />
               </label>
             ))}
-            <label className="slider-card">
+            <label className="slider-card"
+              title="Vertical distance from the saddle surface (sit bones) to the hip joint centre. ~90–100 mm for most adults; every mm here shifts the whole leg IK chain.">
               <div className="slider-card__header">
                 <span>Saddle–hip joint offset</span>
                 <strong>{rider.hip_joint_offset} mm</strong>
@@ -708,7 +717,7 @@ export const FitBuilderMode: React.FC = () => {
               <input
                 className="slider-card__input slider-card__input--frame"
                 type="range"
-                min={0} max={130} step={5} value={rider.hip_joint_offset}
+                min={70} max={120} step={5} value={rider.hip_joint_offset}
                 onChange={(e) => updateBodyMeasurement("hipJointOffset", Number(e.target.value))}
               />
             </label>
@@ -803,13 +812,15 @@ export const FitBuilderMode: React.FC = () => {
           <div className="slider-grid slider-grid--compact">
             {(
               [
+                ["Tyre size", tyreSize, 25, 38, 1, "__tyre__", "mm"],
+                ["Crank length", components.crank_length, 150, 180, 2.5, "crank_length", "mm"],
                 ["Saddle stack", components.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
                 ["Seatpost offset", components.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
                 ["Rail offset", components.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
-                ["Tyre size", tyreSize, 25, 38, 1, "__tyre__", "mm"],
-                ["Crank length", components.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
               ] as const
-            ).map(([label, value, min, max, step, key, unit]) => (
+            )
+              .filter(([, , , , , key]) => showAdvSaddle || !ADVANCED_SADDLE_KEYS.has(key))
+              .map(([label, value, min, max, step, key, unit]) => (
               <label className="slider-card" key={key}>
                 <div className="slider-card__header">
                   <span>{label}</span>
@@ -827,6 +838,9 @@ export const FitBuilderMode: React.FC = () => {
               </label>
             ))}
           </div>
+          <button className="ghost-button" onClick={() => setShowAdvSaddle((v) => !v)}>
+            {showAdvSaddle ? "Hide saddle hardware" : "Saddle hardware (stack & offsets)\u2026"}
+          </button>
         </CollapsibleSection>
 
         <CollapsibleSection eyebrow="Shoes & Pedals" title="Foot stack" defaultOpen={false}>
@@ -1342,6 +1356,24 @@ export const FitBuilderMode: React.FC = () => {
                   <strong>Out of range</strong>
                 </div>
               )}
+            </div>
+            <div className="metric-card"
+              title="Horizontal distance the saddle contact point (sit bones) sits behind the bottom bracket. The nose is roughly 130 mm further forward; the UCI requires the nose at least 50 mm behind the BB.">
+              <div className="metric-card__label">Saddle setback</div>
+              <div className="metric-card__compare"><strong>{Math.round(-bike.saddle.x)} mm</strong></div>
+              {-bike.saddle.x - SADDLE_NOSE_AHEAD_OF_CONTACT_MM < 50 && (
+                <div className="metric-card__delta">Nose may breach UCI 5 cm rule</div>
+              )}
+            </div>
+            <div className="metric-card"
+              title="Vertical distance from the saddle surface down to the hood contact point.">
+              <div className="metric-card__label">Saddle→hood drop</div>
+              <div className="metric-card__compare"><strong>{Math.round(bike.saddle.y - bike.hoods.y)} mm</strong></div>
+            </div>
+            <div className="metric-card"
+              title="Horizontal distance from the saddle contact point forward to the hood contact point.">
+              <div className="metric-card__label">Saddle→hood reach</div>
+              <div className="metric-card__compare"><strong>{Math.round(bike.hoods.x - bike.saddle.x)} mm</strong></div>
             </div>
           </div>
         </CollapsibleSection>
