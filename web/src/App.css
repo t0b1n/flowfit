@@ -702,15 +702,23 @@ a {
   stroke-width: 4;
 }
 
-.geometry-frame--main,
+/* Deliberate tube-weight hierarchy: main triangle heaviest, stays/front mid,
+   cockpit hardware lightest */
+.geometry-frame--main {
+  stroke-width: 7.5;
+}
+
 .geometry-frame--seat,
-.geometry-frame--front,
+.geometry-frame--front {
+  stroke-width: 6;
+}
+
 .geometry-frame--cockpit {
-  stroke-width: 7;
+  stroke-width: 5;
 }
 
 .geometry-frame--cockpit-thin {
-  stroke-width: 5;
+  stroke-width: 4;
 }
 
 .geometry-mannequin__line,
@@ -748,6 +756,9 @@ a {
   font-family: "Barlow Condensed", sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  paint-order: stroke;
+  stroke: rgba(26, 8, 0, 0.75);
+  stroke-width: 3px;
 }
 
 .geometry-label--target {
@@ -1090,6 +1101,9 @@ a {
   font-family: "Barlow Condensed", sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  paint-order: stroke;
+  stroke: rgba(26, 8, 0, 0.75);
+  stroke-width: 3px;
 }
 
 /* Saddle silhouette */
@@ -1881,4 +1895,99 @@ ul.auth-error {
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     box-shadow: var(--shadow-1);
   }
+}
+
+/* ── 2D bike detail: wheels, drivetrain, frame joints ─────────────────────── */
+
+.geometry-spoke {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0.14;
+}
+
+.geometry-rim-inner {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.16;
+}
+
+.geometry-hub {
+  fill: rgba(0, 0, 0, 0.35);
+  stroke-width: 3;
+  opacity: 0.5;
+}
+
+.geometry-chainring {
+  fill: none;
+  stroke-width: 2.5;
+  opacity: 0.3;
+}
+
+.geometry-chainring--inner {
+  stroke-width: 1.5;
+  opacity: 0.18;
+}
+
+.geometry-crank {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+.geometry-pedal {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.geometry-layer--a .geometry-spoke,
+.geometry-layer--a .geometry-rim-inner,
+.geometry-layer--a .geometry-hub,
+.geometry-layer--a .geometry-chainring,
+.geometry-layer--a .geometry-crank,
+.geometry-layer--a .geometry-pedal {
+  stroke: var(--compare-a);
+}
+
+.geometry-layer--b .geometry-spoke,
+.geometry-layer--b .geometry-rim-inner,
+.geometry-layer--b .geometry-hub,
+.geometry-layer--b .geometry-chainring,
+.geometry-layer--b .geometry-crank,
+.geometry-layer--b .geometry-pedal {
+  stroke: var(--compare-b);
+}
+
+.geometry-joint {
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 1.5;
+}
+
+.geometry-layer--a .geometry-joint {
+  fill: var(--compare-a);
+}
+
+.geometry-layer--b .geometry-joint {
+  fill: var(--compare-b);
+}
+
+/* Two-tone mannequin underlay */
+.geometry-mannequin__flesh {
+  fill: none;
+  stroke: rgba(250, 240, 226, 0.12);
+  stroke-linecap: round;
+}
+
+/* Joint angle arcs */
+.joint-angle__label {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: "Barlow Condensed", sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  paint-order: stroke;
+  stroke: rgba(26, 8, 0, 0.8);
+  stroke-width: 3px;
 }

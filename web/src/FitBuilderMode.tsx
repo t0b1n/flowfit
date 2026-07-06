@@ -6,6 +6,7 @@ import {
   type FrameMeasurementVisibility,
 } from "./BikeAnnotations";
 import { useCatalog } from "./catalog/CatalogContext";
+import { Drivetrain2D, JointAngleArc, Wheel2D } from "./components/BikeParts2D";
 import { CollapsibleSection } from "./components/CollapsibleSection";
 import { HOOD_PRESETS } from "./components/hoodPresets";
 import { MetricCard } from "./components/MetricCard";
@@ -173,6 +174,7 @@ export const FitBuilderMode: React.FC = () => {
   const [hoodPresetId, setHoodPresetId] = useState<string>(HOOD_PRESETS[0].id);
   const [showFrameGeometry, setShowFrameGeometry] = useState(false);
   const [showFitPositions, setShowFitPositions] = useState(false);
+  const [showJointAngles, setShowJointAngles] = useState(true);
   const [riderVisibility, setRiderVisibility] = useState<RiderVisibility>(DEFAULT_RIDER_VISIBILITY);
   const [frameMeasurementVisibility, setFrameMeasurementVisibility] = useState<FrameMeasurementVisibility>(
     DEFAULT_FRAME_MEASUREMENT_VISIBILITY
@@ -411,6 +413,9 @@ export const FitBuilderMode: React.FC = () => {
 
   const severityColor = (s: "ok" | "warning" | "bad") =>
     s === "ok" ? "var(--ok)" : s === "warning" ? "var(--warn)" : "var(--bad)";
+  // Brighter variants for strokes/labels on the dark visualization canvas
+  const severitySvgColor = (s: "ok" | "warning" | "bad") =>
+    s === "ok" ? "#4cbf7e" : s === "warning" ? "#e8a33c" : "#e05252";
   const severityTone = (s: "ok" | "warning" | "bad"): SummaryTone =>
     s === "ok" ? "ok" : s === "warning" ? "warn" : "bad";
 
@@ -1088,6 +1093,12 @@ export const FitBuilderMode: React.FC = () => {
                       </div>
                       <div className="overlay-chip-row">
                         <button
+                          className={`overlay-chip ${showJointAngles ? "overlay-chip--active" : ""}`}
+                          onClick={() => setShowJointAngles((v) => !v)}
+                        >
+                          Joint angles
+                        </button>
+                        <button
                           className={`overlay-chip ${showFitPositions ? "overlay-chip--active" : ""}`}
                           onClick={() => setShowFitPositions((v) => !v)}
                         >
@@ -1189,11 +1200,17 @@ export const FitBuilderMode: React.FC = () => {
               />
 
               <g className="geometry-layer geometry-layer--a">
-                <circle cx={bike.rearAxle.x} cy={-bike.rearAxle.y} r={effectiveFrame.wheel_radius} className="geometry-tyre" />
-                <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={effectiveFrame.wheel_radius} className="geometry-tyre" />
-                <circle cx={bike.rearAxle.x} cy={-bike.rearAxle.y} r={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)} className="geometry-wheel" />
-                <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)} className="geometry-wheel" />
-                <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.crankEnd.x} y2={-bike.crankEnd.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                <Wheel2D
+                  axle={bike.rearAxle}
+                  tyreRadius={effectiveFrame.wheel_radius}
+                  rimRadius={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)}
+                />
+                <Wheel2D
+                  axle={bike.frontAxle}
+                  tyreRadius={effectiveFrame.wheel_radius}
+                  rimRadius={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)}
+                />
+                <Drivetrain2D bb={bike.bb} crankEnd={bike.crankEnd} />
                 <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.bb.x} y2={-bike.bb.y} className="geometry-frame geometry-frame--main" />
                 <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
                 <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
@@ -1206,6 +1223,10 @@ export const FitBuilderMode: React.FC = () => {
                 <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.seatpostTop.x} y2={-bike.seatpostTop.y} className="geometry-frame geometry-frame--cockpit-thin" />
                 <line x1={bike.steererTop.x} y1={-bike.steererTop.y} x2={bike.barClamp.x} y2={-bike.barClamp.y} className="geometry-frame geometry-frame--cockpit" />
                 <line x1={bike.barClamp.x} y1={-bike.barClamp.y} x2={bike.hoods.x} y2={-bike.hoods.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                {/* Tube-junction dots so the frame reads as welded tubes, not a wireframe */}
+                {[bike.bb, bike.seatCluster, bike.headTubeTop, bike.headTubeBottom, bike.rearAxle, bike.frontAxle, bike.barClamp].map((pt, i) => (
+                  <circle key={i} cx={pt.x} cy={-pt.y} r={6} className="geometry-joint" />
+                ))}
                 <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="geometry-layer--a" />
                 {riderVisibility.contactMarkers && (
                   <>
@@ -1220,6 +1241,13 @@ export const FitBuilderMode: React.FC = () => {
                 // Anatomical ankle joint is ~19% of foot length behind the ball of foot.
                 // Used both for shoe collar drawing and as the shank line endpoint.
                 const visualAnkleX = bike.cleat.x - rider.foot_length * 0.19 * s;
+                // Two-tone limb: a wider low-opacity underlay gives the stick figure volume
+                const bodyLine = (x1: number, y1: number, x2: number, y2: number, sw: number) => (
+                  <g>
+                    <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__flesh" strokeWidth={Math.round(sw * 1.35 * s)} />
+                    <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__line" strokeWidth={Math.round(sw * s)} />
+                  </g>
+                );
                 return (
                   <g className="geometry-mannequin">
                     {/* ── Foot / shoe ── */}
@@ -1285,30 +1313,30 @@ export const FitBuilderMode: React.FC = () => {
                           opacity={0.45}
                         />
                         {/* Lower torso: hip → spine joint */}
-                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.spineJoint.x} y2={-mannequin.spineJoint.y} className="geometry-mannequin__line" strokeWidth={Math.round(160 * s)} />
+                        {bodyLine(mannequin.hip.x, mannequin.hip.y, mannequin.spineJoint.x, mannequin.spineJoint.y, 160)}
                         {/* Upper torso: spine joint → shoulder */}
-                        <line x1={mannequin.spineJoint.x} y1={-mannequin.spineJoint.y} x2={mannequin.shoulder.x} y2={-mannequin.shoulder.y} className="geometry-mannequin__line" strokeWidth={Math.round(175 * s)} />
+                        {bodyLine(mannequin.spineJoint.x, mannequin.spineJoint.y, mannequin.shoulder.x, mannequin.shoulder.y, 175)}
                       </>
                     )}
                     {riderVisibility.legs && (
                       <>
-                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.knee.x} y2={-mannequin.knee.y} className="geometry-mannequin__line" strokeWidth={Math.round(110 * s)} />
-                        <line x1={mannequin.knee.x} y1={-mannequin.knee.y} x2={visualAnkleX} y2={-mannequin.ankle.y} className="geometry-mannequin__line" strokeWidth={Math.round(82 * s)} />
+                        {bodyLine(mannequin.hip.x, mannequin.hip.y, mannequin.knee.x, mannequin.knee.y, 110)}
+                        {bodyLine(mannequin.knee.x, mannequin.knee.y, visualAnkleX, mannequin.ankle.y, 82)}
                       </>
                     )}
                     {riderVisibility.arms && (
                       <>
-                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.elbow.x} y2={-mannequin.elbow.y} className="geometry-mannequin__line" strokeWidth={Math.round(70 * s)} />
-                        <line x1={mannequin.elbow.x} y1={-mannequin.elbow.y} x2={mannequin.wrist.x} y2={-mannequin.wrist.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
-                        <line x1={mannequin.wrist.x} y1={-mannequin.wrist.y} x2={mannequin.hands.x} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(45 * s)} />
+                        {bodyLine(mannequin.shoulder.x, mannequin.shoulder.y, mannequin.elbow.x, mannequin.elbow.y, 70)}
+                        {bodyLine(mannequin.elbow.x, mannequin.elbow.y, mannequin.wrist.x, mannequin.wrist.y, 55)}
+                        {bodyLine(mannequin.wrist.x, mannequin.wrist.y, mannequin.hands.x, mannequin.hands.y, 45)}
                       </>
                     )}
                     {riderVisibility.head && (
                       <>
                         {/* Neck: shoulder → neck base */}
-                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.neckBase.x} y2={-mannequin.neckBase.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        {bodyLine(mannequin.shoulder.x, mannequin.shoulder.y, mannequin.neckBase.x, mannequin.neckBase.y, 55)}
                         {/* Neck → head */}
-                        <line x1={mannequin.neckBase.x} y1={-mannequin.neckBase.y} x2={mannequin.head.x} y2={-mannequin.head.y} className="geometry-mannequin__line" strokeWidth={Math.round(45 * s)} />
+                        {bodyLine(mannequin.neckBase.x, mannequin.neckBase.y, mannequin.head.x, mannequin.head.y, 45)}
                         <circle cx={mannequin.head.x} cy={-mannequin.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
                       </>
                     )}
@@ -1316,12 +1344,49 @@ export const FitBuilderMode: React.FC = () => {
                 );
               })()}
 
+              {/* ── On-figure joint angle arcs, color-coded by constraint status ── */}
+              {showJointAngles && (
+                <g>
+                  <JointAngleArc
+                    joint={mannequin.knee}
+                    a={mannequin.hip}
+                    b={{ x: bike.cleat.x - rider.foot_length * 0.19 * (rider.height / 1800), y: mannequin.ankle.y }}
+                    label={`Knee ${kneeFlex.toFixed(0)}° flex`}
+                    color={
+                      kneeTone === "ok" ? "#4cbf7e" : kneeTone === "warn" ? "#e8a33c" : kneeTone === "bad" ? "#e05252" : "rgba(250, 240, 226, 0.85)"
+                    }
+                  />
+                  <JointAngleArc
+                    joint={mannequin.hip}
+                    a={mannequin.shoulder}
+                    b={{ x: mannequin.hip.x + 300, y: mannequin.hip.y }}
+                    label={`Trunk ${targetTrunkAngleDeg.toFixed(0)}°`}
+                    color="#5fb8c4"
+                    radius={90}
+                    labelRadiusFactor={1.35}
+                  />
+                  <JointAngleArc
+                    joint={mannequin.elbow}
+                    a={mannequin.shoulder}
+                    b={mannequin.wrist}
+                    label={`Elbow ${(180 - angleAtPoint(mannequin.shoulder, mannequin.elbow, mannequin.wrist)).toFixed(0)}°`}
+                    color="rgba(250, 240, 226, 0.75)"
+                    radius={52}
+                  />
+                </g>
+              )}
+
               {riderVisibility.contactMarkers && (["saddle", "hoods", "cleat"] as const).map((contact) => {
                 const pt = idealContacts[contact];
+                const w = warnings.find((warning) => warning.contact === contact);
+                const crossStyle =
+                  w && w.severity !== "ok"
+                    ? { stroke: w.severity === "warning" ? "#e8a33c" : "#e05252" }
+                    : undefined;
                 return (
                   <g key={contact}>
-                    <line x1={pt.x - 18} y1={-pt.y} x2={pt.x + 18} y2={-pt.y} className="geometry-target" />
-                    <line x1={pt.x} y1={-pt.y - 18} x2={pt.x} y2={-pt.y + 18} className="geometry-target" />
+                    <line x1={pt.x - 18} y1={-pt.y} x2={pt.x + 18} y2={-pt.y} className="geometry-target" style={crossStyle} />
+                    <line x1={pt.x} y1={-pt.y - 18} x2={pt.x} y2={-pt.y + 18} className="geometry-target" style={crossStyle} />
                     <text x={pt.x + 12} y={-pt.y - 12} className="geometry-label geometry-label--target">
                       Ideal {contact}
                     </text>
@@ -1339,13 +1404,14 @@ export const FitBuilderMode: React.FC = () => {
                     <g key={w.contact}>
                       <line
                         x1={actual.x} y1={-actual.y} x2={ideal.x} y2={-ideal.y}
-                        stroke={severityColor(w.severity)}
-                        strokeWidth={1.5} strokeDasharray="5 3" opacity={0.7}
+                        stroke={severitySvgColor(w.severity)}
+                        strokeWidth={1.5} strokeDasharray="5 3" opacity={0.8}
                       />
                       <text
                         x={(actual.x + ideal.x) / 2 + 8}
                         y={-((actual.y + ideal.y) / 2)}
-                        style={{ fill: severityColor(w.severity), fontSize: 20 }}
+                        className="geometry-label"
+                        style={{ fill: severitySvgColor(w.severity), fontSize: 20 }}
                       >
                         {w.distance.toFixed(0)} mm
                       </text>
