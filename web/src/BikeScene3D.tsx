@@ -729,9 +729,11 @@ function orientedMesh(
   );
 }
 
-/** Crank arms to each pedal, pedal bodies, and a chainring at the BB */
-function Drivetrain3D({ geo }: { geo: Geometry3DResponse }) {
-  const ptMap = new Map(geo.points.map((p) => [p.name, p.pos]));
+/** Crank arms to each pedal, pedal bodies, and a chainring at the BB.
+    Takes the merged point list so cranks follow the override mannequin's
+    opposed leg pose. */
+function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
+  const ptMap = new Map(points.map((p) => [p.name, p.pos]));
   const bb = ptMap.get("bb");
   const cleatL = ptMap.get("cleat_l");
   const cleatR = ptMap.get("cleat_r");
@@ -1017,7 +1019,7 @@ function SceneContent({
       <Wheels geo={geo} wheelRadius={wheelRadius} />
 
       {/* Drivetrain + hood bodies */}
-      <Drivetrain3D geo={geo} />
+      <Drivetrain3D points={effectivePoints} />
       <Hoods3D geo={geo} />
 
       {/* Saddle */}
