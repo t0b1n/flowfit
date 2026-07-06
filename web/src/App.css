@@ -640,12 +640,14 @@ a {
   color: #faf0e2;
 }
 
-/* Explicit height on the wrapper so R3F gets a real pixel size to measure */
+/* Explicit height on the wrapper so R3F gets a real pixel size to measure.
+   The canvas renders with alpha; this gradient is the scene backdrop. */
 .bike3d-canvas-wrapper {
   width: 100%;
   height: min(65vh, 600px);
   border-radius: var(--radius-md);
   overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 18%, #2e1809 0%, #1c0d04 55%, #0e0502 100%);
 }
 
 .visual-stage__loading {
