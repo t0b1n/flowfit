@@ -112,7 +112,7 @@ export const AddBikeMode: React.FC = () => {
       </div>
 
       {success ? <div className="auth-success">{success}</div> : null}
-      {errors.length > 0 ? (
+      {errors.length > 0 && tab !== "form" ? (
         <ul className="auth-error">
           {errors.map((m, i) => (
             <li key={i}>{m}</li>
@@ -127,6 +127,7 @@ export const AddBikeMode: React.FC = () => {
           allBrands={allBrands}
           onSubmit={onSubmitForm}
           busy={busy}
+          errors={errors}
         />
       ) : null}
 
@@ -151,9 +152,18 @@ type FormProps = {
   allBrands: string[];
   onSubmit: (e: React.FormEvent) => void;
   busy: boolean;
+  errors: string[];
 };
 
-const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, busy }) => {
+// Validation messages are prefixed with their field path (e.g.
+// "sizes[0].geometry.stack: 200–900 mm.") so they can be shown inline.
+const InlineError: React.FC<{ errors: string[]; prefix: string }> = ({ errors, prefix }) => {
+  const match = errors.find((e) => e.startsWith(`${prefix}:`));
+  if (!match) return null;
+  return <span className="field-error">{match.slice(prefix.length + 1).trim()}</span>;
+};
+
+const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, busy, errors }) => {
   const updateGeo = (i: number, key: keyof FrameGeometry, value: number) => {
     setForm((f) => {
       const sizes = [...f.sizes];
@@ -193,6 +203,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
               <option key={b} value={b} />
             ))}
           </datalist>
+          <InlineError errors={errors} prefix="brand" />
         </label>
         <label>
           Model
@@ -201,6 +212,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
             onChange={(e) => setForm({ ...form, model: e.target.value })}
             required
           />
+          <InlineError errors={errors} prefix="model" />
         </label>
       </div>
 
@@ -215,6 +227,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
             onChange={(e) => setForm({ ...form, launch_year: Number(e.target.value) })}
             required
           />
+          <InlineError errors={errors} prefix="launch_year" />
         </label>
         <label>
           Category
@@ -223,6 +236,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
             onChange={(e) => setForm({ ...form, category: e.target.value })}
             required
           />
+          <InlineError errors={errors} prefix="category" />
         </label>
         <label>
           Notes / popularity
@@ -230,6 +244,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
             value={form.popularity}
             onChange={(e) => setForm({ ...form, popularity: e.target.value })}
           />
+          <InlineError errors={errors} prefix="popularity" />
         </label>
       </div>
 
@@ -243,7 +258,22 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
             setForm({ ...form, sources: e.target.value ? [e.target.value] : [] })
           }
         />
+        <InlineError errors={errors} prefix="sources[0]" />
       </label>
+
+      {errors.length > 0 && (() => {
+        const FIELD_RE = /^(brand|model|category|popularity|launch_year|sources\[|sizes\[)/;
+        const general = errors.filter((e) => !FIELD_RE.test(e));
+        const fieldCount = errors.length - general.length;
+        return (
+          <div className="auth-error">
+            {fieldCount > 0 && <div>Fix the highlighted fields, then submit again.</div>}
+            {general.map((m, i) => (
+              <div key={i}>{m}</div>
+            ))}
+          </div>
+        );
+      })()}
 
       <h3>Sizes</h3>
       {form.sizes.map((size, i) => (
@@ -264,6 +294,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
                 onChange={(e) => updateSizeLabel(i, e.target.value)}
                 required
               />
+              <InlineError errors={errors} prefix={`sizes[${i}].size`} />
             </label>
           </div>
           <div className="form-grid">
@@ -289,6 +320,7 @@ const BikeForm: React.FC<FormProps> = ({ form, setForm, allBrands, onSubmit, bus
                   onChange={(e) => updateGeo(i, key, Number(e.target.value))}
                   required
                 />
+                <InlineError errors={errors} prefix={`sizes[${i}].geometry.${key}`} />
               </label>
             ))}
           </div>
@@ -384,7 +416,12 @@ const SubmissionsList: React.FC<SubmissionsListProps> = ({ bikes, onChanged }) =
   const [flagging, setFlagging] = useState<string | null>(null);
 
   if (bikes.length === 0) {
-    return <p>You haven't submitted any bikes yet.</p>;
+    return (
+      <div className="empty-state">
+        <p>You haven't submitted any bikes yet.</p>
+        <p>Use the Form or JSON tab to contribute a frame to the catalog.</p>
+      </div>
+    );
   }
 
   return (

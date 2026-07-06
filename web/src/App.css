@@ -1993,3 +1993,170 @@ ul.auth-error {
   stroke: rgba(26, 8, 0, 0.8);
   stroke-width: 3px;
 }
+
+/* ── Fit Transfer: solver controls, lock toggle, status bar ───────────────── */
+
+.solver-block {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1.5px dashed rgba(0, 112, 168, 0.45);
+  border-radius: var(--radius-lg);
+  background: rgba(0, 112, 168, 0.05);
+  display: grid;
+  gap: 8px;
+}
+
+.solver-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.solver-block__header > span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--compare-b);
+}
+
+.solver-slider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.lock-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lock-btn--locked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.state-chip {
+  padding: 0.14rem 0.4rem;
+  border-radius: var(--radius-md);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.state-chip--solver {
+  background: rgba(0, 112, 168, 0.12);
+  color: var(--compare-b);
+}
+
+.state-chip--pinned {
+  background: var(--accent);
+  color: #fff;
+}
+
+.state-chip--tweaked {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.reset-mini {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.reset-mini:hover {
+  color: var(--accent);
+}
+
+.solve-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(250, 240, 226, 0.14);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.82rem;
+}
+
+.solve-status strong {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #faf0e2;
+}
+
+.solve-status__dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(250, 240, 226, 0.4);
+}
+
+.solve-status--live .solve-status__dot {
+  background: var(--accent);
+  animation: solve-pulse 1s ease-in-out infinite;
+}
+
+.solve-status--error .solve-status__dot {
+  background: #e05252;
+}
+
+.solve-status--error strong {
+  color: #e05252;
+}
+
+.solve-status__residuals {
+  color: rgba(250, 240, 226, 0.72);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@keyframes solve-pulse {
+  50% { opacity: 0.35; }
+}
+
+/* Light selector panels can host collapsible sections directly */
+.selector-panel .subpanel + .subpanel {
+  margin-top: 12px;
+}
+
+.field-error {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--bad);
+}
+
+.add-bike-form label:has(.field-error) input,
+.add-bike-form label:has(.field-error) textarea {
+  border-color: rgba(192, 40, 40, 0.55);
+}

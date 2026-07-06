@@ -31,9 +31,12 @@ export const ProfilePage: React.FC = () => {
       <section>
         <h2>My submitted bikes</h2>
         {myBikes.length === 0 ? (
-          <p>
-            None yet. <Link to="/add">Add a bike</Link> to share its geometry with the catalog.
-          </p>
+          <div className="empty-state">
+            <p>No bikes yet — share a frame's geometry with the catalog.</p>
+            <Link to="/add" className="primary-btn" style={{ textDecoration: "none" }}>
+              Add a bike
+            </Link>
+          </div>
         ) : (
           <ul className="profile-bikes">
             {myBikes.map((b) => (
