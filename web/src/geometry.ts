@@ -815,10 +815,17 @@ export function buildMannequin3DPoints(
 
   const pedalStack = components.pedal_stack_height || 0;
 
+  // Anatomical ankle joint sits ~19% of foot length behind the ball of the
+  // foot / pedal spindle. The 2D side view draws the shin to this shifted
+  // point (visualAnkleX in FitBuilderMode); use the same convention here so
+  // the 3D knee bend reads identically. The IK itself solves with the
+  // unshifted ankle in both views.
+  const ankleSetback = rider.foot_length * 0.19 * (rider.height / 1800);
+
   // Left leg: the 2D fit pose (crank at bottom dead center — this is the leg
   // "knee flex at BDC" is measured on, matching the 2D side view).
   p("cleat_l", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
-  p("ankle_l", mannequin.ankle.x, mannequin.ankle.y, +halfStance);
+  p("ankle_l", mannequin.ankle.x - ankleSetback, mannequin.ankle.y, +halfStance);
   p("knee_l", mannequin.knee.x, mannequin.knee.y, +halfStance);
 
   // Right leg: posed at the opposed crank position (top dead center) so the
@@ -839,7 +846,7 @@ export function buildMannequin3DPoints(
   );
   const kneeR2d = kneeCandA.x >= kneeCandB.x ? kneeCandA : kneeCandB;
   p("cleat_r", cleatR2d.x, cleatR2d.y, -halfStance);
-  p("ankle_r", ankleR2d.x, ankleR2d.y, -halfStance);
+  p("ankle_r", ankleR2d.x - ankleSetback, ankleR2d.y, -halfStance);
   p("knee_r", kneeR2d.x, kneeR2d.y, -halfStance);
 
   // Hips at ±half_hip + centerline
