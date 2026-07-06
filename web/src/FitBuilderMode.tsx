@@ -1244,7 +1244,7 @@ export const FitBuilderMode: React.FC = () => {
                 // Two-tone limb: a wider low-opacity underlay gives the stick figure volume
                 const bodyLine = (x1: number, y1: number, x2: number, y2: number, sw: number) => (
                   <g>
-                    <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__flesh" strokeWidth={Math.round(sw * 1.35 * s)} />
+                    <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__flesh" strokeWidth={Math.round(sw * 1.18 * s)} />
                     <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__line" strokeWidth={Math.round(sw * s)} />
                   </g>
                 );

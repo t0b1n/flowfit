@@ -1076,6 +1076,11 @@ a {
   gap: 12px;
 }
 
+/* Transfer's overlay canvas owns the full row (metrics live below it now) */
+.mode-layout--transfer .workspace-grid {
+  grid-template-columns: 1fr;
+}
+
 /* Open contact node (Frame B in transfer mode) */
 .geometry-node--open {
   fill: none !important;
@@ -1975,23 +1980,24 @@ ul.auth-error {
   fill: var(--compare-b);
 }
 
-/* Two-tone mannequin underlay */
+/* Two-tone mannequin underlay — kept faint so overlapping limbs don't
+   stack into a blob */
 .geometry-mannequin__flesh {
   fill: none;
-  stroke: rgba(250, 240, 226, 0.12);
+  stroke: rgba(250, 240, 226, 0.055);
   stroke-linecap: round;
 }
 
 /* Joint angle arcs */
 .joint-angle__label {
-  font-size: 16px;
+  font-size: 26px;
   font-weight: 700;
   font-family: "Barlow Condensed", sans-serif;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   paint-order: stroke;
-  stroke: rgba(26, 8, 0, 0.8);
-  stroke-width: 3px;
+  stroke: rgba(26, 8, 0, 0.85);
+  stroke-width: 5px;
 }
 
 /* ── Fit Transfer: solver controls, lock toggle, status bar ───────────────── */
