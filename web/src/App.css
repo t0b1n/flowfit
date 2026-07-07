@@ -692,12 +692,37 @@ a {
   color: #faf0e2;
 }
 
+.bike3d-toolbar--anim {
+  padding-top: 0;
+  flex-wrap: wrap;
+}
+
+.bike3d-anim-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.bike3d-anim-control span {
+  min-width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bike3d-anim-control input[type="range"] {
+  width: 140px;
+  accent-color: #faf0e2;
+}
+
 /* Explicit height on the wrapper so R3F gets a real pixel size to measure */
 .bike3d-canvas-wrapper {
   width: 100%;
   height: min(65vh, 600px);
   border-radius: 2px;
   overflow: hidden;
+  position: relative;
 }
 
 .visual-stage__loading {

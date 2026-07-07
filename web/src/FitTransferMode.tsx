@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
+import type { FrameMeasurementVisibility } from "./BikeAnnotations";
 import { solve } from "./api";
 import { useCatalog } from "./catalog/CatalogContext";
 import {
@@ -52,6 +53,21 @@ const SaddleShape: React.FC<{
       <circle cx={clampSvgX} cy={clampSvgY} r={4} className="geometry-saddle-clamp" />
     </g>
   );
+};
+
+const ALL_FRAME_MEASUREMENTS: FrameMeasurementVisibility = {
+  stack: true,
+  reach: true,
+  effectiveTopTube: true,
+  headTubeLength: true,
+  headTubeAngle: true,
+  seatTubeAngle: true,
+  seatTubeLength: true,
+  bbDrop: true,
+  chainstay: true,
+  wheelbase: true,
+  forkLength: true,
+  forkOffset: true,
 };
 
 const HOOD_PRESETS = [
@@ -829,8 +845,8 @@ export const FitTransferMode: React.FC = () => {
               )}
               {showGeometry && (
                 <>
-                  <BikeGeometryAnnotations bike={bikeA} frame={effectiveFrameA} />
-                  <BikeGeometryAnnotations bike={bikeB} frame={effectiveFrameB} />
+                  <BikeGeometryAnnotations bike={bikeA} frame={effectiveFrameA} sizeData={sizeA} visibleMeasurements={ALL_FRAME_MEASUREMENTS} />
+                  <BikeGeometryAnnotations bike={bikeB} frame={effectiveFrameB} sizeData={sizeB} visibleMeasurements={ALL_FRAME_MEASUREMENTS} />
                 </>
               )}
             </svg>

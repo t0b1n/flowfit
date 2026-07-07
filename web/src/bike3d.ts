@@ -158,7 +158,7 @@ interface PartSpec {
 
 // Base radii derived from 2D SVG stroke widths (strokeWidth = diameter, so radius = strokeWidth/2).
 // 2D reference at height=1800: torso 175, thigh 110, shin 82, upper arm 70, forearm 55, head 88r.
-const MANNEQUIN_EDGE_SPEC: Record<string, PartSpec> = {
+export const MANNEQUIN_EDGE_SPEC: Record<string, PartSpec> = {
   mannequin_foot:          { type: "tapered_cylinder", baseRadius: 41, sensitivity: 0.10, baseRadiusEnd: 25 },
   mannequin_shin:          { type: "cylinder",         baseRadius: 48, sensitivity: 0.15 },
   mannequin_thigh:         { type: "cylinder",         baseRadius: 65, sensitivity: 0.35 },
@@ -173,7 +173,7 @@ const MANNEQUIN_EDGE_SPEC: Record<string, PartSpec> = {
 };
 
 // Joint sphere radii — smaller than adjacent limbs so they sit recessed in articulation gaps.
-const MANNEQUIN_JOINT_SPEC: Record<string, PartSpec> = {
+export const MANNEQUIN_JOINT_SPEC: Record<string, PartSpec> = {
   head_center:      { type: "sphere", baseRadius: 88, sensitivity: 0.05 },
   spine_joint:      { type: "sphere", baseRadius: 80, sensitivity: 0.45 },
   shoulder_l:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
@@ -191,12 +191,21 @@ const MANNEQUIN_JOINT_SPEC: Record<string, PartSpec> = {
 };
 
 /** Fraction of segment length to trim from EACH end to reveal joint spheres */
-const GAP_FRACTION = 0.06;
+export const GAP_FRACTION = 0.06;
 
-function scaleRadius(base: number, weightKg: number, sensitivity: number): number {
+export function scaleRadius(base: number, weightKg: number, sensitivity: number): number {
   const w = weightKg / 75;
   return base * Math.pow(w, sensitivity);
 }
+
+// Leg points/edges are excluded from the declarative mannequin when the
+// pedaling animation owns them (AnimatedLegs mutates their transforms per frame).
+export const LEG_POINT_NAMES = new Set([
+  "cleat_l", "cleat_r", "ankle_l", "ankle_r", "knee_l", "knee_r",
+]);
+export const LEG_EDGE_GROUPS = new Set([
+  "mannequin_foot", "mannequin_shin", "mannequin_thigh",
+]);
 
 /**
  * Build mannequin part descriptors from 3D points and edges.

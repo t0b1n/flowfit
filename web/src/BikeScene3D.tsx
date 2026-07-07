@@ -10,7 +10,7 @@
  *     e.g. pre-built SRAM / Shimano shifter meshes swapped on component change)
  */
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -24,7 +24,11 @@ import {
   getWheelCenters,
   Tube3D,
   MannequinPart3D,
+  LEG_POINT_NAMES,
+  LEG_EDGE_GROUPS,
 } from "./bike3d";
+import { AnimatedLegs } from "./AnimatedLegs";
+import type { PedalStrokeLUT, PosturePreset } from "./geometry";
 import type { MannequinSketch } from "./types";
 
 // ── Material ─────────────────────────────────────────────────────────────────
@@ -742,6 +746,11 @@ function SceneContent({
   mannequin2D,
   mannequin3DOverride,
   weightKg = 75,
+  strokeLUT,
+  stanceWidth = 155,
+  crankAngleRef,
+  playing,
+  cadenceRpm,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -753,6 +762,11 @@ function SceneContent({
   mannequin2D?: MannequinSketch;
   mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
   weightKg?: number;
+  strokeLUT?: PedalStrokeLUT;
+  stanceWidth?: number;
+  crankAngleRef: React.MutableRefObject<number>;
+  playing: boolean;
+  cadenceRpm: number;
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
@@ -774,12 +788,23 @@ function SceneContent({
   const frameEdges = effectiveEdges.filter((e) => !e.group.startsWith("mannequin"));
   const frameTubes = buildTubes(framePts, frameEdges);
 
-  // Mannequin parts (sphere joints + cylinders + capsules + tapered)
-  const mannequinPts = effectivePoints.filter((p) => p.group === "mannequin");
-  const mannequinEdges = effectiveEdges.filter((e) => e.group.startsWith("mannequin"));
+  // Mannequin parts (sphere joints + cylinders + capsules + tapered).
+  // With a stroke LUT the legs are animated by <AnimatedLegs> instead, so they
+  // are excluded from the declarative part list.
+  const mannequinPts = effectivePoints.filter(
+    (p) => p.group === "mannequin" && !(strokeLUT && LEG_POINT_NAMES.has(p.name))
+  );
+  const mannequinEdges = effectiveEdges.filter(
+    (e) => e.group.startsWith("mannequin") && !(strokeLUT && LEG_EDGE_GROUPS.has(e.group))
+  );
   const mannequinParts = showMannequin
     ? buildMannequinParts(mannequinPts, mannequinEdges, weightKg)
     : [];
+
+  const effPtMap = new Map(effectivePoints.map((p) => [p.name, p.pos]));
+  const hipL = effPtMap.get("hip_l");
+  const hipR = effPtMap.get("hip_r");
+  const bbPt = effPtMap.get("bb") ?? ([0, 0, 0] as [number, number, number]);
 
   const wheelRadius = geo.frame.wheel_radius ?? 311;
 
@@ -801,6 +826,22 @@ function SceneContent({
       {mannequinParts.map((part, i) => (
         <MannequinPartMesh key={`mann-${i}`} part={part} />
       ))}
+
+      {/* Animated legs + crankset */}
+      {strokeLUT && hipL && hipR && (
+        <AnimatedLegs
+          lut={strokeLUT}
+          hipL={hipL}
+          hipR={hipR}
+          bb={bbPt}
+          halfStance={stanceWidth / 2}
+          weightKg={weightKg}
+          crankAngleRef={crankAngleRef}
+          playing={playing}
+          cadenceRpm={cadenceRpm}
+          showLegs={showMannequin}
+        />
+      )}
 
       {/* Joints */}
       <JointSpheres geo={geo} />
@@ -835,6 +876,9 @@ interface BikeScene3DProps {
   mannequin2D?: MannequinSketch;
   mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
   weightKg?: number;
+  strokeLUT?: PedalStrokeLUT;
+  stanceWidth?: number;
+  postureBands?: PosturePreset;
 }
 
 function exportJson(geo: Geometry3DResponse) {
@@ -861,11 +905,28 @@ function exportCsv(geo: Geometry3DResponse) {
   URL.revokeObjectURL(url);
 }
 
-export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mannequin3DOverride, weightKg = 75 }) => {
+export const BikeScene3D: React.FC<BikeScene3DProps> = ({
+  geo, mannequin2D, mannequin3DOverride, weightKg = 75,
+  strokeLUT, stanceWidth, postureBands,
+}) => {
   const [devMode, setDevMode] = useState(false);
   const [showMannequin, setShowMannequin] = useState(true);
   const [show2dOverlay, setShow2dOverlay] = useState(false);
   const [saddleType, setSaddleType] = useState<SaddleType>("power");
+  // Pedaling animation: crank angle lives in a ref (mutated per frame inside
+  // the canvas); scrub state mirrors it at low frequency for the slider thumb.
+  const crankAngleRef = useRef(180); // BDC — matches the static pose
+  const [playing, setPlaying] = useState(false);
+  const [cadenceRpm, setCadenceRpm] = useState(60);
+  const [scrubDeg, setScrubDeg] = useState(180);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setScrubDeg(Math.round(crankAngleRef.current) % 360);
+    }, 200);
+    return () => clearInterval(id);
+  }, [playing]);
   // attachedAssets: populated programmatically (e.g. SRAM / Shimano shifter meshes
   // swapped on component change). Dev mode exposes runtime file import for authoring.
   const [attachedAssets, setAttachedAssets] = useState<AttachedAsset[]>([]);
@@ -980,6 +1041,45 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
         </button>
       </div>
 
+      {/* Pedaling animation controls */}
+      {strokeLUT && (
+        <div className="bike3d-toolbar bike3d-toolbar--anim">
+          <button
+            className={`tab-pill ${playing ? "tab-pill--active" : ""}`}
+            onClick={() => setPlaying((v) => !v)}
+            title={playing ? "Pause pedaling" : "Play pedaling"}
+          >
+            {playing ? "⏸ Pause" : "▶ Pedal"}
+          </button>
+          <label className="bike3d-anim-control">
+            <span>Crank {scrubDeg}°</span>
+            <input
+              type="range"
+              min={0}
+              max={359}
+              value={scrubDeg}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                crankAngleRef.current = v;
+                setScrubDeg(v);
+                setPlaying(false);
+              }}
+            />
+          </label>
+          <label className="bike3d-anim-control">
+            <span>{cadenceRpm} rpm</span>
+            <input
+              type="range"
+              min={30}
+              max={120}
+              step={5}
+              value={cadenceRpm}
+              onChange={(e) => setCadenceRpm(Number(e.target.value))}
+            />
+          </label>
+        </div>
+      )}
+
       {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size */}
       <div className="bike3d-canvas-wrapper">
         <Canvas
@@ -997,6 +1097,11 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
             mannequin2D={mannequin2D}
             mannequin3DOverride={mannequin3DOverride}
             weightKg={weightKg}
+            strokeLUT={strokeLUT}
+            stanceWidth={stanceWidth}
+            crankAngleRef={crankAngleRef}
+            playing={playing}
+            cadenceRpm={cadenceRpm}
           />
         </Canvas>
       </div>
