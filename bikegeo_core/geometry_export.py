@@ -9,7 +9,7 @@ from .geometry import BikePoints, synthesize_bike
 from .mannequin3d import solve_pose_3d
 from .models import SetupOutput
 
-EXPORT_VERSION = "1.0.0"
+EXPORT_VERSION = "1.1.0"
 
 
 @dataclass
@@ -240,9 +240,17 @@ def build_export(setup_output: SetupOutput, bike_points: BikePoints) -> BikeGeoE
     for a, b, group in _MANNEQUIN_EDGES:
         edges.append(GeometryEdge(a=a, b=b, group=group))
 
-    pose_metrics = setup_output.pose_metrics.model_dump()
+    # Optional stroke metrics may be unset; the API schema is dict[str, float]
+    pose_metrics = {
+        k: v for k, v in setup_output.pose_metrics.model_dump().items()
+        if v is not None
+    }
 
-    frame_dict = setup_output.frame.model_dump()
+    # Optional frame fields may be unset; the API schema is dict[str, float]
+    frame_dict = {
+        k: v for k, v in setup_output.frame.model_dump().items()
+        if v is not None
+    }
     components_dict = {
         k: v for k, v in setup_output.components.model_dump().items()
         if v is not None

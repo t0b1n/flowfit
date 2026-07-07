@@ -62,6 +62,13 @@ def evaluate_posture_constraints(pose: PoseMetrics, preset: PosePreset) -> Const
         preset.knee_extension.min_deg,
         preset.knee_extension.max_deg,
     )
+    if preset.knee_flexion_tdc is not None and pose.knee_flexion_tdc_deg is not None:
+        check_band(
+            "knee_flexion_tdc",
+            pose.knee_flexion_tdc_deg,
+            preset.knee_flexion_tdc.min_deg,
+            preset.knee_flexion_tdc.max_deg,
+        )
 
     status = ConstraintStatus.FEASIBLE if not violations else ConstraintStatus.FEASIBLE_WITH_COMPROMISES
     return ConstraintResult(status=status, violations=violations)
