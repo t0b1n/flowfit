@@ -28,7 +28,20 @@ import {
   LEG_EDGE_GROUPS,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
-import type { PedalStrokeLUT, PosturePreset } from "./geometry";
+import {
+  BAND_COLORS,
+  DimensionLines3D,
+  JointArc,
+  KneeArcAnimated,
+  KopsIndicator,
+} from "./FitAnalytics3D";
+import {
+  angleAtPoint,
+  bandStatus,
+  kneeExtensionAt,
+  type PedalStrokeLUT,
+  type PosturePreset,
+} from "./geometry";
 import type { MannequinSketch } from "./types";
 
 // ── Material ─────────────────────────────────────────────────────────────────
@@ -751,6 +764,10 @@ function SceneContent({
   crankAngleRef,
   playing,
   cadenceRpm,
+  postureBands,
+  showAngles,
+  showDimensions,
+  showKops,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -767,6 +784,10 @@ function SceneContent({
   crankAngleRef: React.MutableRefObject<number>;
   playing: boolean;
   cadenceRpm: number;
+  postureBands?: PosturePreset;
+  showAngles: boolean;
+  showDimensions: boolean;
+  showKops: boolean;
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
@@ -843,6 +864,85 @@ function SceneContent({
         />
       )}
 
+      {/* Fit analytics: joint angle arcs */}
+      {showAngles && mannequin2D && postureBands && (
+        <>
+          <JointArc
+            vertex={mannequin2D.hip}
+            rayA={mannequin2D.shoulder}
+            rayC={mannequin2D.knee}
+            z={(hipL?.[2] ?? 100) + 85}
+            label="Hip"
+            value={angleAtPoint(mannequin2D.shoulder, mannequin2D.hip, mannequin2D.knee)}
+            band={postureBands.hip_angle}
+          />
+          <JointArc
+            vertex={mannequin2D.shoulder}
+            rayA={mannequin2D.hip}
+            rayC={mannequin2D.elbow}
+            z={(effPtMap.get("shoulder_l")?.[2] ?? 185) + 70}
+            label="Shoulder"
+            value={angleAtPoint(mannequin2D.hip, mannequin2D.shoulder, mannequin2D.elbow)}
+            band={postureBands.shoulder_flexion}
+            radius={75}
+          />
+          <JointArc
+            vertex={mannequin2D.elbow}
+            rayA={mannequin2D.shoulder}
+            rayC={mannequin2D.hands}
+            z={(effPtMap.get("elbow_l")?.[2] ?? 185) + 60}
+            label="Elbow"
+            value={180 - angleAtPoint(mannequin2D.shoulder, mannequin2D.elbow, mannequin2D.hands)}
+            band={postureBands.elbow_flexion}
+            radius={65}
+          />
+          {strokeLUT ? (
+            <KneeArcAnimated
+              lut={strokeLUT}
+              crankAngleRef={crankAngleRef}
+              hip={strokeLUT.hip}
+              z={stanceWidth / 2 + 75}
+              band={postureBands.knee_extension}
+            />
+          ) : (
+            <JointArc
+              vertex={mannequin2D.knee}
+              rayA={mannequin2D.hip}
+              rayC={mannequin2D.ankle}
+              z={stanceWidth / 2 + 75}
+              label="Knee"
+              value={angleAtPoint(mannequin2D.hip, mannequin2D.knee, mannequin2D.ankle)}
+              band={postureBands.knee_extension}
+              radius={80}
+            />
+          )}
+        </>
+      )}
+
+      {/* Fit analytics: KOPS plumb line */}
+      {showKops && strokeLUT && (
+        <KopsIndicator
+          lut={strokeLUT}
+          crankAngleRef={crankAngleRef}
+          z={stanceWidth / 2 + 75}
+        />
+      )}
+
+      {/* Fit analytics: dimension lines (drive side so they clear the arcs) */}
+      {showDimensions && (() => {
+        const saddle = effPtMap.get("saddle");
+        const hl = effPtMap.get("hoods_l");
+        const hr = effPtMap.get("hoods_r");
+        if (!saddle || !hl || !hr) return null;
+        const barW = geo.components.bar_width ?? 400;
+        const hoods: [number, number, number] = [
+          (hl[0] + hr[0]) / 2,
+          (hl[1] + hr[1]) / 2,
+          0,
+        ];
+        return <DimensionLines3D saddle={saddle} hoods={hoods} z={-(barW / 2 + 120)} />;
+      })()}
+
       {/* Joints */}
       <JointSpheres geo={geo} />
 
@@ -866,6 +966,104 @@ function SceneContent({
       {/* Export hook */}
       <SceneExporter onExportReady={onExportReady} />
     </>
+  );
+}
+
+// ── In-canvas metrics HUD (plain DOM overlay — crisper than drei Html) ───────
+
+function MetricsHud({
+  mannequin2D,
+  strokeLUT,
+  bands,
+  crankAngleRef,
+  playing,
+}: {
+  mannequin2D?: MannequinSketch;
+  strokeLUT?: PedalStrokeLUT;
+  bands: PosturePreset;
+  crankAngleRef: React.MutableRefObject<number>;
+  playing: boolean;
+}) {
+  const [liveKneeExt, setLiveKneeExt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!strokeLUT || !playing) {
+      setLiveKneeExt(null);
+      return;
+    }
+    const id = setInterval(() => {
+      // Near-side (left) leg — matches the animated knee arc
+      setLiveKneeExt(kneeExtensionAt(strokeLUT, crankAngleRef.current + 180));
+    }, 150);
+    return () => clearInterval(id);
+  }, [strokeLUT, playing, crankAngleRef]);
+
+  if (!mannequin2D) return null;
+  const m = mannequin2D;
+  const trunk = (Math.atan2(m.shoulder.y - m.hip.y, m.shoulder.x - m.hip.x) * 180) / Math.PI;
+
+  const rows: { label: string; text: string; color: string }[] = [
+    {
+      label: "Trunk",
+      text: `${trunk.toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(trunk, bands.trunk_angle)],
+    },
+    {
+      label: "Hip",
+      text: `${angleAtPoint(m.shoulder, m.hip, m.knee).toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(angleAtPoint(m.shoulder, m.hip, m.knee), bands.hip_angle)],
+    },
+    {
+      label: "Shoulder",
+      text: `${angleAtPoint(m.hip, m.shoulder, m.elbow).toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(angleAtPoint(m.hip, m.shoulder, m.elbow), bands.shoulder_flexion)],
+    },
+    {
+      label: "Elbow flex",
+      text: `${(180 - angleAtPoint(m.shoulder, m.elbow, m.hands)).toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(180 - angleAtPoint(m.shoulder, m.elbow, m.hands), bands.elbow_flexion)],
+    },
+  ];
+
+  if (strokeLUT) {
+    const kneeExtBdc = 180 - strokeLUT.kneeFlexionBdcDeg;
+    rows.push(
+      {
+        label: "Knee ext BDC",
+        text: `${kneeExtBdc.toFixed(0)}°`,
+        color: BAND_COLORS[bandStatus(kneeExtBdc, bands.knee_extension)],
+      },
+      {
+        label: "Knee flex TDC",
+        text: `${strokeLUT.kneeFlexionTdcDeg.toFixed(0)}°`,
+        color: BAND_COLORS[bandStatus(strokeLUT.kneeFlexionTdcDeg, bands.knee_flexion_tdc)],
+      },
+      {
+        label: "KOPS",
+        text: `${strokeLUT.kopsOffsetMm >= 0 ? "+" : ""}${strokeLUT.kopsOffsetMm.toFixed(0)} mm`,
+        color: "rgba(255,255,255,0.45)",
+      },
+    );
+  }
+  if (liveKneeExt !== null) {
+    rows.push({
+      label: "Knee now",
+      text: `${liveKneeExt.toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(liveKneeExt, bands.knee_extension)],
+    });
+  }
+
+  return (
+    <div className="bike3d-hud">
+      <div className="bike3d-hud__title">{bands.name} posture</div>
+      {rows.map((r) => (
+        <div className="bike3d-hud__row" key={r.label}>
+          <i className="bike3d-hud__dot" style={{ background: r.color }} />
+          <span className="bike3d-hud__label">{r.label}</span>
+          <span className="bike3d-hud__value">{r.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -919,6 +1117,11 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [playing, setPlaying] = useState(false);
   const [cadenceRpm, setCadenceRpm] = useState(60);
   const [scrubDeg, setScrubDeg] = useState(180);
+  // Analytics layers
+  const [showAngles, setShowAngles] = useState(true);
+  const [showDimensions, setShowDimensions] = useState(false);
+  const [showKops, setShowKops] = useState(false);
+  const [showHud, setShowHud] = useState(true);
 
   useEffect(() => {
     if (!playing) return;
@@ -1077,6 +1280,42 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
               onChange={(e) => setCadenceRpm(Number(e.target.value))}
             />
           </label>
+          <button
+            className="tab-pill"
+            title="Set the near-side crank to 3 o'clock (the KOPS reference position)"
+            onClick={() => {
+              crankAngleRef.current = 270; // near/left leg = 270 + 180 = 90°
+              setScrubDeg(270);
+              setPlaying(false);
+            }}
+          >
+            3 o'clock
+          </button>
+          <span className="bike3d-layer-sep" />
+          <button
+            className={`tab-pill ${showAngles ? "tab-pill--active" : ""}`}
+            onClick={() => setShowAngles((v) => !v)}
+          >
+            Angles
+          </button>
+          <button
+            className={`tab-pill ${showDimensions ? "tab-pill--active" : ""}`}
+            onClick={() => setShowDimensions((v) => !v)}
+          >
+            Dimensions
+          </button>
+          <button
+            className={`tab-pill ${showKops ? "tab-pill--active" : ""}`}
+            onClick={() => setShowKops((v) => !v)}
+          >
+            KOPS
+          </button>
+          <button
+            className={`tab-pill ${showHud ? "tab-pill--active" : ""}`}
+            onClick={() => setShowHud((v) => !v)}
+          >
+            HUD
+          </button>
         </div>
       )}
 
@@ -1102,8 +1341,21 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             crankAngleRef={crankAngleRef}
             playing={playing}
             cadenceRpm={cadenceRpm}
+            postureBands={postureBands}
+            showAngles={showAngles}
+            showDimensions={showDimensions}
+            showKops={showKops}
           />
         </Canvas>
+        {showHud && postureBands && (
+          <MetricsHud
+            mannequin2D={mannequin2D}
+            strokeLUT={strokeLUT}
+            bands={postureBands}
+            crankAngleRef={crankAngleRef}
+            playing={playing}
+          />
+        )}
       </div>
     </div>
   );
