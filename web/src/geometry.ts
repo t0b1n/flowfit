@@ -366,6 +366,48 @@ export const angleAtPoint = (a: ContactPoint, vertex: ContactPoint, c: ContactPo
   return (Math.acos(cosTheta) * 180) / Math.PI;
 };
 
+// ── Posture preset bands ──────────────────────────────────────────────────────
+// Single source of truth: sent to the backend solver AND used by the in-scene
+// analytics to color joint angles by band status.
+
+export interface AngleBand {
+  min_deg: number;
+  max_deg: number;
+  weight: number;
+}
+
+export interface PosturePreset {
+  name: string;
+  trunk_angle: AngleBand;
+  hip_angle: AngleBand;
+  shoulder_flexion: AngleBand;
+  elbow_flexion: AngleBand;
+  knee_extension: AngleBand;
+  knee_flexion_tdc: AngleBand;
+}
+
+export const POSTURE_PRESET: PosturePreset = {
+  name: "Endurance",
+  trunk_angle: { min_deg: 50, max_deg: 60, weight: 1 },
+  hip_angle: { min_deg: 95, max_deg: 105, weight: 1 },
+  shoulder_flexion: { min_deg: 70, max_deg: 90, weight: 1 },
+  elbow_flexion: { min_deg: 10, max_deg: 25, weight: 0.5 },
+  knee_extension: { min_deg: 140, max_deg: 150, weight: 1 },
+  knee_flexion_tdc: { min_deg: 100, max_deg: 115, weight: 0.5 },
+};
+
+export type BandStatus = "in" | "near" | "out";
+
+/** "near" = inside the band but within 15% of its width of an edge, or outside by ≤3°. */
+export const bandStatus = (value: number, band: AngleBand): BandStatus => {
+  const width = band.max_deg - band.min_deg;
+  const margin = width * 0.15;
+  if (value >= band.min_deg && value <= band.max_deg) {
+    return value < band.min_deg + margin || value > band.max_deg - margin ? "near" : "in";
+  }
+  return value >= band.min_deg - 3 && value <= band.max_deg + 3 ? "near" : "out";
+};
+
 export const buildSetup = (
   frame: FrameGeometry,
   components: Components,
@@ -376,17 +418,121 @@ export const buildSetup = (
   components,
   target_contact_points: targets,
   rider,
-  preset: {
-    name: "Endurance",
-    trunk_angle: { min_deg: 50, max_deg: 60, weight: 1 },
-    hip_angle: { min_deg: 95, max_deg: 105, weight: 1 },
-    shoulder_flexion: { min_deg: 70, max_deg: 90, weight: 1 },
-    elbow_flexion: { min_deg: 10, max_deg: 25, weight: 0.5 },
-    knee_extension: { min_deg: 140, max_deg: 150, weight: 1 },
-    shoulder_abduction: null,
-  },
+  preset: { ...POSTURE_PRESET, shoulder_abduction: null },
   schema_version: "0.1.0",
 });
+
+// ── Pedal-stroke solver (client-side, powers the 3D pedaling animation) ──────
+//
+// Crank angle convention matches the backend: 0° = TDC, 90° = crank forward
+// (3 o'clock, KOPS position), 180° = BDC. The lookup table stores the
+// reference-leg pose per sample; the opposite leg reads the table at +180°.
+
+export type LegPose = {
+  spindle: ContactPoint;
+  cleat: ContactPoint;
+  ankle: ContactPoint;
+  knee: ContactPoint;
+};
+
+export interface PedalStrokeLUT {
+  samples: number;
+  poses: LegPose[];
+  kneeExtensionDeg: number[];
+  kopsOffsetMm: number;
+  kneeFlexionTdcDeg: number;
+  kneeFlexionBdcDeg: number;
+  kneeExtensionMaxDeg: number;
+  crankLength: number;
+  hip: ContactPoint;
+  /** Anatomical ankle-joint setback behind the pedal spindle (drawn geometry
+   *  only — the IK solves from the spindle; see buildMannequin3DPoints). */
+  ankleSetbackMm: number;
+}
+
+export function solvePedalStroke(
+  hip: ContactPoint,
+  bb: ContactPoint,
+  crankLength: number,
+  cleatSetback: number,
+  pedalStackHeight: number,
+  rider: ReturnType<typeof buildRider>,
+  samples = 72,
+): PedalStrokeLUT {
+  const poses: LegPose[] = [];
+  const kneeExtensionDeg: number[] = [];
+
+  for (let i = 0; i < samples; i++) {
+    const theta = (i / samples) * 2 * Math.PI;
+    const spindle = {
+      x: bb.x + crankLength * Math.sin(theta),
+      y: bb.y + crankLength * Math.cos(theta),
+    };
+    const cleat = { x: spindle.x - cleatSetback, y: spindle.y };
+    const ankle = { x: cleat.x, y: cleat.y + pedalStackHeight };
+    const [kneeA, kneeB] = circleIntersections(
+      hip, ankle, rider.thigh_length, rider.shank_length, true
+    );
+    // Anterior-side selection (same rule as the backend): with the chord
+    // running hip→ankle, a positive cross product places the knee forward.
+    const dx = ankle.x - hip.x;
+    const dy = ankle.y - hip.y;
+    const crossA = dx * (kneeA.y - hip.y) - dy * (kneeA.x - hip.x);
+    const knee = crossA >= 0 ? kneeA : kneeB;
+
+    poses.push({ spindle, cleat, ankle, knee });
+    kneeExtensionDeg.push(angleAtPoint(hip, knee, ankle));
+  }
+
+  const quarter = Math.round(samples / 4);       // 90° — crank forward
+  const half = Math.round(samples / 2);          // 180° — BDC
+  const kneeExtensionMaxDeg = Math.max(...kneeExtensionDeg);
+
+  return {
+    samples,
+    poses,
+    kneeExtensionDeg,
+    kopsOffsetMm: poses[quarter].knee.x - poses[quarter].spindle.x,
+    kneeFlexionTdcDeg: 180 - kneeExtensionDeg[0],
+    kneeFlexionBdcDeg: 180 - kneeExtensionDeg[half],
+    kneeExtensionMaxDeg,
+    crankLength,
+    hip,
+    ankleSetbackMm: rider.foot_length * 0.19 * (rider.height / 1800),
+  };
+}
+
+const lerpPoint = (a: ContactPoint, b: ContactPoint, t: number): ContactPoint => ({
+  x: a.x + (b.x - a.x) * t,
+  y: a.y + (b.y - a.y) * t,
+});
+
+/** Interpolated leg pose at an arbitrary crank angle (5° samples → sub-mm error). */
+export function legPoseAt(lut: PedalStrokeLUT, angleDeg: number): LegPose {
+  const a = ((angleDeg % 360) + 360) % 360;
+  const f = (a / 360) * lut.samples;
+  const i0 = Math.floor(f) % lut.samples;
+  const i1 = (i0 + 1) % lut.samples;
+  const t = f - Math.floor(f);
+  const p0 = lut.poses[i0];
+  const p1 = lut.poses[i1];
+  return {
+    spindle: lerpPoint(p0.spindle, p1.spindle, t),
+    cleat: lerpPoint(p0.cleat, p1.cleat, t),
+    ankle: lerpPoint(p0.ankle, p1.ankle, t),
+    knee: lerpPoint(p0.knee, p1.knee, t),
+  };
+}
+
+/** Interpolated knee extension angle (degrees) at an arbitrary crank angle. */
+export function kneeExtensionAt(lut: PedalStrokeLUT, angleDeg: number): number {
+  const a = ((angleDeg % 360) + 360) % 360;
+  const f = (a / 360) * lut.samples;
+  const i0 = Math.floor(f) % lut.samples;
+  const i1 = (i0 + 1) % lut.samples;
+  const t = f - Math.floor(f);
+  return lut.kneeExtensionDeg[i0] + (lut.kneeExtensionDeg[i1] - lut.kneeExtensionDeg[i0]) * t;
+}
 
 export const synthesizeBike = (
   sizeData: ReturnType<typeof getSizeData>,

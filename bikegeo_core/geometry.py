@@ -29,6 +29,22 @@ def _head_tube_direction(frame: FrameGeometry) -> Vec2:
     return Vec2(cos(angle_rad), -sin(angle_rad))
 
 
+def pedal_spindle_at_angle(bb: Vec2, crank_length: float, crank_angle_deg: float) -> Vec2:
+    """Pedal spindle position for a crank at the given angle.
+
+    Convention: 0° = TDC (crank straight up), 90° = crank forward
+    (3 o'clock, the KOPS reference position), 180° = BDC.
+    """
+    a = radians(crank_angle_deg)
+    return Vec2(bb.x + crank_length * sin(a), bb.y + crank_length * cos(a))
+
+
+def cleat_at_crank_angle(bb: Vec2, components: Components, crank_angle_deg: float) -> Vec2:
+    """Cleat contact point at the given crank angle (foot kept level)."""
+    spindle = pedal_spindle_at_angle(bb, components.crank_length, crank_angle_deg)
+    return Vec2(spindle.x - components.cleat_setback, spindle.y)
+
+
 def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
     bb = Vec2(0.0, 0.0)
 
@@ -74,7 +90,7 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         bar_clamp.y + components.bar_drop + components.hood_drop_offset,
     )
 
-    # BDC = crank pointing straight down
+    # BDC = crank pointing straight down (crank angle 180°)
     cleat = Vec2(
         bb.x - components.cleat_setback,
         bb.y - components.crank_length,

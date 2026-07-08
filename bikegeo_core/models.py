@@ -105,6 +105,7 @@ class PosePreset(BaseModel):
     elbow_flexion: AngleBand
     knee_extension: AngleBand
     shoulder_abduction: Optional[AngleBand] = None
+    knee_flexion_tdc: Optional[AngleBand] = None
 
 
 class ConstraintViolation(BaseModel):
@@ -126,6 +127,18 @@ class PoseMetrics(BaseModel):
     shoulder_flexion_deg: float
     elbow_flexion_deg: float
     knee_extension_deg: float
+    # Pedal-stroke metrics (sampled over a full crank revolution); optional so
+    # metrics from the single-pose BDC solve remain valid without them.
+    knee_flexion_tdc_deg: Optional[float] = Field(
+        None, description="Knee flexion at top dead centre (crank angle 0°), in degrees."
+    )
+    knee_extension_max_deg: Optional[float] = Field(
+        None, description="Maximum knee extension over the pedal stroke, in degrees."
+    )
+    kops_offset_mm: Optional[float] = Field(
+        None,
+        description="Horizontal knee-joint-to-pedal-spindle offset at crank 90° (positive = knee forward), in mm.",
+    )
 
 
 class SetupInput(BaseModel):

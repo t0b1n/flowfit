@@ -35,8 +35,12 @@ import {
   idealContactsFromSaddleHeight,
   radiansFromDegrees,
   seatpostRecommendation,
+  solvePedalStroke,
   synthesizeBike,
   withTyreSize,
+  POSTURE_PRESET,
+  bandStatus,
+  type BandStatus,
 } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
@@ -355,12 +359,38 @@ export const FitBuilderMode: React.FC = () => {
       bike3dSide, rider, components.bar_width,
       components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg
     );
+    // Pedal-stroke LUT for the 3D animation, solved from the same hip so the
+    // animated legs stay consistent with the override torso.
+    const strokeLUT = solvePedalStroke(
+      mannequin2dFor3d.hip,
+      { x: 0, y: 0 }, // backend 3D coords: BB is the origin
+      components.crank_length,
+      components.cleat_setback,
+      components.pedal_stack_height,
+      rider
+    );
     // Bilaterally expand to 3D
     return {
       mannequin2d: mannequin2dFor3d,
+      strokeLUT,
       ...buildMannequin3DPoints(mannequin2dFor3d, rider, components),
     };
   }, [geo3d, bike, rider, components, targetTrunkAngleDeg, backBendDeg]);
+
+  // Stroke metrics for the metric grid (2D view included) — solved from the
+  // 2D mannequin hip against the displayed bike.
+  const strokeMetrics = useMemo(
+    () =>
+      solvePedalStroke(
+        mannequin.hip,
+        bike.bb,
+        components.crank_length,
+        components.cleat_setback,
+        components.pedal_stack_height,
+        rider
+      ),
+    [mannequin.hip, bike.bb, components.crank_length, components.cleat_setback, components.pedal_stack_height, rider]
+  );
 
   const kneeExtension = angleAtPoint(mannequin.hip, mannequin.knee, mannequin.ankle);
   const kneeFlex = 180 - kneeExtension;
@@ -418,6 +448,9 @@ export const FitBuilderMode: React.FC = () => {
     s === "ok" ? "#4cbf7e" : s === "warning" ? "#e8a33c" : "#e05252";
   const severityTone = (s: "ok" | "warning" | "bad"): SummaryTone =>
     s === "ok" ? "ok" : s === "warning" ? "warn" : "bad";
+
+  const bandColor = (s: BandStatus) =>
+    s === "in" ? "var(--teal)" : s === "near" ? "#d4880a" : "var(--accent)";
 
   const updateComponent = (key: keyof Components, value: number) =>
     setComponents((c) => ({ ...c, [key]: value }));
@@ -948,6 +981,19 @@ export const FitBuilderMode: React.FC = () => {
             delta={fitMode === "contact" ? `Target ${riderFit.targetKneeFlexDeg}°` : undefined}
           />
           <MetricCard
+            title="Knee flexion when the crank is at top dead centre. Values above ~115° suggest the saddle is too low or the cranks too long for your hip mobility."
+            label="Knee flex at TDC"
+            value={`${strokeMetrics.kneeFlexionTdcDeg.toFixed(1)}°`}
+            color={bandColor(bandStatus(strokeMetrics.kneeFlexionTdcDeg, POSTURE_PRESET.knee_flexion_tdc))}
+            delta={`Band ${POSTURE_PRESET.knee_flexion_tdc.min_deg}–${POSTURE_PRESET.knee_flexion_tdc.max_deg}°`}
+          />
+          <MetricCard
+            title="KOPS: horizontal distance from the knee joint centre to the pedal spindle with the crank at 3 o'clock. Positive = knee ahead of the spindle. A neutral starting point is ±20 mm; it is a reference, not a rule."
+            label="KOPS offset"
+            value={`${strokeMetrics.kopsOffsetMm >= 0 ? "+" : ""}${strokeMetrics.kopsOffsetMm.toFixed(0)} mm`}
+            delta={strokeMetrics.kopsOffsetMm > 20 ? "Knee forward of spindle" : strokeMetrics.kopsOffsetMm < -20 ? "Knee behind spindle" : "Near neutral"}
+          />
+          <MetricCard
             label="Trunk angle"
             value={`${targetTrunkAngleDeg}°`}
             delta={`${PRESET_LABELS[preset]} preset`}
@@ -1190,6 +1236,9 @@ export const FitBuilderMode: React.FC = () => {
                 mannequin2D={mannequin3DData?.mannequin2d ?? mannequin}
                 mannequin3DOverride={mannequin3DData ?? undefined}
                 weightKg={riderFit.weight}
+                strokeLUT={mannequin3DData?.strokeLUT}
+                stanceWidth={components.stance_width ?? 155}
+                postureBands={POSTURE_PRESET}
               />
             )
           ) : view === "side" ? (

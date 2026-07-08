@@ -6,7 +6,7 @@ import numpy as np
 
 from .constraints import evaluate_component_constraints, evaluate_posture_constraints, merge_constraint_results
 from .geometry import BikePoints, synthesize_bike
-from .mannequin2d import solve_pose_2d
+from .mannequin2d import sample_pedal_stroke, solve_pose_2d
 from .models import AngleBand, Components, ConstraintResult, ContactPoint, ContactPoints, PoseMetrics, PosePreset, SetupInput, SetupOutput
 
 
@@ -128,6 +128,15 @@ def solve_setup(setup: SetupInput) -> SetupOutput:
     )
 
     pose_metrics: PoseMetrics = solve_pose_2d(bike_points=bike_points, rider=setup.rider, pedal_stack_height=components.pedal_stack_height)
+    # Stroke metrics only on the winning setup (too costly inside the grid search)
+    stroke = sample_pedal_stroke(bike_points, components, setup.rider)
+    pose_metrics = pose_metrics.model_copy(
+        update={
+            "knee_flexion_tdc_deg": stroke.knee_flexion_tdc_deg,
+            "knee_extension_max_deg": stroke.knee_extension_max_deg,
+            "kops_offset_mm": stroke.kops_offset_mm,
+        }
+    )
     component_constraints: ConstraintResult = evaluate_component_constraints(components=components)
     posture_constraints: ConstraintResult = evaluate_posture_constraints(
         pose=pose_metrics,

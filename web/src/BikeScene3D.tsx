@@ -10,8 +10,8 @@
  *     e.g. pre-built SRAM / Shimano shifter meshes swapped on component change)
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { ContactShadows, Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
@@ -24,7 +24,32 @@ import {
   getWheelCenters,
   Tube3D,
   MannequinPart3D,
+  LEG_POINT_NAMES,
+  LEG_EDGE_GROUPS,
 } from "./bike3d";
+import { AnimatedLegs } from "./AnimatedLegs";
+import {
+  BAND_COLORS,
+  DimensionLines3D,
+  JointArc,
+  KneeArcAnimated,
+  KopsIndicator,
+} from "./FitAnalytics3D";
+import {
+  ASSUMED_CD,
+  FrontalAreaProbe,
+  GhostMannequin,
+  type GhostSnapshot,
+  type MeasureFrontalArea,
+} from "./AeroTools";
+import {
+  angleAtPoint,
+  bandStatus,
+  kneeExtensionAt,
+  legPoseAt,
+  type PedalStrokeLUT,
+  type PosturePreset,
+} from "./geometry";
 import type { MannequinSketch } from "./types";
 
 // ── Materials ────────────────────────────────────────────────────────────────
@@ -629,9 +654,11 @@ const SPOKE_COUNT_3D = 24;
 function Wheel3D({
   center,
   wheelRadius,
+  disc = false,
 }: {
   center: [number, number, number];
   wheelRadius: number;
+  disc?: boolean;
 }) {
   const tyreRadius = 14; // visual tyre cross-section radius
   const rimRadius = wheelRadius - tyreRadius * 2 - 4;
@@ -678,7 +705,15 @@ function Wheel3D({
         <torusGeometry args={[rimRadius + 6, 1.4, 6, 88]} />
         {ACCENT_MATERIAL}
       </mesh>
-      {spokes}
+      {disc ? (
+        // Aero disc: shallow drum between hub and rim
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[rimRadius + 2, rimRadius + 2, 18, 48, 1]} />
+          {RIM_MATERIAL}
+        </mesh>
+      ) : (
+        spokes
+      )}
       {/* Hub shell along the axle */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[14, 14, 64, 16, 1]} />
@@ -691,16 +726,79 @@ function Wheel3D({
 function Wheels({
   geo,
   wheelRadius,
+  discRear,
 }: {
   geo: Geometry3DResponse;
   wheelRadius: number;
+  discRear: boolean;
 }) {
   const { rear, front } = getWheelCenters(geo.points);
   return (
     <>
-      {rear && <Wheel3D center={rear} wheelRadius={wheelRadius} />}
+      {/* Aero setup: disc rear, spoked front (a front disc is unrideable outdoors) */}
+      {rear && <Wheel3D center={rear} wheelRadius={wheelRadius} disc={discRear} />}
       {front && <Wheel3D center={front} wheelRadius={wheelRadius} />}
     </>
+  );
+}
+
+// ── Curved handlebar ─────────────────────────────────────────────────────────
+
+/**
+ * Straight bar edges (clamp→top→hoods→drop) replaced with a Catmull-Rom sweep
+ * per side: tops run laterally, ramp forward into the hoods, then the drop
+ * curls forward, down, and back toward the rider.
+ */
+const BAR_EDGE_KEYS = new Set([
+  "bar_clamp→bar_top_l", "bar_clamp→bar_top_r",
+  "bar_top_l→hoods_l", "bar_top_r→hoods_r",
+  "hoods_l→bar_drop_l", "hoods_r→bar_drop_r",
+]);
+
+const BAR_TUBE_RADIUS = 11;
+
+function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]> }) {
+  const bc = ptMap.get("bar_clamp");
+  const geoms = useMemo(() => {
+    if (!bc) return null;
+    const out: THREE.TubeGeometry[] = [];
+    for (const side of ["l", "r"] as const) {
+      const bt = ptMap.get(`bar_top_${side}`);
+      const h = ptMap.get(`hoods_${side}`);
+      const d = ptMap.get(`bar_drop_${side}`);
+      if (!bt || !h || !d) return null;
+      const s = side === "l" ? 1 : -1;
+      const pts = [
+        new THREE.Vector3(bc[0], bc[1], s * 24),
+        new THREE.Vector3(bt[0], bt[1], bt[2] - s * 36),
+        new THREE.Vector3(bt[0] + 6, bt[1], bt[2]),
+        new THREE.Vector3(h[0] - 12, h[1] + 6, h[2]),
+        new THREE.Vector3(h[0] + 30, h[1] - 42, h[2]),
+        new THREE.Vector3(h[0] + 16, d[1] + 26, d[2]),
+        new THREE.Vector3(d[0] - 28, d[1], d[2]),
+      ];
+      const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.35);
+      out.push(new THREE.TubeGeometry(curve, 64, BAR_TUBE_RADIUS, 12, false));
+    }
+    return out;
+  }, [ptMap, bc]);
+
+  useEffect(() => () => geoms?.forEach((g) => g.dispose()), [geoms]);
+
+  if (!bc || !geoms) return null;
+  return (
+    <group>
+      {/* Straight clamp section across the stem faceplate */}
+      <mesh position={bc} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[BAR_TUBE_RADIUS + 1, BAR_TUBE_RADIUS + 1, 52, 12, 1]} />
+        {COCKPIT_MATERIAL}
+      </mesh>
+      {geoms.map((g, i) => (
+        <mesh key={i} geometry={g}>
+          {COCKPIT_MATERIAL}
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -929,6 +1027,18 @@ function SceneContent({
   mannequin2D,
   mannequin3DOverride,
   weightKg = 75,
+  strokeLUT,
+  stanceWidth = 155,
+  crankAngleRef,
+  playing,
+  cadenceRpm,
+  postureBands,
+  showAngles,
+  showDimensions,
+  showKops,
+  discWheels,
+  onMeasureReady,
+  ghost,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -940,6 +1050,18 @@ function SceneContent({
   mannequin2D?: MannequinSketch;
   mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
   weightKg?: number;
+  strokeLUT?: PedalStrokeLUT;
+  stanceWidth?: number;
+  crankAngleRef: React.MutableRefObject<number>;
+  playing: boolean;
+  cadenceRpm: number;
+  postureBands?: PosturePreset;
+  showAngles: boolean;
+  showDimensions: boolean;
+  showKops: boolean;
+  discWheels: boolean;
+  onMeasureReady: (fn: MeasureFrontalArea) => void;
+  ghost: GhostSnapshot | null;
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
@@ -956,17 +1078,36 @@ function SceneContent({
       ]
     : geo.edges;
 
-  // Frame tubes (non-mannequin edges only)
+  // Frame tubes (non-mannequin edges only). The straight handlebar edges are
+  // replaced by the swept HandlebarMesh.
   const framePts = effectivePoints.filter((p) => p.group !== "mannequin");
-  const frameEdges = effectiveEdges.filter((e) => !e.group.startsWith("mannequin"));
+  const frameEdges = effectiveEdges.filter(
+    (e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`)
+  );
   const frameTubes = buildTubes(framePts, frameEdges);
+  const framePtMap = useMemo(
+    () => new Map(framePts.map((p) => [p.name, p.pos])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [geo, mannequin3DOverride]
+  );
 
-  // Mannequin parts (sphere joints + cylinders + capsules + tapered)
-  const mannequinPts = effectivePoints.filter((p) => p.group === "mannequin");
-  const mannequinEdges = effectiveEdges.filter((e) => e.group.startsWith("mannequin"));
+  // Mannequin parts (sphere joints + cylinders + capsules + tapered).
+  // With a stroke LUT the legs are animated by <AnimatedLegs> instead, so they
+  // are excluded from the declarative part list.
+  const mannequinPts = effectivePoints.filter(
+    (p) => p.group === "mannequin" && !(strokeLUT && LEG_POINT_NAMES.has(p.name))
+  );
+  const mannequinEdges = effectiveEdges.filter(
+    (e) => e.group.startsWith("mannequin") && !(strokeLUT && LEG_EDGE_GROUPS.has(e.group))
+  );
   const mannequinParts = showMannequin
     ? buildMannequinParts(mannequinPts, mannequinEdges, weightKg)
     : [];
+
+  const effPtMap = new Map(effectivePoints.map((p) => [p.name, p.pos]));
+  const hipL = effPtMap.get("hip_l");
+  const hipR = effPtMap.get("hip_r");
+  const bbPt = effPtMap.get("bb") ?? ([0, 0, 0] as [number, number, number]);
 
   const wheelRadius = geo.frame.wheel_radius ?? 311;
 
@@ -988,38 +1129,64 @@ function SceneContent({
         <Lightformer intensity={0.5} color="#f7dcc0" position={[-3500, 800, -2000]} rotation-y={Math.PI / 3} scale={[2500, 1500, 1]} />
       </Environment>
 
-      {/* Ground disc + soft contact shadow so the bike stops floating */}
-      <mesh position={[groundX, groundY - 1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[2800, 64]} />
-        {GROUND_MATERIAL}
-      </mesh>
-      <ContactShadows
-        position={[groundX, groundY + 1, 0]}
-        scale={4200}
-        far={1400}
-        blur={1.6}
-        opacity={0.55}
-        resolution={512}
-      />
+      {/* Ground disc + soft contact shadow so the bike stops floating.
+          Named analytics-root so the frontal-area probe never counts them. */}
+      <group name="analytics-root">
+        <mesh position={[groundX, groundY - 1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[2800, 64]} />
+          {GROUND_MATERIAL}
+        </mesh>
+        <ContactShadows
+          position={[groundX, groundY + 1, 0]}
+          scale={4200}
+          far={1400}
+          blur={1.6}
+          opacity={0.55}
+          resolution={512}
+        />
+      </group>
 
       {/* Frame tubes */}
       {frameTubes.map((tube, i) => (
         <TubeMesh key={`frame-${i}`} tube={tube} />
       ))}
 
+      {/* Swept handlebar */}
+      <HandlebarMesh ptMap={framePtMap} />
+
       {/* Mannequin body parts */}
-      {mannequinParts.map((part, i) => (
-        <MannequinPartMesh key={`mann-${i}`} part={part} />
-      ))}
+      <group name="mannequin-root">
+        {mannequinParts.map((part, i) => (
+          <MannequinPartMesh key={`mann-${i}`} part={part} />
+        ))}
+      </group>
+
+      {/* Animated legs + crankset (replaces the static drivetrain while the
+          stroke LUT is available) */}
+      {strokeLUT && hipL && hipR ? (
+        <AnimatedLegs
+          lut={strokeLUT}
+          hipL={hipL}
+          hipR={hipR}
+          bb={bbPt}
+          halfStance={stanceWidth / 2}
+          weightKg={weightKg}
+          crankAngleRef={crankAngleRef}
+          playing={playing}
+          cadenceRpm={cadenceRpm}
+          showLegs={showMannequin}
+        />
+      ) : (
+        <Drivetrain3D points={effectivePoints} />
+      )}
 
       {/* Joints */}
       <JointSpheres geo={geo} />
 
       {/* Wheels */}
-      <Wheels geo={geo} wheelRadius={wheelRadius} />
+      <Wheels geo={geo} wheelRadius={wheelRadius} discRear={discWheels} />
 
-      {/* Drivetrain + hood bodies */}
-      <Drivetrain3D points={effectivePoints} />
+      {/* Hood bodies */}
       <Hoods3D geo={geo} />
 
       {/* Saddle */}
@@ -1030,8 +1197,89 @@ function SceneContent({
         <AttachedAssetMesh key={i} asset={asset} geo={geo} />
       ))}
 
-      {/* 2D skeleton overlay */}
-      {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
+      {/* Fit analytics (excluded from the frontal-area probe) */}
+      <group name="analytics-root">
+        {showAngles && mannequin2D && postureBands && (
+          <>
+            <JointArc
+              vertex={mannequin2D.hip}
+              rayA={mannequin2D.shoulder}
+              rayC={mannequin2D.knee}
+              z={(hipL?.[2] ?? 100) + 85}
+              label="Hip"
+              value={angleAtPoint(mannequin2D.shoulder, mannequin2D.hip, mannequin2D.knee)}
+              band={postureBands.hip_angle}
+            />
+            <JointArc
+              vertex={mannequin2D.shoulder}
+              rayA={mannequin2D.hip}
+              rayC={mannequin2D.elbow}
+              z={(effPtMap.get("shoulder_l")?.[2] ?? 185) + 70}
+              label="Shoulder"
+              value={angleAtPoint(mannequin2D.hip, mannequin2D.shoulder, mannequin2D.elbow)}
+              band={postureBands.shoulder_flexion}
+              radius={75}
+            />
+            <JointArc
+              vertex={mannequin2D.elbow}
+              rayA={mannequin2D.shoulder}
+              rayC={mannequin2D.hands}
+              z={(effPtMap.get("elbow_l")?.[2] ?? 185) + 60}
+              label="Elbow"
+              value={180 - angleAtPoint(mannequin2D.shoulder, mannequin2D.elbow, mannequin2D.hands)}
+              band={postureBands.elbow_flexion}
+              radius={65}
+            />
+            {strokeLUT ? (
+              <KneeArcAnimated
+                lut={strokeLUT}
+                crankAngleRef={crankAngleRef}
+                hip={strokeLUT.hip}
+                z={stanceWidth / 2 + 75}
+                band={postureBands.knee_extension}
+              />
+            ) : (
+              <JointArc
+                vertex={mannequin2D.knee}
+                rayA={mannequin2D.hip}
+                rayC={mannequin2D.ankle}
+                z={stanceWidth / 2 + 75}
+                label="Knee"
+                value={angleAtPoint(mannequin2D.hip, mannequin2D.knee, mannequin2D.ankle)}
+                band={postureBands.knee_extension}
+                radius={80}
+              />
+            )}
+          </>
+        )}
+        {showKops && strokeLUT && (
+          <KopsIndicator
+            lut={strokeLUT}
+            crankAngleRef={crankAngleRef}
+            z={stanceWidth / 2 + 75}
+          />
+        )}
+        {showDimensions && (() => {
+          const saddle = effPtMap.get("saddle");
+          const hl = effPtMap.get("hoods_l");
+          const hr = effPtMap.get("hoods_r");
+          if (!saddle || !hl || !hr) return null;
+          const barW = geo.components.bar_width ?? 400;
+          const hoods: [number, number, number] = [
+            (hl[0] + hr[0]) / 2,
+            (hl[1] + hr[1]) / 2,
+            0,
+          ];
+          return <DimensionLines3D saddle={saddle} hoods={hoods} z={-(barW / 2 + 120)} />;
+        })()}
+        {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
+      </group>
+
+      {/* Ghost position comparison */}
+      {ghost && <GhostMannequin snapshot={ghost} weightKg={weightKg} />}
+
+      {/* Frontal-area probe (registers its measure fn with the host) */}
+      <FrontalAreaProbe onReady={onMeasureReady} />
 
       {/* Orbit controls — damped, clamped above the ground plane */}
       <OrbitControls
@@ -1054,6 +1302,11 @@ function SceneContent({
 
 type CameraPresetKind = "side" | "front" | "threeq";
 
+/** Frame-rate-independent exponential damp toward a target vector. */
+function damp3(current: THREE.Vector3, target: THREE.Vector3, lambda: number, dt: number) {
+  current.lerp(target, 1 - Math.exp(-lambda * dt));
+}
+
 function CameraPresetRig({
   request,
   center,
@@ -1064,6 +1317,8 @@ function CameraPresetRig({
   camDist: number;
 }) {
   const { camera, controls } = useThree();
+  const goalRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+
   useEffect(() => {
     if (!request) return;
     const [cx, cy, cz] = center;
@@ -1073,13 +1328,123 @@ function CameraPresetRig({
         : request.kind === "front"
         ? [cx + camDist, cy + camDist * 0.06, cz]
         : [cx + camDist * 0.5, cy + camDist * 0.3, cz + camDist * 0.8];
-    camera.position.set(...pos);
-    const orbit = controls as unknown as { target?: THREE.Vector3; update?: () => void } | null;
-    orbit?.target?.set(cx, cy, cz);
-    orbit?.update?.();
+    goalRef.current = {
+      pos: new THREE.Vector3(...pos),
+      target: new THREE.Vector3(cx, cy, cz),
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.nonce]);
+
+  useFrame((_, dt) => {
+    const goal = goalRef.current;
+    if (!goal) return;
+    damp3(camera.position, goal.pos, 7, dt);
+    const orbit = controls as unknown as { target?: THREE.Vector3; update?: () => void } | null;
+    if (orbit?.target) {
+      damp3(orbit.target, goal.target, 7, dt);
+      orbit.update?.();
+    }
+    if (camera.position.distanceTo(goal.pos) < 2) goalRef.current = null;
+  });
   return null;
+}
+
+// ── In-canvas metrics HUD (plain DOM overlay — crisper than drei Html) ───────
+
+function MetricsHud({
+  mannequin2D,
+  strokeLUT,
+  bands,
+  crankAngleRef,
+  playing,
+}: {
+  mannequin2D?: MannequinSketch;
+  strokeLUT?: PedalStrokeLUT;
+  bands: PosturePreset;
+  crankAngleRef: React.MutableRefObject<number>;
+  playing: boolean;
+}) {
+  const [liveKneeExt, setLiveKneeExt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!strokeLUT || !playing) {
+      setLiveKneeExt(null);
+      return;
+    }
+    const id = setInterval(() => {
+      // Near-side (left) leg — matches the animated knee arc
+      setLiveKneeExt(kneeExtensionAt(strokeLUT, crankAngleRef.current + 180));
+    }, 150);
+    return () => clearInterval(id);
+  }, [strokeLUT, playing, crankAngleRef]);
+
+  if (!mannequin2D) return null;
+  const m = mannequin2D;
+  const trunk = (Math.atan2(m.shoulder.y - m.hip.y, m.shoulder.x - m.hip.x) * 180) / Math.PI;
+
+  const rows: { label: string; text: string; color: string }[] = [
+    {
+      label: "Trunk",
+      text: `${trunk.toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(trunk, bands.trunk_angle)],
+    },
+    {
+      label: "Hip",
+      text: `${angleAtPoint(m.shoulder, m.hip, m.knee).toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(angleAtPoint(m.shoulder, m.hip, m.knee), bands.hip_angle)],
+    },
+    {
+      label: "Shoulder",
+      text: `${angleAtPoint(m.hip, m.shoulder, m.elbow).toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(angleAtPoint(m.hip, m.shoulder, m.elbow), bands.shoulder_flexion)],
+    },
+    {
+      label: "Elbow flex",
+      text: `${(180 - angleAtPoint(m.shoulder, m.elbow, m.hands)).toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(180 - angleAtPoint(m.shoulder, m.elbow, m.hands), bands.elbow_flexion)],
+    },
+  ];
+
+  if (strokeLUT) {
+    const kneeExtBdc = 180 - strokeLUT.kneeFlexionBdcDeg;
+    rows.push(
+      {
+        label: "Knee ext BDC",
+        text: `${kneeExtBdc.toFixed(0)}°`,
+        color: BAND_COLORS[bandStatus(kneeExtBdc, bands.knee_extension)],
+      },
+      {
+        label: "Knee flex TDC",
+        text: `${strokeLUT.kneeFlexionTdcDeg.toFixed(0)}°`,
+        color: BAND_COLORS[bandStatus(strokeLUT.kneeFlexionTdcDeg, bands.knee_flexion_tdc)],
+      },
+      {
+        label: "KOPS",
+        text: `${strokeLUT.kopsOffsetMm >= 0 ? "+" : ""}${strokeLUT.kopsOffsetMm.toFixed(0)} mm`,
+        color: "rgba(255,255,255,0.45)",
+      },
+    );
+  }
+  if (liveKneeExt !== null) {
+    rows.push({
+      label: "Knee now",
+      text: `${liveKneeExt.toFixed(0)}°`,
+      color: BAND_COLORS[bandStatus(liveKneeExt, bands.knee_extension)],
+    });
+  }
+
+  return (
+    <div className="bike3d-hud">
+      <div className="bike3d-hud__title">{bands.name} posture</div>
+      {rows.map((r) => (
+        <div className="bike3d-hud__row" key={r.label}>
+          <i className="bike3d-hud__dot" style={{ background: r.color }} />
+          <span className="bike3d-hud__label">{r.label}</span>
+          <span className="bike3d-hud__value">{r.text}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
@@ -1089,6 +1454,9 @@ interface BikeScene3DProps {
   mannequin2D?: MannequinSketch;
   mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
   weightKg?: number;
+  strokeLUT?: PedalStrokeLUT;
+  stanceWidth?: number;
+  postureBands?: PosturePreset;
 }
 
 function exportJson(geo: Geometry3DResponse) {
@@ -1115,12 +1483,106 @@ function exportCsv(geo: Geometry3DResponse) {
   URL.revokeObjectURL(url);
 }
 
-export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mannequin3DOverride, weightKg = 75 }) => {
+export const BikeScene3D: React.FC<BikeScene3DProps> = ({
+  geo, mannequin2D, mannequin3DOverride, weightKg = 75,
+  strokeLUT, stanceWidth, postureBands,
+}) => {
   const [devMode, setDevMode] = useState(false);
   const [showMannequin, setShowMannequin] = useState(true);
   const [show2dOverlay, setShow2dOverlay] = useState(false);
   const [saddleType, setSaddleType] = useState<SaddleType>("power");
   const [cameraRequest, setCameraRequest] = useState<{ kind: CameraPresetKind; nonce: number } | null>(null);
+  // Pedaling animation: crank angle lives in a ref (mutated per frame inside
+  // the canvas); scrub state mirrors it at low frequency for the slider thumb.
+  // 0° puts the near-side (left) leg at BDC — the pose the 2D fit view shows.
+  const crankAngleRef = useRef(0);
+  const [playing, setPlaying] = useState(false);
+  const [cadenceRpm, setCadenceRpm] = useState(60);
+  const [scrubDeg, setScrubDeg] = useState(0);
+  // Analytics layers
+  const [showAngles, setShowAngles] = useState(true);
+  const [showDimensions, setShowDimensions] = useState(false);
+  const [showKops, setShowKops] = useState(false);
+  const [showHud, setShowHud] = useState(true);
+  const [discWheels, setDiscWheels] = useState(false);
+  // Aero tools
+  const measureFnRef = useRef<MeasureFrontalArea | null>(null);
+  const [measuring, setMeasuring] = useState(false);
+  const [includeBikeInArea, setIncludeBikeInArea] = useState(false);
+  const [frontalAreaM2, setFrontalAreaM2] = useState<number | null>(null);
+  const [ghost, setGhost] = useState<GhostSnapshot | null>(null);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => {
+      setScrubDeg(Math.round(crankAngleRef.current) % 360);
+    }, 200);
+    return () => clearInterval(id);
+  }, [playing]);
+
+  const handleMeasureReady = useCallback((fn: MeasureFrontalArea) => {
+    measureFnRef.current = fn;
+  }, []);
+
+  const runMeasure = async () => {
+    const fn = measureFnRef.current;
+    if (!fn || measuring) return;
+    setMeasuring(true);
+    try {
+      setFrontalAreaM2(await fn(includeBikeInArea));
+    } finally {
+      setMeasuring(false);
+    }
+  };
+
+  // Current position metrics for ghost deltas
+  const geoPtMap = new Map(geo.points.map((p) => [p.name, p.pos]));
+  const saddlePt = geoPtMap.get("saddle");
+  const hoodsLPt = geoPtMap.get("hoods_l");
+  const hoodsRPt = geoPtMap.get("hoods_r");
+  const currentDropMm =
+    saddlePt && hoodsLPt && hoodsRPt
+      ? saddlePt[1] - (hoodsLPt[1] + hoodsRPt[1]) / 2
+      : 0;
+  const currentTrunkDeg = mannequin2D
+    ? (Math.atan2(
+        mannequin2D.shoulder.y - mannequin2D.hip.y,
+        mannequin2D.shoulder.x - mannequin2D.hip.x
+      ) * 180) / Math.PI
+    : 0;
+
+  const takeSnapshot = () => {
+    if (!mannequin3DOverride) return;
+    const pts = mannequin3DOverride.points.map((p) => ({
+      ...p,
+      pos: [...p.pos] as [number, number, number],
+    }));
+    // Freeze the legs at the current crank angle so the ghost keeps its pose
+    if (strokeLUT) {
+      const theta = crankAngleRef.current;
+      const right = legPoseAt(strokeLUT, theta);
+      const left = legPoseAt(strokeLUT, theta + 180);
+      const hs = (stanceWidth ?? 155) / 2;
+      const setback = strokeLUT.ankleSetbackMm;
+      const set = (name: string, x: number, y: number, z: number) => {
+        const p = pts.find((q) => q.name === name);
+        if (p) p.pos = [x, y, z];
+      };
+      set("knee_l", left.knee.x, left.knee.y, hs);
+      set("ankle_l", left.ankle.x - setback, left.ankle.y, hs);
+      set("cleat_l", left.cleat.x, left.cleat.y, hs);
+      set("knee_r", right.knee.x, right.knee.y, -hs);
+      set("ankle_r", right.ankle.x - setback, right.ankle.y, -hs);
+      set("cleat_r", right.cleat.x, right.cleat.y, -hs);
+    }
+    setGhost({
+      points: pts,
+      edges: mannequin3DOverride.edges,
+      trunkAngleDeg: currentTrunkDeg,
+      dropMm: currentDropMm,
+      frontalAreaM2,
+    });
+  };
   // attachedAssets: populated programmatically (e.g. SRAM / Shimano shifter meshes
   // swapped on component change). Dev mode exposes runtime file import for authoring.
   const [attachedAssets, setAttachedAssets] = useState<AttachedAsset[]>([]);
@@ -1248,6 +1710,141 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
         </button>
       </div>
 
+      {/* Pedaling animation + analytics layers */}
+      {strokeLUT && (
+        <div className="bike3d-toolbar bike3d-toolbar--anim">
+          <button
+            className={`tab-pill ${playing ? "tab-pill--active" : ""}`}
+            onClick={() => setPlaying((v) => !v)}
+            title={playing ? "Pause pedaling" : "Play pedaling"}
+          >
+            {playing ? "⏸ Pause" : "▶ Pedal"}
+          </button>
+          <label className="bike3d-anim-control">
+            <span>Crank {scrubDeg}°</span>
+            <input
+              type="range"
+              min={0}
+              max={359}
+              value={scrubDeg}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                crankAngleRef.current = v;
+                setScrubDeg(v);
+                setPlaying(false);
+              }}
+            />
+          </label>
+          <label className="bike3d-anim-control">
+            <span>{cadenceRpm} rpm</span>
+            <input
+              type="range"
+              min={30}
+              max={120}
+              step={5}
+              value={cadenceRpm}
+              onChange={(e) => setCadenceRpm(Number(e.target.value))}
+            />
+          </label>
+          <button
+            className="tab-pill"
+            title="Set the near-side crank to 3 o'clock (the KOPS reference position)"
+            onClick={() => {
+              crankAngleRef.current = 270; // near/left leg = 270 + 180 = 90°
+              setScrubDeg(270);
+              setPlaying(false);
+            }}
+          >
+            3 o'clock
+          </button>
+          <span className="bike3d-layer-sep" />
+          <button
+            className={`tab-pill ${showAngles ? "tab-pill--active" : ""}`}
+            onClick={() => setShowAngles((v) => !v)}
+          >
+            Angles
+          </button>
+          <button
+            className={`tab-pill ${showDimensions ? "tab-pill--active" : ""}`}
+            onClick={() => setShowDimensions((v) => !v)}
+          >
+            Dimensions
+          </button>
+          <button
+            className={`tab-pill ${showKops ? "tab-pill--active" : ""}`}
+            onClick={() => setShowKops((v) => !v)}
+          >
+            KOPS
+          </button>
+          <button
+            className={`tab-pill ${showHud ? "tab-pill--active" : ""}`}
+            onClick={() => setShowHud((v) => !v)}
+          >
+            HUD
+          </button>
+          <button
+            className={`tab-pill ${discWheels ? "tab-pill--active" : ""}`}
+            onClick={() => setDiscWheels((v) => !v)}
+            title="Rear aero disc wheel"
+          >
+            Disc
+          </button>
+        </div>
+      )}
+
+      {/* Aero tools */}
+      <div className="bike3d-toolbar bike3d-toolbar--anim">
+        <button
+          className="tab-pill"
+          onClick={runMeasure}
+          disabled={measuring}
+          title="Silhouette frontal-area measurement from the front (aero) view"
+        >
+          {measuring ? "Measuring…" : "Frontal area"}
+        </button>
+        <button
+          className={`tab-pill ${includeBikeInArea ? "tab-pill--active" : ""}`}
+          onClick={() => setIncludeBikeInArea((v) => !v)}
+          title="Include the bike in the silhouette (rider-only by default)"
+        >
+          + Bike
+        </button>
+        {frontalAreaM2 !== null && (
+          <span className="bike3d-aero-chip">
+            FA {frontalAreaM2.toFixed(3)} m² · CdA ≈ {(frontalAreaM2 * ASSUMED_CD).toFixed(3)} m²
+            <em> (Cd {ASSUMED_CD}, hoods)</em>
+          </span>
+        )}
+        <span className="bike3d-layer-sep" />
+        <button
+          className="tab-pill"
+          onClick={takeSnapshot}
+          disabled={!mannequin3DOverride}
+          title="Freeze the current position as a translucent ghost for comparison"
+        >
+          Snapshot ghost
+        </button>
+        {ghost && (
+          <>
+            <button className="tab-pill" onClick={() => setGhost(null)}>
+              Clear ghost
+            </button>
+            <span className="bike3d-aero-chip">
+              Δtrunk {(currentTrunkDeg - ghost.trunkAngleDeg) >= 0 ? "+" : ""}
+              {(currentTrunkDeg - ghost.trunkAngleDeg).toFixed(1)}°
+              {" · "}Δdrop {(currentDropMm - ghost.dropMm) >= 0 ? "+" : ""}
+              {(currentDropMm - ghost.dropMm).toFixed(0)} mm
+              {ghost.frontalAreaM2 !== null && frontalAreaM2 !== null && (
+                <>
+                  {" · "}ΔFA {(frontalAreaM2 - ghost.frontalAreaM2) >= 0 ? "+" : ""}
+                  {(frontalAreaM2 - ghost.frontalAreaM2).toFixed(3)} m²
+                </>
+              )}
+            </span>
+          </>
+        )}
+      </div>
+
       {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size.
           The canvas is transparent; the wrapper carries a gradient backdrop. */}
       <div className="bike3d-canvas-wrapper">
@@ -1267,9 +1864,30 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
             mannequin2D={mannequin2D}
             mannequin3DOverride={mannequin3DOverride}
             weightKg={weightKg}
+            strokeLUT={strokeLUT}
+            stanceWidth={stanceWidth}
+            crankAngleRef={crankAngleRef}
+            playing={playing}
+            cadenceRpm={cadenceRpm}
+            postureBands={postureBands}
+            showAngles={showAngles}
+            showDimensions={showDimensions}
+            showKops={showKops}
+            discWheels={discWheels}
+            onMeasureReady={handleMeasureReady}
+            ghost={ghost}
           />
           <CameraPresetRig request={cameraRequest} center={center} camDist={camDist} />
         </Canvas>
+        {showHud && postureBands && (
+          <MetricsHud
+            mannequin2D={mannequin2D}
+            strokeLUT={strokeLUT}
+            bands={postureBands}
+            crankAngleRef={crankAngleRef}
+            playing={playing}
+          />
+        )}
       </div>
     </div>
   );
