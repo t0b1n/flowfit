@@ -38,9 +38,17 @@ import {
   KopsIndicator,
 } from "./FitAnalytics3D";
 import {
+  ASSUMED_CD,
+  FrontalAreaProbe,
+  GhostMannequin,
+  type GhostSnapshot,
+  type MeasureFrontalArea,
+} from "./AeroTools";
+import {
   angleAtPoint,
   bandStatus,
   kneeExtensionAt,
+  legPoseAt,
   type PedalStrokeLUT,
   type PosturePreset,
 } from "./geometry";
@@ -971,6 +979,8 @@ function SceneContent({
   showKops,
   discWheels,
   cameraGoalRef,
+  onMeasureReady,
+  ghost,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -993,6 +1003,8 @@ function SceneContent({
   showKops: boolean;
   discWheels: boolean;
   cameraGoalRef: React.MutableRefObject<CameraGoal | null>;
+  onMeasureReady: (fn: MeasureFrontalArea) => void;
+  ghost: GhostSnapshot | null;
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
@@ -1058,16 +1070,19 @@ function SceneContent({
       <directionalLight position={[1000, 1500, 800]} intensity={1.0} />
       <directionalLight position={[-500, 600, -600]} intensity={0.3} />
 
-      {/* Soft ground contact shadow (static render — frames=1) */}
-      <ContactShadows
-        position={[target[0], groundY + 0.5, 0]}
-        scale={3200}
-        far={700}
-        blur={2.2}
-        opacity={0.42}
-        frames={1}
-        resolution={512}
-      />
+      {/* Soft ground contact shadow (static render — frames=1).
+          Named analytics-root so the frontal-area probe never counts it. */}
+      <group name="analytics-root">
+        <ContactShadows
+          position={[target[0], groundY + 0.5, 0]}
+          scale={3200}
+          far={700}
+          blur={2.2}
+          opacity={0.42}
+          frames={1}
+          resolution={512}
+        />
+      </group>
 
       {/* Frame tubes */}
       {frameTubes.map((tube, i) => (
@@ -1078,9 +1093,11 @@ function SceneContent({
       <HandlebarMesh ptMap={framePtMap} />
 
       {/* Mannequin body parts */}
-      {mannequinParts.map((part, i) => (
-        <MannequinPartMesh key={`mann-${i}`} part={part} />
-      ))}
+      <group name="mannequin-root">
+        {mannequinParts.map((part, i) => (
+          <MannequinPartMesh key={`mann-${i}`} part={part} />
+        ))}
+      </group>
 
       {/* Animated legs + crankset */}
       {strokeLUT && hipL && hipR && (
@@ -1098,7 +1115,8 @@ function SceneContent({
         />
       )}
 
-      {/* Fit analytics: joint angle arcs */}
+      {/* Fit analytics (excluded from the frontal-area probe) */}
+      <group name="analytics-root">
       {showAngles && mannequin2D && postureBands && (
         <>
           <JointArc
@@ -1176,6 +1194,13 @@ function SceneContent({
         ];
         return <DimensionLines3D saddle={saddle} hoods={hoods} z={-(barW / 2 + 120)} />;
       })()}
+      </group>
+
+      {/* Ghost position comparison */}
+      {ghost && <GhostMannequin snapshot={ghost} weightKg={weightKg} />}
+
+      {/* Frontal-area probe (registers its measure fn with the host) */}
+      <FrontalAreaProbe onReady={onMeasureReady} />
 
       {/* Joints */}
       <JointSpheres geo={geo} />
@@ -1192,7 +1217,9 @@ function SceneContent({
       ))}
 
       {/* 2D skeleton overlay */}
-      {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
+      <group name="analytics-root">
+        {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
+      </group>
 
       {/* Orbit controls — target the scene centre so tumbling feels natural */}
       <OrbitControls ref={controlsRef} makeDefault target={target} />
@@ -1360,6 +1387,75 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   // Visuals
   const [discWheels, setDiscWheels] = useState(false);
   const cameraGoalRef = useRef<CameraGoal | null>(null);
+  // Aero tools
+  const measureFnRef = useRef<MeasureFrontalArea | null>(null);
+  const [measuring, setMeasuring] = useState(false);
+  const [includeBikeInArea, setIncludeBikeInArea] = useState(false);
+  const [frontalAreaM2, setFrontalAreaM2] = useState<number | null>(null);
+  const [ghost, setGhost] = useState<GhostSnapshot | null>(null);
+
+  const handleMeasureReady = useCallback((fn: MeasureFrontalArea) => {
+    measureFnRef.current = fn;
+  }, []);
+
+  const runMeasure = async () => {
+    const fn = measureFnRef.current;
+    if (!fn || measuring) return;
+    setMeasuring(true);
+    try {
+      setFrontalAreaM2(await fn(includeBikeInArea));
+    } finally {
+      setMeasuring(false);
+    }
+  };
+
+  // Current position metrics for ghost deltas
+  const geoPtMap = new Map(geo.points.map((p) => [p.name, p.pos]));
+  const saddlePt = geoPtMap.get("saddle");
+  const hoodsLPt = geoPtMap.get("hoods_l");
+  const hoodsRPt = geoPtMap.get("hoods_r");
+  const currentDropMm =
+    saddlePt && hoodsLPt && hoodsRPt
+      ? saddlePt[1] - (hoodsLPt[1] + hoodsRPt[1]) / 2
+      : 0;
+  const currentTrunkDeg = mannequin2D
+    ? (Math.atan2(
+        mannequin2D.shoulder.y - mannequin2D.hip.y,
+        mannequin2D.shoulder.x - mannequin2D.hip.x
+      ) * 180) / Math.PI
+    : 0;
+
+  const takeSnapshot = () => {
+    if (!mannequin3DOverride) return;
+    const pts = mannequin3DOverride.points.map((p) => ({
+      ...p,
+      pos: [...p.pos] as [number, number, number],
+    }));
+    // Freeze the legs at the current crank angle so the ghost keeps its pose
+    if (strokeLUT) {
+      const theta = crankAngleRef.current;
+      const right = legPoseAt(strokeLUT, theta);
+      const left = legPoseAt(strokeLUT, theta + 180);
+      const hs = (stanceWidth ?? 155) / 2;
+      const set = (name: string, x: number, y: number, z: number) => {
+        const p = pts.find((q) => q.name === name);
+        if (p) p.pos = [x, y, z];
+      };
+      set("knee_l", left.knee.x, left.knee.y, hs);
+      set("ankle_l", left.ankle.x, left.ankle.y, hs);
+      set("cleat_l", left.cleat.x, left.cleat.y, hs);
+      set("knee_r", right.knee.x, right.knee.y, -hs);
+      set("ankle_r", right.ankle.x, right.ankle.y, -hs);
+      set("cleat_r", right.cleat.x, right.cleat.y, -hs);
+    }
+    setGhost({
+      points: pts,
+      edges: mannequin3DOverride.edges,
+      trunkAngleDeg: currentTrunkDeg,
+      dropMm: currentDropMm,
+      frontalAreaM2,
+    });
+  };
 
   useEffect(() => {
     if (!playing) return;
@@ -1588,6 +1684,59 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
         </div>
       )}
 
+      {/* Aero tools */}
+      <div className="bike3d-toolbar bike3d-toolbar--anim">
+        <button
+          className="tab-pill"
+          onClick={runMeasure}
+          disabled={measuring}
+          title="Silhouette frontal-area measurement from the front (aero) view"
+        >
+          {measuring ? "Measuring…" : "Frontal area"}
+        </button>
+        <button
+          className={`tab-pill ${includeBikeInArea ? "tab-pill--active" : ""}`}
+          onClick={() => setIncludeBikeInArea((v) => !v)}
+          title="Include the bike in the silhouette (rider-only by default)"
+        >
+          + Bike
+        </button>
+        {frontalAreaM2 !== null && (
+          <span className="bike3d-aero-chip">
+            FA {frontalAreaM2.toFixed(3)} m² · CdA ≈ {(frontalAreaM2 * ASSUMED_CD).toFixed(3)} m²
+            <em> (Cd {ASSUMED_CD}, hoods)</em>
+          </span>
+        )}
+        <span className="bike3d-layer-sep" />
+        <button
+          className="tab-pill"
+          onClick={takeSnapshot}
+          disabled={!mannequin3DOverride}
+          title="Freeze the current position as a translucent ghost for comparison"
+        >
+          Snapshot ghost
+        </button>
+        {ghost && (
+          <>
+            <button className="tab-pill" onClick={() => setGhost(null)}>
+              Clear ghost
+            </button>
+            <span className="bike3d-aero-chip">
+              Δtrunk {(currentTrunkDeg - ghost.trunkAngleDeg) >= 0 ? "+" : ""}
+              {(currentTrunkDeg - ghost.trunkAngleDeg).toFixed(1)}°
+              {" · "}Δdrop {(currentDropMm - ghost.dropMm) >= 0 ? "+" : ""}
+              {(currentDropMm - ghost.dropMm).toFixed(0)} mm
+              {ghost.frontalAreaM2 !== null && frontalAreaM2 !== null && (
+                <>
+                  {" · "}ΔFA {(frontalAreaM2 - ghost.frontalAreaM2) >= 0 ? "+" : ""}
+                  {(frontalAreaM2 - ghost.frontalAreaM2).toFixed(3)} m²
+                </>
+              )}
+            </span>
+          </>
+        )}
+      </div>
+
       {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size */}
       <div className="bike3d-canvas-wrapper">
         <Canvas
@@ -1616,6 +1765,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             showKops={showKops}
             discWheels={discWheels}
             cameraGoalRef={cameraGoalRef}
+            onMeasureReady={handleMeasureReady}
+            ghost={ghost}
           />
         </Canvas>
         {showHud && postureBands && (

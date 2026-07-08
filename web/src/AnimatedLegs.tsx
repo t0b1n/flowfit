@@ -221,7 +221,7 @@ export function AnimatedLegs({
   return (
     <group>
       {showLegs && (
-        <>
+        <group name="mannequin-legs">
           <LimbCapsule ref={thighLRef} radius={dims.thighR} bodyLength={dims.thighBody} />
           <LimbCapsule ref={thighRRef} radius={dims.thighR} bodyLength={dims.thighBody} />
           <LimbCapsule ref={shinLRef} radius={dims.shinR} bodyLength={dims.shinBody} />
@@ -232,7 +232,7 @@ export function AnimatedLegs({
           <JointSphere ref={kneeRRef} radius={dims.kneeJr} />
           <JointSphere ref={ankleLRef} radius={dims.ankleJr} />
           <JointSphere ref={ankleRRef} radius={dims.ankleJr} />
-        </>
+        </group>
       )}
 
       {/* Crankset — always visible with the bike */}
