@@ -10,11 +10,13 @@
  *     e.g. pre-built SRAM / Shimano shifter meshes swapped on component change)
  */
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { ContactShadows, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import {
   Geometry3DResponse,
   Geometry3DPoint,
@@ -601,30 +603,111 @@ function JointSpheres({ geo }: { geo: Geometry3DResponse }) {
 
 // ── Wheels ───────────────────────────────────────────────────────────────────
 
+const RIM_MATERIAL = (
+  <meshStandardMaterial metalness={0.6} roughness={0.3} color="#1c1c20" />
+);
+const HUB_MATERIAL = (
+  <meshStandardMaterial metalness={0.8} roughness={0.25} color="#8a8f99" />
+);
+const SPOKE_MATERIAL = (
+  <meshStandardMaterial metalness={0.75} roughness={0.35} color="#767b85" />
+);
+const DISC_MATERIAL = (
+  <meshStandardMaterial metalness={0.5} roughness={0.4} color="#17171a" />
+);
+
+const SPOKE_COUNT = 24;
+const HUB_FLANGE_R = 35;
+const HUB_HALF_WIDTH = 42;
+
+function Wheel({
+  center,
+  wheelRadius,
+  disc,
+}: {
+  center: [number, number, number];
+  wheelRadius: number;
+  disc: boolean;
+}) {
+  const tyreRadius = 14;
+  const rimOuter = wheelRadius - tyreRadius; // tyre torus centre line
+  const rimCentre = rimOuter - 22;           // deep-section rim body centre line
+  const rimInner = rimCentre - 20;           // where spokes terminate
+
+  // Static radial spoke layout, alternating hub flange side
+  const spokes = useMemo(() => {
+    if (disc) return [];
+    const out: { pos: [number, number, number]; rotZ: number; len: number; tilt: number }[] = [];
+    for (let i = 0; i < SPOKE_COUNT; i++) {
+      const ang = (i / SPOKE_COUNT) * Math.PI * 2;
+      const zHub = i % 2 === 0 ? HUB_HALF_WIDTH * 0.55 : -HUB_HALF_WIDTH * 0.55;
+      const rSpan = rimInner - HUB_FLANGE_R;
+      const len = Math.hypot(rSpan, zHub);
+      const midR = (HUB_FLANGE_R + rimInner) / 2;
+      out.push({
+        pos: [Math.cos(ang) * midR, Math.sin(ang) * midR, zHub / 2],
+        // cylinder Y-axis → rotate so it runs radially (ang − 90°), plus a
+        // slight tilt toward the hub flange handled via lookAt-free math
+        rotZ: ang - Math.PI / 2,
+        len,
+        tilt: Math.atan2(zHub, rSpan),
+      });
+    }
+    return out;
+  }, [disc, rimInner]);
+
+  return (
+    <group position={center}>
+      {/* Tyre */}
+      <mesh>
+        <torusGeometry args={[rimOuter, tyreRadius, 16, 80]} />
+        {WHEEL_MATERIAL}
+      </mesh>
+      {/* Deep-section rim (flattened torus) */}
+      <mesh scale={[1, 1, 0.45]}>
+        <torusGeometry args={[rimCentre, 20, 12, 80]} />
+        {RIM_MATERIAL}
+      </mesh>
+      {/* Hub */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[14, 14, HUB_HALF_WIDTH * 2, 16, 1]} />
+        {HUB_MATERIAL}
+      </mesh>
+      {disc ? (
+        // Aero disc: shallow lenticular drum between hub and rim
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[rimInner + 8, rimInner + 8, 18, 48, 1]} />
+          {DISC_MATERIAL}
+        </mesh>
+      ) : (
+        spokes.map((s, i) => (
+          <group key={i} position={s.pos} rotation={[0, 0, s.rotZ]}>
+            <mesh rotation={[s.tilt, 0, 0]}>
+              <cylinderGeometry args={[1.4, 1.4, s.len, 6, 1]} />
+              {SPOKE_MATERIAL}
+            </mesh>
+          </group>
+        ))
+      )}
+    </group>
+  );
+}
+
 function Wheels({
   geo,
   wheelRadius,
+  disc,
 }: {
   geo: Geometry3DResponse;
   wheelRadius: number;
+  disc: boolean;
 }) {
   const { rear, front } = getWheelCenters(geo.points);
-  const tyreRadius = 14; // visual tyre cross-section radius
-
   return (
     <>
-      {rear && (
-        <mesh position={rear}>
-          <torusGeometry args={[wheelRadius - tyreRadius, tyreRadius, 16, 80]} />
-          {WHEEL_MATERIAL}
-        </mesh>
-      )}
-      {front && (
-        <mesh position={front}>
-          <torusGeometry args={[wheelRadius - tyreRadius, tyreRadius, 16, 80]} />
-          {WHEEL_MATERIAL}
-        </mesh>
-      )}
+      {/* Aero setup: disc rear, spoked front (a front disc is unrideable outdoors) */}
+      {rear && <Wheel center={rear} wheelRadius={wheelRadius} disc={disc} />}
+      {front && <Wheel center={front} wheelRadius={wheelRadius} disc={false} />}
     </>
   );
 }
@@ -746,6 +829,124 @@ function Overlay2D({ mannequin2D }: { mannequin2D: MannequinSketch }) {
   );
 }
 
+// ── Curved handlebar ─────────────────────────────────────────────────────────
+
+/**
+ * Straight bar edges (clamp→top→hoods→drop) replaced with a Catmull-Rom sweep
+ * per side: tops run laterally, ramp forward into the hoods, then the drop
+ * curls forward, down, and back toward the rider.
+ */
+const BAR_EDGE_KEYS = new Set([
+  "bar_clamp→bar_top_l", "bar_clamp→bar_top_r",
+  "bar_top_l→hoods_l", "bar_top_r→hoods_r",
+  "hoods_l→bar_drop_l", "hoods_r→bar_drop_r",
+]);
+
+const BAR_TUBE_RADIUS = 11;
+
+function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]> }) {
+  const bc = ptMap.get("bar_clamp");
+  const geoms = useMemo(() => {
+    if (!bc) return null;
+    const out: THREE.TubeGeometry[] = [];
+    for (const side of ["l", "r"] as const) {
+      const bt = ptMap.get(`bar_top_${side}`);
+      const h = ptMap.get(`hoods_${side}`);
+      const d = ptMap.get(`bar_drop_${side}`);
+      if (!bt || !h || !d) return null;
+      const s = side === "l" ? 1 : -1;
+      const pts = [
+        new THREE.Vector3(bc[0], bc[1], s * 24),
+        new THREE.Vector3(bt[0], bt[1], bt[2] - s * 36),
+        new THREE.Vector3(bt[0] + 6, bt[1], bt[2]),
+        new THREE.Vector3(h[0] - 12, h[1] + 6, h[2]),
+        new THREE.Vector3(h[0] + 30, h[1] - 42, h[2]),
+        new THREE.Vector3(h[0] + 16, d[1] + 26, d[2]),
+        new THREE.Vector3(d[0] - 28, d[1], d[2]),
+      ];
+      const curve = new THREE.CatmullRomCurve3(pts, false, "catmullrom", 0.35);
+      out.push(new THREE.TubeGeometry(curve, 64, BAR_TUBE_RADIUS, 12, false));
+    }
+    return out;
+  }, [ptMap, bc]);
+
+  useEffect(() => () => geoms?.forEach((g) => g.dispose()), [geoms]);
+
+  if (!bc || !geoms) return null;
+  return (
+    <group>
+      {/* Straight clamp section across the stem faceplate */}
+      <mesh position={bc} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[BAR_TUBE_RADIUS + 1, BAR_TUBE_RADIUS + 1, 52, 12, 1]} />
+        {FRAME_MATERIAL}
+      </mesh>
+      {geoms.map((g, i) => (
+        <mesh key={i} geometry={g}>
+          {FRAME_MATERIAL}
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+// ── Environment & camera rig ─────────────────────────────────────────────────
+
+/**
+ * Procedural PMREM environment from three's RoomEnvironment — image-based
+ * lighting with zero network fetches (drei's <Environment> presets pull HDRIs
+ * from a CDN, which the CSP blocks).
+ */
+function ProceduralEnvironment() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const rt = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    scene.environment = rt.texture;
+    return () => {
+      scene.environment = null;
+      rt.dispose();
+      pmrem.dispose();
+    };
+  }, [gl, scene]);
+  return null;
+}
+
+export interface CameraGoal {
+  pos: [number, number, number];
+  target: [number, number, number];
+}
+
+/** Frame-rate-independent exponential damp toward a target vector. */
+function damp3(current: THREE.Vector3, target: THREE.Vector3, lambda: number, dt: number) {
+  current.lerp(target, 1 - Math.exp(-lambda * dt));
+}
+
+function CameraRig({
+  goalRef,
+  controlsRef,
+}: {
+  goalRef: React.MutableRefObject<CameraGoal | null>;
+  controlsRef: React.RefObject<OrbitControlsImpl>;
+}) {
+  const goalPos = useMemo(() => new THREE.Vector3(), []);
+  const goalTarget = useMemo(() => new THREE.Vector3(), []);
+  useFrame((state, dt) => {
+    const goal = goalRef.current;
+    if (!goal) return;
+    goalPos.set(...goal.pos);
+    goalTarget.set(...goal.target);
+    damp3(state.camera.position, goalPos, 7, dt);
+    const controls = controlsRef.current;
+    if (controls) {
+      damp3(controls.target, goalTarget, 7, dt);
+      controls.update();
+    }
+    if (state.camera.position.distanceTo(goalPos) < 2) goalRef.current = null;
+  });
+  return null;
+}
+
 // ── Main scene content (inside Canvas) ───────────────────────────────────────
 
 function SceneContent({
@@ -768,6 +969,8 @@ function SceneContent({
   showAngles,
   showDimensions,
   showKops,
+  discWheels,
+  cameraGoalRef,
 }: {
   geo: Geometry3DResponse;
   attachedAssets: AttachedAsset[];
@@ -788,6 +991,8 @@ function SceneContent({
   showAngles: boolean;
   showDimensions: boolean;
   showKops: boolean;
+  discWheels: boolean;
+  cameraGoalRef: React.MutableRefObject<CameraGoal | null>;
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
@@ -804,10 +1009,18 @@ function SceneContent({
       ]
     : geo.edges;
 
-  // Frame tubes (non-mannequin edges only)
+  // Frame tubes (non-mannequin edges only). The straight handlebar edges are
+  // replaced by the swept HandlebarMesh.
   const framePts = effectivePoints.filter((p) => p.group !== "mannequin");
-  const frameEdges = effectiveEdges.filter((e) => !e.group.startsWith("mannequin"));
+  const frameEdges = effectiveEdges.filter(
+    (e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`)
+  );
   const frameTubes = buildTubes(framePts, frameEdges);
+  const framePtMap = useMemo(
+    () => new Map(framePts.map((p) => [p.name, p.pos])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [geo, mannequin3DOverride]
+  );
 
   // Mannequin parts (sphere joints + cylinders + capsules + tapered).
   // With a stroke LUT the legs are animated by <AnimatedLegs> instead, so they
@@ -827,21 +1040,42 @@ function SceneContent({
   const hipR = effPtMap.get("hip_r");
   const bbPt = effPtMap.get("bb") ?? ([0, 0, 0] as [number, number, number]);
 
+  const controlsRef = useRef<OrbitControlsImpl>(null);
+
   const wheelRadius = geo.frame.wheel_radius ?? 311;
+
+  // Ground level for the contact shadow: bottom of the wheels
+  const { rear: rearAxle } = getWheelCenters(effectivePoints);
+  const groundY = (rearAxle?.[1] ?? 70) - wheelRadius;
 
   return (
     <>
       <color attach="background" args={["#0d1117"]} />
 
-      {/* Lighting */}
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[1000, 1500, 800]} intensity={1.4} />
-      <directionalLight position={[-500, 600, -600]} intensity={0.5} />
+      {/* Lighting: PMREM room environment (IBL) + key/fill directionals */}
+      <ProceduralEnvironment />
+      <ambientLight intensity={0.25} />
+      <directionalLight position={[1000, 1500, 800]} intensity={1.0} />
+      <directionalLight position={[-500, 600, -600]} intensity={0.3} />
+
+      {/* Soft ground contact shadow (static render — frames=1) */}
+      <ContactShadows
+        position={[target[0], groundY + 0.5, 0]}
+        scale={3200}
+        far={700}
+        blur={2.2}
+        opacity={0.42}
+        frames={1}
+        resolution={512}
+      />
 
       {/* Frame tubes */}
       {frameTubes.map((tube, i) => (
         <TubeMesh key={`frame-${i}`} tube={tube} />
       ))}
+
+      {/* Swept handlebar */}
+      <HandlebarMesh ptMap={framePtMap} />
 
       {/* Mannequin body parts */}
       {mannequinParts.map((part, i) => (
@@ -947,7 +1181,7 @@ function SceneContent({
       <JointSpheres geo={geo} />
 
       {/* Wheels */}
-      <Wheels geo={geo} wheelRadius={wheelRadius} />
+      <Wheels geo={geo} wheelRadius={wheelRadius} disc={discWheels} />
 
       {/* Saddle */}
       <SaddleMesh geo={geo} saddleType={saddleType} />
@@ -961,7 +1195,8 @@ function SceneContent({
       {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
 
       {/* Orbit controls — target the scene centre so tumbling feels natural */}
-      <OrbitControls makeDefault target={target} />
+      <OrbitControls ref={controlsRef} makeDefault target={target} />
+      <CameraRig goalRef={cameraGoalRef} controlsRef={controlsRef} />
 
       {/* Export hook */}
       <SceneExporter onExportReady={onExportReady} />
@@ -1122,6 +1357,9 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [showDimensions, setShowDimensions] = useState(false);
   const [showKops, setShowKops] = useState(false);
   const [showHud, setShowHud] = useState(true);
+  // Visuals
+  const [discWheels, setDiscWheels] = useState(false);
+  const cameraGoalRef = useRef<CameraGoal | null>(null);
 
   useEffect(() => {
     if (!playing) return;
@@ -1164,6 +1402,18 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
     center[1] + camDist * 0.25,   // slightly above centre
     camDist,
   ];
+
+  const goToView = (view: "side" | "front" | "threeQuarter" | "top") => {
+    const [cx, cy] = center;
+    const d = camDist;
+    const positions: Record<typeof view, [number, number, number]> = {
+      side: [cx, cy + 0.06 * d, d],
+      front: [cx + d, cy + 0.06 * d, 0], // aero assessment view
+      threeQuarter: [cx + 0.55 * d, cy + 0.32 * d, 0.75 * d],
+      top: [cx - 0.08 * d, cy + d, 0.02 * d],
+    };
+    cameraGoalRef.current = { pos: positions[view], target: center };
+  };
 
   return (
     <div className="bike3d-container">
@@ -1235,9 +1485,21 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             {SADDLE_DETAIL[t].label}
           </button>
         ))}
+        <span className="bike3d-layer-sep" style={{ marginLeft: "auto" }} />
+        <button className="tab-pill" onClick={() => goToView("side")} title="Side view (fit)">
+          Side
+        </button>
+        <button className="tab-pill" onClick={() => goToView("front")} title="Front view (aero)">
+          Front
+        </button>
+        <button className="tab-pill" onClick={() => goToView("threeQuarter")} title="Three-quarter view">
+          ¾
+        </button>
+        <button className="tab-pill" onClick={() => goToView("top")} title="Top view">
+          Top
+        </button>
         <button
           className={`tab-pill ${devMode ? "tab-pill--active" : ""}`}
-          style={{ marginLeft: "auto" }}
           onClick={() => setDevMode((v) => !v)}
         >
           Dev
@@ -1316,6 +1578,13 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           >
             HUD
           </button>
+          <button
+            className={`tab-pill ${discWheels ? "tab-pill--active" : ""}`}
+            onClick={() => setDiscWheels((v) => !v)}
+            title="Rear aero disc wheel"
+          >
+            Disc
+          </button>
         </div>
       )}
 
@@ -1345,6 +1614,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             showAngles={showAngles}
             showDimensions={showDimensions}
             showKops={showKops}
+            discWheels={discWheels}
+            cameraGoalRef={cameraGoalRef}
           />
         </Canvas>
         {showHud && postureBands && (
