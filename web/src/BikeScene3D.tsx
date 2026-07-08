@@ -18,7 +18,6 @@ import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import {
   Geometry3DResponse,
   Geometry3DPoint,
-  Geometry3DEdge,
   buildTubes,
   buildMannequinParts,
   getWheelCenters,
@@ -1027,7 +1026,6 @@ const SceneContent = React.memo(function SceneContent({
   saddleType,
   show2dOverlay,
   mannequin2D,
-  mannequin3DOverride,
   weightKg = 75,
   strokeLUT,
   stanceWidth = 155,
@@ -1050,7 +1048,6 @@ const SceneContent = React.memo(function SceneContent({
   saddleType: SaddleType;
   show2dOverlay: boolean;
   mannequin2D?: MannequinSketch;
-  mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
   weightKg?: number;
   strokeLUT?: PedalStrokeLUT;
   stanceWidth?: number;
@@ -1065,54 +1062,36 @@ const SceneContent = React.memo(function SceneContent({
   onMeasureReady: (fn: MeasureFrontalArea) => void;
   ghost: GhostSnapshot | null;
 }) {
-  // When frontend-computed mannequin data is provided, replace backend mannequin
-  // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
-  const { effectivePoints, effectiveEdges } = useMemo(() => {
-    if (!mannequin3DOverride) {
-      return { effectivePoints: geo.points, effectiveEdges: geo.edges };
-    }
-    return {
-      effectivePoints: [
-        ...geo.points.filter((p) => p.group !== "mannequin"),
-        ...mannequin3DOverride.points,
-      ],
-      effectiveEdges: [
-        ...geo.edges.filter((e) => !e.group.startsWith("mannequin")),
-        ...mannequin3DOverride.edges,
-      ],
-    };
-  }, [geo, mannequin3DOverride]);
-
   // Frame tubes (non-mannequin edges only). The straight handlebar edges are
   // replaced by the swept HandlebarMesh.
   const { frameTubes, framePtMap } = useMemo(() => {
-    const framePts = effectivePoints.filter((p) => p.group !== "mannequin");
-    const frameEdges = effectiveEdges.filter(
+    const framePts = geo.points.filter((p) => p.group !== "mannequin");
+    const frameEdges = geo.edges.filter(
       (e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`)
     );
     return {
       frameTubes: buildTubes(framePts, frameEdges),
       framePtMap: new Map(framePts.map((p) => [p.name, p.pos])),
     };
-  }, [effectivePoints, effectiveEdges]);
+  }, [geo]);
 
   // Mannequin parts (sphere joints + cylinders + capsules + tapered).
   // With a stroke LUT the legs are animated by <AnimatedLegs> instead, so they
   // are excluded from the declarative part list.
   const mannequinParts = useMemo(() => {
     if (!showMannequin) return [];
-    const mannequinPts = effectivePoints.filter(
+    const mannequinPts = geo.points.filter(
       (p) => p.group === "mannequin" && !(strokeLUT && LEG_POINT_NAMES.has(p.name))
     );
-    const mannequinEdges = effectiveEdges.filter(
+    const mannequinEdges = geo.edges.filter(
       (e) => e.group.startsWith("mannequin") && !(strokeLUT && LEG_EDGE_GROUPS.has(e.group))
     );
     return buildMannequinParts(mannequinPts, mannequinEdges, weightKg);
-  }, [effectivePoints, effectiveEdges, strokeLUT, weightKg, showMannequin]);
+  }, [geo, strokeLUT, weightKg, showMannequin]);
 
   const effPtMap = useMemo(
-    () => new Map(effectivePoints.map((p) => [p.name, p.pos])),
-    [effectivePoints]
+    () => new Map(geo.points.map((p) => [p.name, p.pos])),
+    [geo]
   );
   const hipL = effPtMap.get("hip_l");
   const hipR = effPtMap.get("hip_r");
@@ -1121,7 +1100,7 @@ const SceneContent = React.memo(function SceneContent({
   const wheelRadius = geo.frame.wheel_radius ?? 311;
 
   // Ground sits at the bottom of the wheels
-  const { rear, front } = getWheelCenters(effectivePoints);
+  const { rear, front } = getWheelCenters(geo.points);
   const axleY = Math.min(rear?.[1] ?? 0, front?.[1] ?? 0);
   const groundY = axleY - wheelRadius;
   const groundX = ((rear?.[0] ?? 0) + (front?.[0] ?? 0)) / 2;
@@ -1186,7 +1165,7 @@ const SceneContent = React.memo(function SceneContent({
           showLegs={showMannequin}
         />
       ) : (
-        <Drivetrain3D points={effectivePoints} />
+        <Drivetrain3D points={geo.points} />
       )}
 
       {/* Joints */}
@@ -1461,7 +1440,6 @@ function MetricsHud({
 interface BikeScene3DProps {
   geo: Geometry3DResponse;
   mannequin2D?: MannequinSketch;
-  mannequin3DOverride?: { points: Geometry3DPoint[]; edges: Geometry3DEdge[] };
   weightKg?: number;
   strokeLUT?: PedalStrokeLUT;
   stanceWidth?: number;
@@ -1493,7 +1471,7 @@ function exportCsv(geo: Geometry3DResponse) {
 }
 
 export const BikeScene3D: React.FC<BikeScene3DProps> = ({
-  geo, mannequin2D, mannequin3DOverride, weightKg = 75,
+  geo, mannequin2D, weightKg = 75,
   strokeLUT, stanceWidth, postureBands,
 }) => {
   const [devMode, setDevMode] = useState(false);
@@ -1561,11 +1539,12 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
     : 0;
 
   const takeSnapshot = () => {
-    if (!mannequin3DOverride) return;
-    const pts = mannequin3DOverride.points.map((p) => ({
-      ...p,
-      pos: [...p.pos] as [number, number, number],
-    }));
+    const pts = geo.points
+      .filter((p) => p.group === "mannequin")
+      .map((p) => ({
+        ...p,
+        pos: [...p.pos] as [number, number, number],
+      }));
     // Freeze the legs at the current crank angle so the ghost keeps its pose
     if (strokeLUT) {
       const theta = crankAngleRef.current;
@@ -1586,7 +1565,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
     }
     setGhost({
       points: pts,
-      edges: mannequin3DOverride.edges,
+      edges: geo.edges.filter((e) => e.group.startsWith("mannequin")),
       trunkAngleDeg: currentTrunkDeg,
       dropMm: currentDropMm,
       frontalAreaM2,
@@ -1832,7 +1811,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
         <button
           className="tab-pill"
           onClick={takeSnapshot}
-          disabled={!mannequin3DOverride}
           title="Freeze the current position as a translucent ghost for comparison"
         >
           Snapshot ghost
@@ -1875,7 +1853,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             saddleType={saddleType}
             show2dOverlay={show2dOverlay}
             mannequin2D={mannequin2D}
-            mannequin3DOverride={mannequin3DOverride}
             weightKg={weightKg}
             strokeLUT={strokeLUT}
             stanceWidth={stanceWidth}

@@ -24,10 +24,9 @@ import {
   barReachNeeded,
   boundsForBikes,
   buildFrontalMannequin,
+  buildGeometry3D,
   buildMannequin,
-  buildMannequin3DPoints,
   buildRider,
-  buildSetup,
   exposedSeatpostLength,
   expandBoundsForMannequins,
   fitWarnings,
@@ -44,8 +43,6 @@ import {
 } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
-import { fetchGeometry3D } from "./api";
-import type { Geometry3DResponse } from "./bike3d";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -187,10 +184,6 @@ export const FitBuilderMode: React.FC = () => {
   const [view, setView] = useState<ViewKind>("side");
   const [layersOpen, setLayersOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<"controls" | "results" | null>(null);
-  const [geo3d, setGeo3d] = useState<Geometry3DResponse | null>(null);
-  const [geo3dLoading, setGeo3dLoading] = useState(false);
-  const [geo3dError, setGeo3dError] = useState<string | null>(null);
-  const [geo3dNonce, setGeo3dNonce] = useState(0);
   const layersRef = useRef<HTMLDivElement | null>(null);
   // Partial — any unset field falls back to the height-derived default in buildRider.
   // This means height changes still rescale the body unless the user has explicitly
@@ -302,41 +295,6 @@ export const FitBuilderMode: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idealContacts.saddle.y, effectiveFrame.seat_angle_deg, components.saddle_stack]);
 
-  // Fetch 3D geometry from API when 3D view is active and inputs change.
-  // Debounced so a slider drag issues one request instead of one per tick,
-  // and aborted on supersession so stale solves never occupy the server.
-  useEffect(() => {
-    if (!view3d) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    setGeo3dLoading(true);
-    setGeo3dError(null);
-    const timer = window.setTimeout(() => {
-      const setup = buildSetup({
-        ...effectiveFrame,
-        wheelbase: sizeData.wheelbase,
-        top_tube_effective: sizeData.top_tube_effective,
-      }, components, {
-        saddle: idealContacts.saddle,
-        hoods: idealContacts.hoods,
-        cleat: idealContacts.cleat,
-      }, rider);
-      fetchGeometry3D(setup, controller.signal)
-        .then((data: Geometry3DResponse) => { if (!cancelled) { setGeo3d(data); setGeo3dError(null); } })
-        .catch((err: unknown) => {
-          if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
-          setGeo3dError(err instanceof Error ? err.message : String(err));
-        })
-        .finally(() => { if (!cancelled) setGeo3dLoading(false); });
-    }, 150);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view3d, effectiveFrame, components, rider, idealContacts.saddle.y, idealContacts.saddle.x, idealContacts.hoods.x, idealContacts.hoods.y, geo3dNonce]);
-
   // Close the layers popover on outside click
   useEffect(() => {
     if (!layersOpen) return;
@@ -349,48 +307,8 @@ export const FitBuilderMode: React.FC = () => {
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [layersOpen]);
 
-  // Build a 3D mannequin from backend bike contact points + frontend forward kinematics.
-  // This ensures the 3D mesh mannequin uses the same trunk angle as the 2D view.
-  const mannequin3DData = useMemo(() => {
-    if (!geo3d) return null;
-    const ptMap = new Map(geo3d.points.map(p => [p.name, p.pos]));
-    const saddle3d = ptMap.get("saddle");
-    const hoodsL = ptMap.get("hoods_l");
-    const hoodsR = ptMap.get("hoods_r");
-    const cleatL = ptMap.get("cleat_l");
-    if (!saddle3d || !hoodsL || !hoodsR || !cleatL) return null;
-    // Build a side-view bike from backend 3D points (use centerline)
-    const bike3dSide = {
-      ...bike,
-      saddle: { x: saddle3d[0], y: saddle3d[1] },
-      hoods: { x: (hoodsL[0] + hoodsR[0]) / 2, y: (hoodsL[1] + hoodsR[1]) / 2 },
-      cleat: { x: cleatL[0], y: cleatL[1] },
-    };
-    // Build 2D mannequin with forward kinematics using target trunk angle
-    const mannequin2dFor3d = buildMannequin(
-      bike3dSide, rider, components.bar_width,
-      components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg
-    );
-    // Pedal-stroke LUT for the 3D animation, solved from the same hip so the
-    // animated legs stay consistent with the override torso.
-    const strokeLUT = solvePedalStroke(
-      mannequin2dFor3d.hip,
-      { x: 0, y: 0 }, // backend 3D coords: BB is the origin
-      components.crank_length,
-      components.cleat_setback,
-      components.pedal_stack_height,
-      rider
-    );
-    // Bilaterally expand to 3D
-    return {
-      mannequin2d: mannequin2dFor3d,
-      strokeLUT,
-      ...buildMannequin3DPoints(mannequin2dFor3d, rider, components),
-    };
-  }, [geo3d, bike, rider, components, targetTrunkAngleDeg, backBendDeg]);
-
-  // Stroke metrics for the metric grid (2D view included) — solved from the
-  // 2D mannequin hip against the displayed bike.
+  // Stroke metrics for the metric grid and the 3D pedaling animation —
+  // solved from the 2D mannequin hip against the displayed bike.
   const strokeMetrics = useMemo(
     () =>
       solvePedalStroke(
@@ -402,6 +320,13 @@ export const FitBuilderMode: React.FC = () => {
         rider
       ),
     [mannequin.hip, bike.bb, components.crank_length, components.cleat_setback, components.pedal_stack_height, rider]
+  );
+
+  // 3D scene graph, derived from the same bike/mannequin the 2D view renders
+  // — no fetch, and the two views cannot diverge.
+  const geo3d = useMemo(
+    () => buildGeometry3D(effectiveFrame, components, rider, bike, mannequin, strokeMetrics),
+    [effectiveFrame, components, rider, bike, mannequin, strokeMetrics]
   );
 
   const kneeExtension = angleAtPoint(mannequin.hip, mannequin.knee, mannequin.ankle);
@@ -1220,39 +1145,14 @@ export const FitBuilderMode: React.FC = () => {
 
         <div className="visual-stage">
           {view3d ? (
-            geo3dError ? (
-              <div className="visual-stage__loading visual-stage__loading--error">
-                <div>
-                  <strong>Could not load 3D geometry</strong>
-                  <p style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>{geo3dError}</p>
-                  <p style={{ marginTop: 4, fontSize: 12, opacity: 0.5 }}>Is the API running? <code>make api</code></p>
-                  <button
-                    className="tab-pill tab-pill--visual"
-                    style={{ marginTop: 12 }}
-                    onClick={() => setGeo3dNonce((n) => n + 1)}
-                  >
-                    Retry
-                  </button>
-                </div>
-              </div>
-            ) : geo3dLoading || !geo3d ? (
-              <div className="visual-stage__loading">
-                <div className="viz-skeleton">
-                  <span className="viz-skeleton__pulse" />
-                  {geo3dLoading ? "Loading 3D geometry…" : "Switch to 3D to load"}
-                </div>
-              </div>
-            ) : (
-              <BikeScene3D
-                geo={geo3d}
-                mannequin2D={mannequin3DData?.mannequin2d ?? mannequin}
-                mannequin3DOverride={mannequin3DData ?? undefined}
-                weightKg={riderFit.weight}
-                strokeLUT={mannequin3DData?.strokeLUT}
-                stanceWidth={components.stance_width ?? 155}
-                postureBands={POSTURE_PRESET}
-              />
-            )
+            <BikeScene3D
+              geo={geo3d}
+              mannequin2D={mannequin}
+              weightKg={riderFit.weight}
+              strokeLUT={strokeMetrics}
+              stanceWidth={components.stance_width ?? 155}
+              postureBands={POSTURE_PRESET}
+            />
           ) : view === "side" ? (
             <svg viewBox={viewBox} className="geometry-svg">
               <line

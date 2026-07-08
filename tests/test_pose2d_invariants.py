@@ -1,30 +1,16 @@
-"""
-Tests that the 3D mannequin is a faithful bilateral expansion of the 2D mannequin.
-Every joint's X and Y in 3D must match the corresponding 2D joint exactly,
-since mannequin3d is defined as a pure sagittal-plane expansion.
+"""Invariants of the 2D pose solve (solve_pose_2d_full).
 
-NOTE — scope of these tests:
-  These are **backend self-consistency** tests only.  They verify that
-  mannequin3d.solve_pose_3d() faithfully copies the 2D joint positions
-  produced by mannequin2d.solve_pose_2d_full() into 3D space.
-
-  They do NOT test whether the 3D mannequin aligns with the 2D green
-  overlay rendered in BikeScene3D.  That overlay is driven by the
-  frontend buildMannequin() function (geometry.ts), which uses different
-  algorithms in several places (trunk-angle preset, projected arm lengths,
-  frontend hoods formula).  Tests for that alignment live in:
-    - tests/test_3d_vs_overlay.py
-    - tests/test_contact_points_3d_vs_2d.py
+Ported from the former 2D-vs-3D mirror test files when the backend 3D
+export pipeline was removed (the 3D view is now built client-side from the
+same code as the 2D view). These tests cover the surviving IK core:
+limb-length preservation, anatomical sanity, and degenerate-reach clamping.
 """
+
 from __future__ import annotations
 
-import pytest
-
-from bikegeo_core import Components, FrameGeometry
 from bikegeo_core.geometry import synthesize_bike
 from bikegeo_core.mannequin2d import solve_pose_2d_full
-from bikegeo_core.mannequin3d import solve_pose_3d
-from bikegeo_core.models import RiderAnthropometrics
+from bikegeo_core.models import Components, FrameGeometry, RiderAnthropometrics
 
 TOLERANCE = 1e-6
 
@@ -82,109 +68,13 @@ def _rider(**overrides) -> RiderAnthropometrics:
     return RiderAnthropometrics(**base)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
 def _bike():
     return synthesize_bike(_frame(), _components())
 
 
-def _2d_joints():
-    _, joints = solve_pose_2d_full(_bike(), _rider())
-    return joints
-
-
-def _3d_pts():
-    return solve_pose_3d(_bike(), _components(), _rider())
-
-
-# ── XY consistency for every mannequin joint ──────────────────────────────────
-
-@pytest.mark.parametrize("joint_name,pt3d_key", [
-    ("hip",      "hip_l"),
-    ("hip",      "hip_r"),
-    ("hip",      "hip_center"),
-    ("knee",     "knee_l"),
-    ("knee",     "knee_r"),
-    ("ankle",    "ankle_l"),
-    ("ankle",    "ankle_r"),
-    ("shoulder", "shoulder_l"),
-    ("shoulder", "shoulder_r"),
-    ("shoulder", "shoulder_center"),
-    ("elbow",    "elbow_l"),
-    ("elbow",    "elbow_r"),
-    ("wrist",    "wrist_l"),
-    ("wrist",    "wrist_r"),
-])
-def test_3d_joint_xy_matches_2d(joint_name, pt3d_key):
-    """Every 3D joint's XY must equal the corresponding 2D joint."""
-    joints2d = _2d_joints()
-    pts3d = _3d_pts()
-
-    j2 = getattr(joints2d, joint_name)
-    j3 = pts3d[pt3d_key]
-
-    assert abs(j3.x - j2.x) < TOLERANCE, (
-        f"{pt3d_key}.x ({j3.x:.4f}) != {joint_name}_2d.x ({j2.x:.4f})"
-    )
-    assert abs(j3.y - j2.y) < TOLERANCE, (
-        f"{pt3d_key}.y ({j3.y:.4f}) != {joint_name}_2d.y ({j2.y:.4f})"
-    )
-
-
-# ── Structural anchors: 3D frame points match 2D mannequin fixed points ────────
-
-def test_saddle_3d_matches_bike_saddle_and_hip_is_above():
-    """The 3D saddle point must sit at bike_points.saddle.  The 2D hip joint
-    is offset above the saddle by hip_joint_offset, so saddle ≠ hip."""
-    r = _rider()
-    j2 = _2d_joints()
-    pts3d = _3d_pts()
-    bike = _bike()
-
-    # 3D saddle XY == bike_points.saddle
-    assert abs(pts3d["saddle"].x - bike.saddle.x) < TOLERANCE
-    assert abs(pts3d["saddle"].y - bike.saddle.y) < TOLERANCE
-    # 2D hip is exactly hip_joint_offset above the saddle
-    assert abs(j2.hip.x - bike.saddle.x) < TOLERANCE
-    assert abs(j2.hip.y - (bike.saddle.y + r.hip_joint_offset)) < TOLERANCE
-
-
-def test_hoods_3d_matches_hand_2d():
-    """The 3D hoods_l/r XY must match the 2D hand (= hoods contact point)."""
-    j2 = _2d_joints()
-    pts3d = _3d_pts()
-    bike = _bike()
-
-    for key in ("hoods_l", "hoods_r"):
-        assert abs(pts3d[key].x - j2.hand.x) < TOLERANCE, f"{key}.x mismatch"
-        assert abs(pts3d[key].y - j2.hand.y) < TOLERANCE, f"{key}.y mismatch"
-    # sanity: bike hoods == 2D hand
-    assert abs(bike.hoods.x - j2.hand.x) < TOLERANCE
-    assert abs(bike.hoods.y - j2.hand.y) < TOLERANCE
-
-
-def test_cleat_3d_matches_bike_cleat_and_ankle_is_above():
-    """The 3D cleat_l/r must sit at bike_points.cleat (the pedal axle at BDC).
-    The 2D ankle is pedal_stack_height above the cleat, so cleat ≠ ankle."""
-    comp = _components()
-    j2 = _2d_joints()
-    pts3d = _3d_pts()
-    bike = _bike()
-
-    for key in ("cleat_l", "cleat_r"):
-        assert abs(pts3d[key].x - bike.cleat.x) < TOLERANCE, f"{key}.x mismatch"
-        assert abs(pts3d[key].y - bike.cleat.y) < TOLERANCE, f"{key}.y mismatch"
-    # 2D ankle is exactly pedal_stack_height above the cleat
-    assert abs(j2.ankle.x - bike.cleat.x) < TOLERANCE
-    assert abs(j2.ankle.y - (bike.cleat.y + comp.pedal_stack_height)) < TOLERANCE
-
-
-# ── Feasible fixture (saddle low enough that limbs can reach) ────────────────
-#
-# With hip_joint_offset=95 and saddle_stack=75 (both now included), the
-# effective hip-to-ankle distance is larger than before.  Use
-# saddle_clamp_offset=400; the resulting hip-to-ankle gap is ≈722 mm
-# (≈89 % of thigh+shank=810 mm), a realistic cycling fit.
+# Feasible fixture (saddle low enough that limbs can reach): with
+# hip_joint_offset=95 and saddle_stack=75, saddle_clamp_offset=400 leaves a
+# hip-to-ankle gap of ≈722 mm (≈89 % of thigh+shank=810 mm) — a realistic fit.
 
 def _feasible_bike():
     return synthesize_bike(_frame(), _components(saddle_clamp_offset=400))
@@ -193,6 +83,14 @@ def _feasible_bike():
 def _feasible_2d_joints():
     _, joints = solve_pose_2d_full(_feasible_bike(), _rider())
     return joints
+
+
+# ── Basic viability ───────────────────────────────────────────────────────────
+
+def test_solve_pose_2d_full_does_not_crash():
+    """The pose solve must run with default pedal_stack_height routing."""
+    _, joints = solve_pose_2d_full(_bike(), _rider())
+    assert joints is not None
 
 
 # ── Limb-length preservation in the sagittal plane ──────────────────────────
@@ -318,50 +216,3 @@ def test_overstretched_knee_on_hip_ankle_line():
     # loose tolerance here — the important invariant is thigh_length above.
     assert abs(j2.knee.x - expected_knee_x) < 0.05
     assert abs(j2.knee.y - expected_knee_y) < 0.05
-
-
-# ── Z-symmetry of bilateral pairs ─────────────────────────────────────────────
-
-@pytest.mark.parametrize("l_key,r_key", [
-    ("ankle_l", "ankle_r"),
-    ("knee_l", "knee_r"),
-    ("hip_l", "hip_r"),
-    ("shoulder_l", "shoulder_r"),
-    ("elbow_l", "elbow_r"),
-    ("wrist_l", "wrist_r"),
-    ("hoods_l", "hoods_r"),
-    ("cleat_l", "cleat_r"),
-])
-def test_bilateral_pairs_are_z_mirrors(l_key, r_key):
-    """Left and right joints must share the same X, Y and have equal-and-opposite Z."""
-    pts = _3d_pts()
-    l, r = pts[l_key], pts[r_key]
-
-    assert abs(l.x - r.x) < TOLERANCE, f"{l_key}.x != {r_key}.x"
-    assert abs(l.y - r.y) < TOLERANCE, f"{l_key}.y != {r_key}.y"
-    assert abs(l.z + r.z) < TOLERANCE, f"{l_key}.z + {r_key}.z != 0"
-
-
-# ── Cross-check with different rider proportions ──────────────────────────────
-
-@pytest.mark.parametrize("thigh,shank", [
-    (400.0, 370.0),
-    (450.0, 410.0),
-    (380.0, 360.0),
-])
-def test_3d_hip_knee_ankle_xy_consistent_across_rider_sizes(thigh, shank):
-    """Regardless of rider dimensions, 3D joints must still project onto 2D joints."""
-    r = _rider(thigh_length=thigh, shank_length=shank)
-    bike = synthesize_bike(_frame(), _components())
-    _, j2 = solve_pose_2d_full(bike, r)
-    pts3d = solve_pose_3d(bike, _components(), r)
-
-    for joint, key in [("hip", "hip_l"), ("knee", "knee_l"), ("ankle", "ankle_l")]:
-        j2pt = getattr(j2, joint)
-        j3pt = pts3d[key]
-        assert abs(j3pt.x - j2pt.x) < TOLERANCE, (
-            f"thigh={thigh},shank={shank}: {key}.x mismatch"
-        )
-        assert abs(j3pt.y - j2pt.y) < TOLERANCE, (
-            f"thigh={thigh},shank={shank}: {key}.y mismatch"
-        )

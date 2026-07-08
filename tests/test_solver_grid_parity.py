@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 
 from bikegeo_core.geometry import synthesize_bike
-from bikegeo_core.mannequin2d import solve_pose_2d
+from bikegeo_core.mannequin2d import solve_pose_raw
 from bikegeo_core.models import (
     Components,
     ContactPoint,
@@ -28,7 +28,7 @@ def _scalar_grid_search(setup, saddle_heights, spacer_stacks, stem_lengths, stem
     """Reference implementation: the original per-combination scalar loop."""
     best_components = setup.components
     best_points = synthesize_bike(setup.frame, best_components)
-    best_pose = solve_pose_2d(best_points, setup.rider, setup.components.pedal_stack_height)
+    best_pose = solve_pose_raw(best_points, setup.rider, setup.components.pedal_stack_height)
     best_obj = _objective(
         (setup.target_contact_points.saddle.x, setup.target_contact_points.saddle.y),
         (setup.target_contact_points.hoods.x, setup.target_contact_points.hoods.y),
@@ -50,7 +50,7 @@ def _scalar_grid_search(setup, saddle_heights, spacer_stacks, stem_lengths, stem
                     )
                     components = Components(**base)
                     points = synthesize_bike(setup.frame, components)
-                    pose = solve_pose_2d(points, setup.rider, components.pedal_stack_height)
+                    pose = solve_pose_raw(points, setup.rider, components.pedal_stack_height)
                     obj = _objective(
                         (setup.target_contact_points.saddle.x, setup.target_contact_points.saddle.y),
                         (setup.target_contact_points.hoods.x, setup.target_contact_points.hoods.y),
