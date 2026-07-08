@@ -302,26 +302,38 @@ export const FitBuilderMode: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idealContacts.saddle.y, effectiveFrame.seat_angle_deg, components.saddle_stack]);
 
-  // Fetch 3D geometry from API when 3D view is active and inputs change
+  // Fetch 3D geometry from API when 3D view is active and inputs change.
+  // Debounced so a slider drag issues one request instead of one per tick,
+  // and aborted on supersession so stale solves never occupy the server.
   useEffect(() => {
     if (!view3d) return;
     let cancelled = false;
+    const controller = new AbortController();
     setGeo3dLoading(true);
-    const setup = buildSetup({
-      ...effectiveFrame,
-      wheelbase: sizeData.wheelbase,
-      top_tube_effective: sizeData.top_tube_effective,
-    }, components, {
-      saddle: idealContacts.saddle,
-      hoods: idealContacts.hoods,
-      cleat: idealContacts.cleat,
-    }, rider);
     setGeo3dError(null);
-    fetchGeometry3D(setup)
-      .then((data: Geometry3DResponse) => { if (!cancelled) { setGeo3d(data); setGeo3dError(null); } })
-      .catch((err: unknown) => { if (!cancelled) setGeo3dError(err instanceof Error ? err.message : String(err)); })
-      .finally(() => { if (!cancelled) setGeo3dLoading(false); });
-    return () => { cancelled = true; };
+    const timer = window.setTimeout(() => {
+      const setup = buildSetup({
+        ...effectiveFrame,
+        wheelbase: sizeData.wheelbase,
+        top_tube_effective: sizeData.top_tube_effective,
+      }, components, {
+        saddle: idealContacts.saddle,
+        hoods: idealContacts.hoods,
+        cleat: idealContacts.cleat,
+      }, rider);
+      fetchGeometry3D(setup, controller.signal)
+        .then((data: Geometry3DResponse) => { if (!cancelled) { setGeo3d(data); setGeo3dError(null); } })
+        .catch((err: unknown) => {
+          if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
+          setGeo3dError(err instanceof Error ? err.message : String(err));
+        })
+        .finally(() => { if (!cancelled) setGeo3dLoading(false); });
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view3d, effectiveFrame, components, rider, idealContacts.saddle.y, idealContacts.saddle.x, idealContacts.hoods.x, idealContacts.hoods.y, geo3dNonce]);
 

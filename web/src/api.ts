@@ -18,11 +18,12 @@ export async function solve(request: SolveRequest): Promise<SolveResponse> {
   return (await res.json()) as SolveResponse;
 }
 
-export async function fetchGeometry3D(setup: any): Promise<any> {
+export async function fetchGeometry3D(setup: any, signal?: AbortSignal): Promise<any> {
   const res = await fetch("/geometry3d", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ setup }),
+    signal,
   });
   if (!res.ok) {
     throw new Error(`geometry3d failed with status ${res.status}`);
