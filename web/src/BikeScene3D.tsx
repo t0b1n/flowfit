@@ -1016,7 +1016,9 @@ function Overlay2D({ mannequin2D }: { mannequin2D: MannequinSketch }) {
 
 // ── Main scene content (inside Canvas) ───────────────────────────────────────
 
-function SceneContent({
+// Memoized so host re-renders that don't change scene inputs (the 200 ms
+// crank-scrub mirror, toolbar-only state) skip re-walking the scene graph.
+const SceneContent = React.memo(function SceneContent({
   geo,
   attachedAssets,
   onExportReady,
@@ -1065,46 +1067,53 @@ function SceneContent({
 }) {
   // When frontend-computed mannequin data is provided, replace backend mannequin
   // points/edges so the 3D mesh uses the correct trunk angle from forward kinematics.
-  const effectivePoints = mannequin3DOverride
-    ? [
+  const { effectivePoints, effectiveEdges } = useMemo(() => {
+    if (!mannequin3DOverride) {
+      return { effectivePoints: geo.points, effectiveEdges: geo.edges };
+    }
+    return {
+      effectivePoints: [
         ...geo.points.filter((p) => p.group !== "mannequin"),
         ...mannequin3DOverride.points,
-      ]
-    : geo.points;
-  const effectiveEdges = mannequin3DOverride
-    ? [
+      ],
+      effectiveEdges: [
         ...geo.edges.filter((e) => !e.group.startsWith("mannequin")),
         ...mannequin3DOverride.edges,
-      ]
-    : geo.edges;
+      ],
+    };
+  }, [geo, mannequin3DOverride]);
 
   // Frame tubes (non-mannequin edges only). The straight handlebar edges are
   // replaced by the swept HandlebarMesh.
-  const framePts = effectivePoints.filter((p) => p.group !== "mannequin");
-  const frameEdges = effectiveEdges.filter(
-    (e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`)
-  );
-  const frameTubes = buildTubes(framePts, frameEdges);
-  const framePtMap = useMemo(
-    () => new Map(framePts.map((p) => [p.name, p.pos])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [geo, mannequin3DOverride]
-  );
+  const { frameTubes, framePtMap } = useMemo(() => {
+    const framePts = effectivePoints.filter((p) => p.group !== "mannequin");
+    const frameEdges = effectiveEdges.filter(
+      (e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`)
+    );
+    return {
+      frameTubes: buildTubes(framePts, frameEdges),
+      framePtMap: new Map(framePts.map((p) => [p.name, p.pos])),
+    };
+  }, [effectivePoints, effectiveEdges]);
 
   // Mannequin parts (sphere joints + cylinders + capsules + tapered).
   // With a stroke LUT the legs are animated by <AnimatedLegs> instead, so they
   // are excluded from the declarative part list.
-  const mannequinPts = effectivePoints.filter(
-    (p) => p.group === "mannequin" && !(strokeLUT && LEG_POINT_NAMES.has(p.name))
-  );
-  const mannequinEdges = effectiveEdges.filter(
-    (e) => e.group.startsWith("mannequin") && !(strokeLUT && LEG_EDGE_GROUPS.has(e.group))
-  );
-  const mannequinParts = showMannequin
-    ? buildMannequinParts(mannequinPts, mannequinEdges, weightKg)
-    : [];
+  const mannequinParts = useMemo(() => {
+    if (!showMannequin) return [];
+    const mannequinPts = effectivePoints.filter(
+      (p) => p.group === "mannequin" && !(strokeLUT && LEG_POINT_NAMES.has(p.name))
+    );
+    const mannequinEdges = effectiveEdges.filter(
+      (e) => e.group.startsWith("mannequin") && !(strokeLUT && LEG_EDGE_GROUPS.has(e.group))
+    );
+    return buildMannequinParts(mannequinPts, mannequinEdges, weightKg);
+  }, [effectivePoints, effectiveEdges, strokeLUT, weightKg, showMannequin]);
 
-  const effPtMap = new Map(effectivePoints.map((p) => [p.name, p.pos]));
+  const effPtMap = useMemo(
+    () => new Map(effectivePoints.map((p) => [p.name, p.pos])),
+    [effectivePoints]
+  );
   const hipL = effPtMap.get("hip_l");
   const hipR = effPtMap.get("hip_r");
   const bbPt = effPtMap.get("bb") ?? ([0, 0, 0] as [number, number, number]);
@@ -1296,7 +1305,7 @@ function SceneContent({
       <SceneExporter onExportReady={onExportReady} />
     </>
   );
-}
+});
 
 // ── Camera view presets ───────────────────────────────────────────────────────
 
@@ -1608,15 +1617,19 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
     .filter((p) => p.group === "frame")
     .map((p) => p.name);
 
-  // Derive camera position from the scene bounding box so the whole bike fits
-  const { center, span } = sceneBounds(geo);
-  // fov=45° half-angle ≈ 22.5°, tan(22.5°) ≈ 0.414 → distance = span/2 / 0.414 * 1.3 (padding)
-  const camDist = (span / 2 / 0.414) * 1.3;
-  const camPos: [number, number, number] = [
-    center[0] + camDist * 0.15,   // slight rightward offset
-    center[1] + camDist * 0.25,   // slightly above centre
-    camDist,
-  ];
+  // Derive camera position from the scene bounding box so the whole bike fits.
+  // Memoized so `center` stays referentially stable for the memoized scene.
+  const { center, camDist, camPos } = useMemo(() => {
+    const { center, span } = sceneBounds(geo);
+    // fov=45° half-angle ≈ 22.5°, tan(22.5°) ≈ 0.414 → distance = span/2 / 0.414 * 1.3 (padding)
+    const camDist = (span / 2 / 0.414) * 1.3;
+    const camPos: [number, number, number] = [
+      center[0] + camDist * 0.15,   // slight rightward offset
+      center[1] + camDist * 0.25,   // slightly above centre
+      camDist,
+    ];
+    return { center, camDist, camPos };
+  }, [geo]);
 
   return (
     <div className="bike3d-container">
