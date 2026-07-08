@@ -37,6 +37,8 @@ export interface Tube3D {
   /** Outer radius in mm */
   radius: number;
   group: string;
+  /** Resolved tube name (e.g. "down_tube", "stem") — drives material choice */
+  name: string;
 }
 
 // Tube radii by edge group / tube name
@@ -87,6 +89,10 @@ function edgeKey(a: string, b: string): string {
   return `${a}→${b}`;
 }
 
+function tubeName(a: string, b: string, group: string): string {
+  return EDGE_TUBE_NAME[edgeKey(a, b)] ?? group;
+}
+
 function tubeRadius(a: string, b: string, group: string): number {
   const key = edgeKey(a, b);
   const name = EDGE_TUBE_NAME[key];
@@ -113,6 +119,7 @@ export function buildTubes(
       end,
       radius: tubeRadius(edge.a, edge.b, edge.group),
       group: edge.group,
+      name: tubeName(edge.a, edge.b, edge.group),
     });
   }
   return tubes;

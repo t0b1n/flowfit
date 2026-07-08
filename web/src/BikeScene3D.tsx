@@ -10,9 +10,9 @@
  *     e.g. pre-built SRAM / Shimano shifter meshes swapped on component change)
  */
 
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF } from "@react-three/drei";
+import { ContactShadows, Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { GLTFExporter } from "three/addons/exporters/GLTFExporter.js";
 import {
@@ -27,30 +27,69 @@ import {
 } from "./bike3d";
 import type { MannequinSketch } from "./types";
 
-// ── Material ─────────────────────────────────────────────────────────────────
+// ── Materials ────────────────────────────────────────────────────────────────
+// Three-tone frame scheme: painted frame tubes carry a muted brand tint,
+// cockpit hardware and seatpost read as dark alloy, fork matches the frame.
 
 const FRAME_MATERIAL = (
-  <meshStandardMaterial metalness={0.55} roughness={0.25} color="#9aa5b8" />
+  <meshStandardMaterial metalness={0.5} roughness={0.32} color="#b4441c" />
 );
 
+const COCKPIT_MATERIAL = (
+  <meshStandardMaterial metalness={0.65} roughness={0.35} color="#2e3238" />
+);
+
+const COCKPIT_TUBE_NAMES = new Set([
+  "steerer",
+  "stem",
+  "bar",
+  "bar_ramp",
+  "bar_drop",
+  "seatpost",
+]);
+
 const MANNEQUIN_BODY_MATERIAL = (
-  <meshStandardMaterial color="#7a8fa6" roughness={0.55} metalness={0.05} />
+  <meshStandardMaterial color="#8a7f76" roughness={0.6} metalness={0.02} />
 );
 
 const MANNEQUIN_JOINT_MATERIAL_ELEM = (
-  <meshStandardMaterial color="#5c6e82" roughness={0.4} metalness={0.1} />
+  <meshStandardMaterial color="#6b6159" roughness={0.45} metalness={0.05} />
 );
 
 const MANNEQUIN_OUTLINE_MATERIAL = (
-  <meshBasicMaterial color="#2a3540" side={THREE.BackSide} />
+  <meshBasicMaterial color="#221b16" side={THREE.BackSide} />
 );
 
-const WHEEL_MATERIAL = (
-  <meshStandardMaterial metalness={0.3} roughness={0.45} color="#3a3a3a" />
+const TYRE_MATERIAL = (
+  <meshStandardMaterial metalness={0.05} roughness={0.92} color="#1c1c1e" />
+);
+
+const RIM_MATERIAL = (
+  <meshStandardMaterial metalness={0.7} roughness={0.3} color="#2c2f33" />
+);
+
+const SPOKE_MATERIAL = (
+  <meshStandardMaterial metalness={0.85} roughness={0.3} color="#9aa2ab" />
+);
+
+const ACCENT_MATERIAL = (
+  <meshStandardMaterial metalness={0.4} roughness={0.4} color="#f03500" />
+);
+
+const CRANK_MATERIAL = (
+  <meshStandardMaterial metalness={0.7} roughness={0.35} color="#26292d" />
+);
+
+const HOOD_MATERIAL = (
+  <meshStandardMaterial metalness={0.05} roughness={0.85} color="#141414" />
+);
+
+const GROUND_MATERIAL = (
+  <meshStandardMaterial color="#1f1109" roughness={1} metalness={0} />
 );
 
 const JOINT_MATERIAL = (
-  <meshStandardMaterial metalness={0.65} roughness={0.2} color="#b0bbd0" />
+  <meshStandardMaterial metalness={0.65} roughness={0.2} color="#8f4a30" />
 );
 
 // ── Saddle geometry ────────────────────────────────────────────────────────────
@@ -462,8 +501,8 @@ function TubeMesh({ tube }: { tube: Tube3D }) {
 
   return (
     <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
-      <cylinderGeometry args={[tube.radius, tube.radius, length, 12, 1]} />
-      {FRAME_MATERIAL}
+      <cylinderGeometry args={[tube.radius, tube.radius, length, 16, 1]} />
+      {COCKPIT_TUBE_NAMES.has(tube.name) ? COCKPIT_MATERIAL : FRAME_MATERIAL}
     </mesh>
   );
 }
@@ -584,6 +623,71 @@ function JointSpheres({ geo }: { geo: Geometry3DResponse }) {
 
 // ── Wheels ───────────────────────────────────────────────────────────────────
 
+const SPOKE_COUNT_3D = 24;
+
+/** Composed wheel: tyre torus + rim + brand accent line + hub + laced spokes */
+function Wheel3D({
+  center,
+  wheelRadius,
+}: {
+  center: [number, number, number];
+  wheelRadius: number;
+}) {
+  const tyreRadius = 14; // visual tyre cross-section radius
+  const rimRadius = wheelRadius - tyreRadius * 2 - 4;
+
+  const spokes = Array.from({ length: SPOKE_COUNT_3D }, (_, i) => {
+    const a = (i / SPOKE_COUNT_3D) * Math.PI * 2;
+    // Alternate spokes between left/right hub flange for a laced look
+    const flangeZ = i % 2 === 0 ? 16 : -16;
+    const hubX = 20 * Math.cos(a);
+    const hubY = 20 * Math.sin(a);
+    const rimX = rimRadius * Math.cos(a);
+    const rimY = rimRadius * Math.sin(a);
+    const start = new THREE.Vector3(hubX, hubY, flangeZ);
+    const end = new THREE.Vector3(rimX, rimY, 0);
+    const dir = new THREE.Vector3().subVectors(end, start);
+    const len = dir.length();
+    const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+    const quat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      dir.clone().normalize()
+    );
+    return (
+      <mesh key={i} position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
+        <cylinderGeometry args={[1.1, 1.1, len, 5, 1]} />
+        {SPOKE_MATERIAL}
+      </mesh>
+    );
+  });
+
+  return (
+    <group position={center}>
+      {/* Tyre */}
+      <mesh>
+        <torusGeometry args={[wheelRadius - tyreRadius, tyreRadius, 18, 88]} />
+        {TYRE_MATERIAL}
+      </mesh>
+      {/* Rim */}
+      <mesh>
+        <torusGeometry args={[rimRadius + 6, 9, 4, 88]} />
+        {RIM_MATERIAL}
+      </mesh>
+      {/* Brand accent line on the rim */}
+      <mesh position={[0, 0, 9]}>
+        <torusGeometry args={[rimRadius + 6, 1.4, 6, 88]} />
+        {ACCENT_MATERIAL}
+      </mesh>
+      {spokes}
+      {/* Hub shell along the axle */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[14, 14, 64, 16, 1]} />
+        {RIM_MATERIAL}
+      </mesh>
+    </group>
+  );
+}
+
 function Wheels({
   geo,
   wheelRadius,
@@ -592,23 +696,106 @@ function Wheels({
   wheelRadius: number;
 }) {
   const { rear, front } = getWheelCenters(geo.points);
-  const tyreRadius = 14; // visual tyre cross-section radius
-
   return (
     <>
-      {rear && (
-        <mesh position={rear}>
-          <torusGeometry args={[wheelRadius - tyreRadius, tyreRadius, 16, 80]} />
-          {WHEEL_MATERIAL}
-        </mesh>
-      )}
-      {front && (
-        <mesh position={front}>
-          <torusGeometry args={[wheelRadius - tyreRadius, tyreRadius, 16, 80]} />
-          {WHEEL_MATERIAL}
-        </mesh>
-      )}
+      {rear && <Wheel3D center={rear} wheelRadius={wheelRadius} />}
+      {front && <Wheel3D center={front} wheelRadius={wheelRadius} />}
     </>
+  );
+}
+
+// ── Drivetrain + hoods hints ─────────────────────────────────────────────────
+
+function orientedMesh(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  radius: number,
+  material: React.ReactNode,
+  key?: string | number
+) {
+  const dir = new THREE.Vector3().subVectors(end, start);
+  const len = dir.length();
+  if (len < 1) return null;
+  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+  const quat = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    dir.clone().normalize()
+  );
+  return (
+    <mesh key={key} position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
+      <cylinderGeometry args={[radius, radius, len, 12, 1]} />
+      {material}
+    </mesh>
+  );
+}
+
+/** Crank arms to each pedal, pedal bodies, and a chainring at the BB.
+    Takes the merged point list so cranks follow the override mannequin's
+    opposed leg pose. */
+function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
+  const ptMap = new Map(points.map((p) => [p.name, p.pos]));
+  const bb = ptMap.get("bb");
+  const cleatL = ptMap.get("cleat_l");
+  const cleatR = ptMap.get("cleat_r");
+  if (!bb) return null;
+
+  const arms = [cleatL, cleatR].filter(Boolean) as [number, number, number][];
+
+  return (
+    <group>
+      {/* Chainring on the drive side (rider's right = −Z) */}
+      <mesh position={[bb[0], bb[1], -54]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[100, 100, 4, 40, 1]} />
+        {CRANK_MATERIAL}
+      </mesh>
+      <mesh position={[bb[0], bb[1], -50]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[78, 78, 3, 40, 1]} />
+        {CRANK_MATERIAL}
+      </mesh>
+      {/* Crank arms + pedal bodies */}
+      {arms.map((cleat, i) => {
+        const spindle = new THREE.Vector3(cleat[0], cleat[1] - 12, cleat[2]);
+        return (
+          <group key={i}>
+            {orientedMesh(new THREE.Vector3(bb[0], bb[1], cleat[2] * 0.85), spindle, 9, CRANK_MATERIAL, `arm-${i}`)}
+            <mesh position={spindle.toArray()}>
+              <boxGeometry args={[96, 16, 58]} />
+              {CRANK_MATERIAL}
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+/** Rubber hood bodies extending forward from the hood contact points */
+function Hoods3D({ geo }: { geo: Geometry3DResponse }) {
+  const ptMap = new Map(geo.points.map((p) => [p.name, p.pos]));
+  return (
+    <group>
+      {(["l", "r"] as const).map((side) => {
+        const hood = ptMap.get(`hoods_${side}`);
+        const barTop = ptMap.get(`bar_top_${side}`);
+        if (!hood || !barTop) return null;
+        const from = new THREE.Vector3(...barTop);
+        const at = new THREE.Vector3(...hood);
+        const dir = new THREE.Vector3().subVectors(at, from).normalize();
+        const start = at.clone().addScaledVector(dir, -10);
+        const end = at.clone().addScaledVector(dir, 55).add(new THREE.Vector3(0, 8, 0));
+        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+        const quat = new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          new THREE.Vector3().subVectors(end, start).normalize()
+        );
+        return (
+          <mesh key={side} position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
+            <capsuleGeometry args={[14, 42, 8, 16]} />
+            {HOOD_MATERIAL}
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 
@@ -783,14 +970,37 @@ function SceneContent({
 
   const wheelRadius = geo.frame.wheel_radius ?? 311;
 
+  // Ground sits at the bottom of the wheels
+  const { rear, front } = getWheelCenters(effectivePoints);
+  const axleY = Math.min(rear?.[1] ?? 0, front?.[1] ?? 0);
+  const groundY = axleY - wheelRadius;
+  const groundX = ((rear?.[0] ?? 0) + (front?.[0] ?? 0)) / 2;
+
   return (
     <>
-      <color attach="background" args={["#0d1117"]} />
+      {/* Lighting: warm key + cool fill + studio-style environment reflections */}
+      <ambientLight intensity={0.45} />
+      <directionalLight position={[1000, 1500, 800]} intensity={1.1} color="#fff4e0" />
+      <directionalLight position={[-500, 600, -600]} intensity={0.4} color="#cfd8e8" />
+      <Environment resolution={128} frames={1}>
+        <Lightformer intensity={1.6} position={[0, 4000, 0]} rotation-x={Math.PI / 2} scale={[6000, 6000, 1]} />
+        <Lightformer intensity={0.8} position={[4000, 1500, 2500]} rotation-y={-Math.PI / 3} scale={[3000, 2000, 1]} />
+        <Lightformer intensity={0.5} color="#f7dcc0" position={[-3500, 800, -2000]} rotation-y={Math.PI / 3} scale={[2500, 1500, 1]} />
+      </Environment>
 
-      {/* Lighting */}
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[1000, 1500, 800]} intensity={1.4} />
-      <directionalLight position={[-500, 600, -600]} intensity={0.5} />
+      {/* Ground disc + soft contact shadow so the bike stops floating */}
+      <mesh position={[groundX, groundY - 1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[2800, 64]} />
+        {GROUND_MATERIAL}
+      </mesh>
+      <ContactShadows
+        position={[groundX, groundY + 1, 0]}
+        scale={4200}
+        far={1400}
+        blur={1.6}
+        opacity={0.55}
+        resolution={512}
+      />
 
       {/* Frame tubes */}
       {frameTubes.map((tube, i) => (
@@ -808,6 +1018,10 @@ function SceneContent({
       {/* Wheels */}
       <Wheels geo={geo} wheelRadius={wheelRadius} />
 
+      {/* Drivetrain + hood bodies */}
+      <Drivetrain3D points={effectivePoints} />
+      <Hoods3D geo={geo} />
+
       {/* Saddle */}
       <SaddleMesh geo={geo} saddleType={saddleType} />
 
@@ -819,13 +1033,53 @@ function SceneContent({
       {/* 2D skeleton overlay */}
       {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
 
-      {/* Orbit controls — target the scene centre so tumbling feels natural */}
-      <OrbitControls makeDefault target={target} />
+      {/* Orbit controls — damped, clamped above the ground plane */}
+      <OrbitControls
+        makeDefault
+        target={target}
+        enableDamping
+        dampingFactor={0.08}
+        maxPolarAngle={Math.PI / 2 - 0.04}
+        minDistance={500}
+        maxDistance={15000}
+      />
 
       {/* Export hook */}
       <SceneExporter onExportReady={onExportReady} />
     </>
   );
+}
+
+// ── Camera view presets ───────────────────────────────────────────────────────
+
+type CameraPresetKind = "side" | "front" | "threeq";
+
+function CameraPresetRig({
+  request,
+  center,
+  camDist,
+}: {
+  request: { kind: CameraPresetKind; nonce: number } | null;
+  center: [number, number, number];
+  camDist: number;
+}) {
+  const { camera, controls } = useThree();
+  useEffect(() => {
+    if (!request) return;
+    const [cx, cy, cz] = center;
+    const pos: [number, number, number] =
+      request.kind === "side"
+        ? [cx, cy + camDist * 0.06, cz + camDist]
+        : request.kind === "front"
+        ? [cx + camDist, cy + camDist * 0.06, cz]
+        : [cx + camDist * 0.5, cy + camDist * 0.3, cz + camDist * 0.8];
+    camera.position.set(...pos);
+    const orbit = controls as unknown as { target?: THREE.Vector3; update?: () => void } | null;
+    orbit?.target?.set(cx, cy, cz);
+    orbit?.update?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.nonce]);
+  return null;
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
@@ -866,6 +1120,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
   const [showMannequin, setShowMannequin] = useState(true);
   const [show2dOverlay, setShow2dOverlay] = useState(false);
   const [saddleType, setSaddleType] = useState<SaddleType>("power");
+  const [cameraRequest, setCameraRequest] = useState<{ kind: CameraPresetKind; nonce: number } | null>(null);
   // attachedAssets: populated programmatically (e.g. SRAM / Shimano shifter meshes
   // swapped on component change). Dev mode exposes runtime file import for authoring.
   const [attachedAssets, setAttachedAssets] = useState<AttachedAsset[]>([]);
@@ -905,10 +1160,32 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
     <div className="bike3d-container">
       {/* Toolbar */}
       <div className="bike3d-toolbar">
+        <div className="seg-control seg-control--dark" role="tablist" aria-label="Camera preset">
+          {([
+            ["side", "Side"],
+            ["threeq", "¾"],
+            ["front", "Front"],
+          ] as [CameraPresetKind, string][]).map(([kind, label]) => (
+            <button
+              key={kind}
+              className="seg-control__btn"
+              title={`${label} view (click again to reset)`}
+              onClick={() => setCameraRequest((r) => ({ kind, nonce: (r?.nonce ?? 0) + 1 }))}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         {devMode ? (
           <>
             <button className="tab-pill" onClick={() => exportFnRef.current?.()}>
               Export .glb
+            </button>
+            <button className="tab-pill" onClick={() => exportJson(geo)}>
+              Export JSON
+            </button>
+            <button className="tab-pill" onClick={() => exportCsv(geo)}>
+              Export CSV
             </button>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <select
@@ -938,16 +1215,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
               </button>
             )}
           </>
-        ) : (
-          <>
-            <button className="tab-pill" onClick={() => exportJson(geo)}>
-              Export JSON
-            </button>
-            <button className="tab-pill" onClick={() => exportCsv(geo)}>
-              Export CSV
-            </button>
-          </>
-        )}
+        ) : null}
         <button
           className={`tab-pill ${showMannequin ? "tab-pill--active" : ""}`}
           onClick={() => setShowMannequin((v) => !v)}
@@ -980,10 +1248,12 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
         </button>
       </div>
 
-      {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size */}
+      {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size.
+          The canvas is transparent; the wrapper carries a gradient backdrop. */}
       <div className="bike3d-canvas-wrapper">
         <Canvas
           camera={{ position: camPos, fov: 45, near: 1, far: 50000 }}
+          gl={{ alpha: true, antialias: true }}
           style={{ width: "100%", height: "100%" }}
         >
           <SceneContent
@@ -998,6 +1268,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({ geo, mannequin2D, mann
             mannequin3DOverride={mannequin3DOverride}
             weightKg={weightKg}
           />
+          <CameraPresetRig request={cameraRequest} center={center} camDist={camDist} />
         </Canvas>
       </div>
     </div>
