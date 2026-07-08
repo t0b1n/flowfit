@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import cos, radians, sin, sqrt
 
+import numpy as np
+
 from .coords import Vec2
 from .models import Components, FrameGeometry
 
@@ -78,8 +80,10 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         bb.y + frame.stack + components.spacer_stack,
     )
 
-    stem_angle_rad = radians(components.stem_angle_deg)
-    stem_dir = Vec2(cos(stem_angle_rad), sin(stem_angle_rad))
+    # numpy trig so array-valued stem parameters (the solver's component
+    # grid) broadcast through; identical doubles for plain floats.
+    stem_angle_rad = np.radians(components.stem_angle_deg)
+    stem_dir = Vec2(np.cos(stem_angle_rad), np.sin(stem_angle_rad))
     bar_clamp = Vec2(
         steerer_top.x + stem_dir.x * components.stem_length,
         steerer_top.y + stem_dir.y * components.stem_length,

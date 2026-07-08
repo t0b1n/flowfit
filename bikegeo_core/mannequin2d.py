@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import acos, atan2, cos, degrees, sin, sqrt
+
+import numpy as np
 
 from .coords import Vec2
 from .geometry import BikePoints, cleat_at_crank_angle, pedal_spindle_at_angle
 from .models import Components, PoseMetrics, RiderAnthropometrics
+
+# All IK helpers below are written with numpy ufuncs so they accept plain
+# floats (returning numpy scalars) or broadcast arrays interchangeably. The
+# solver's grid search evaluates the whole component grid through these same
+# functions — there is deliberately no separate vectorised implementation.
 
 
 @dataclass
@@ -22,33 +28,26 @@ class MannequinJoints2D:
     spine_joint: Vec2
 
 
-def _angle_at_point(ax: float, ay: float, vx: float, vy: float, cx: float, cy: float) -> float:
+def _angle_at_point(ax, ay, vx, vy, cx, cy):
     """Angle in degrees at (vx,vy) formed by rays to (ax,ay) and (cx,cy)."""
     eax, eay = ax - vx, ay - vy
     ecx, ecy = cx - vx, cy - vy
     dot = eax * ecx + eay * ecy
-    mag = sqrt(max((eax ** 2 + eay ** 2) * (ecx ** 2 + ecy ** 2), 1e-12))
-    return degrees(acos(max(-1.0, min(1.0, dot / mag))))
+    mag = np.sqrt(np.maximum((eax ** 2 + eay ** 2) * (ecx ** 2 + ecy ** 2), 1e-12))
+    return np.degrees(np.arccos(np.clip(dot / mag, -1.0, 1.0)))
 
 
-def _circle_intersections_both(
-    ax: float,
-    ay: float,
-    bx: float,
-    by: float,
-    radius_a: float,
-    radius_b: float,
-) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Return both circle-circle intersection points.
+def _circle_intersections_both(ax, ay, bx, by, radius_a, radius_b):
+    """Return both circle-circle intersection points as ((x1,y1), (x2,y2)).
 
     The chord distance is clamped so an out-of-reach target degrades to a
     near-straight limb instead of producing NaN.
     """
     dx, dy = bx - ax, by - ay
-    dist = max(sqrt(dx ** 2 + dy ** 2), 1e-6)
-    clamped = min(dist, radius_a + radius_b - 1e-6)
+    dist = np.maximum(np.sqrt(dx ** 2 + dy ** 2), 1e-6)
+    clamped = np.minimum(dist, radius_a + radius_b - 1e-6)
     base_d = (radius_a ** 2 - radius_b ** 2 + clamped ** 2) / (2 * clamped)
-    h = sqrt(max(radius_a ** 2 - base_d ** 2, 0.0))
+    h = np.sqrt(np.maximum(radius_a ** 2 - base_d ** 2, 0.0))
     bx2 = ax + (base_d * dx) / dist
     by2 = ay + (base_d * dy) / dist
     ox = (-dy * h) / dist
@@ -56,30 +55,14 @@ def _circle_intersections_both(
     return (bx2 + ox, by2 + oy), (bx2 - ox, by2 - oy)
 
 
-def _circle_intersections(
-    ax: float,
-    ay: float,
-    bx: float,
-    by: float,
-    radius_a: float,
-    radius_b: float,
-    prefer_upper: bool,
-) -> tuple[float, float]:
+def _circle_intersections(ax, ay, bx, by, radius_a, radius_b, prefer_upper: bool):
     """Return the preferred circle-circle intersection point."""
     p1, p2 = _circle_intersections_both(ax, ay, bx, by, radius_a, radius_b)
-    if prefer_upper:
-        return p1 if p1[1] >= p2[1] else p2
-    return p1 if p1[1] <= p2[1] else p2
+    take_p1 = p1[1] >= p2[1] if prefer_upper else p1[1] <= p2[1]
+    return np.where(take_p1, p1[0], p2[0]), np.where(take_p1, p1[1], p2[1])
 
 
-def _circle_intersection_anterior(
-    ax: float,
-    ay: float,
-    bx: float,
-    by: float,
-    radius_a: float,
-    radius_b: float,
-) -> tuple[float, float]:
+def _circle_intersection_anterior(ax, ay, bx, by, radius_a, radius_b):
     """Return the intersection on the anterior (forward) side of chord a→b.
 
     Used for knee IK: with the chord running hip→ankle (downward), the
@@ -92,7 +75,8 @@ def _circle_intersection_anterior(
     cross1 = dx * (p1[1] - ay) - dy * (p1[0] - ax)
     # With the chord pointing generally downward (dy < 0), a positive cross
     # product places the point on the +X (forward) side of the chord.
-    return p1 if cross1 >= 0 else p2
+    take_p1 = cross1 >= 0
+    return np.where(take_p1, p1[0], p2[0]), np.where(take_p1, p1[1], p2[1])
 
 
 def solve_leg_2d(
@@ -165,12 +149,35 @@ def sample_pedal_stroke(
     )
 
 
-def solve_pose_2d_full(
+@dataclass
+class RawPose2D:
+    """Raw pose values — plain floats for a single bike, broadcast numpy
+    arrays when the input bike points carry arrays (the solver grid)."""
+
+    hip: tuple
+    knee: tuple
+    ankle: tuple
+    shoulder: tuple
+    elbow: tuple
+    wrist: tuple
+    hand: tuple
+    head: tuple
+    neck_base: tuple
+    spine_joint: tuple
+    trunk_angle_deg: object
+    hip_angle_deg: object
+    shoulder_flexion_deg: object
+    elbow_flexion_deg: object
+    knee_extension_deg: object
+
+
+def solve_pose_raw(
     bike_points: BikePoints,
     rider: RiderAnthropometrics,
     pedal_stack_height: float = 11.0,
-) -> tuple[PoseMetrics, MannequinJoints2D]:
-    """Solve 2D pose and return both metrics and joint positions."""
+) -> RawPose2D:
+    """Solve the 2D pose. Element-wise over whatever the bike points hold —
+    scalars for one bike, broadcast arrays for the solver's component grid."""
     # Hip joint is above the saddle contact by hip_joint_offset
     hx = bike_points.saddle.x
     hy = bike_points.saddle.y + rider.hip_joint_offset
@@ -197,7 +204,8 @@ def solve_pose_2d_full(
     sx, sy = _circle_intersections(hx, hy, hand_x, hand_y, rider.torso_length, arm_length, prefer_upper=True)
 
     # Trunk angle derived from the actual shoulder position
-    trunk_angle = degrees(atan2(sy - hy, sx - hx))
+    trunk_angle_rad = np.arctan2(sy - hy, sx - hx)
+    trunk_angle = np.degrees(trunk_angle_rad)
 
     # Elbow via 2-link IK (upper arm + forearm), prefer lower solution
     ex, ey = _circle_intersections(sx, sy, hand_x, hand_y, rider.upper_arm_length, rider.forearm_length, False)
@@ -207,7 +215,7 @@ def solve_pose_2d_full(
     forearm_no_palm = rider.forearm_length - palm_length
     elbow_to_hand_dx = hand_x - ex
     elbow_to_hand_dy = hand_y - ey
-    elbow_to_hand_dist = max(sqrt(elbow_to_hand_dx ** 2 + elbow_to_hand_dy ** 2), 1e-6)
+    elbow_to_hand_dist = np.maximum(np.sqrt(elbow_to_hand_dx ** 2 + elbow_to_hand_dy ** 2), 1e-6)
     wx = ex + (elbow_to_hand_dx / elbow_to_hand_dist) * forearm_no_palm
     wy = ey + (elbow_to_hand_dy / elbow_to_hand_dist) * forearm_no_palm
 
@@ -216,40 +224,67 @@ def solve_pose_2d_full(
     spine_jy = (hy + sy) / 2.0
 
     # Head and neck base
-    neck_angle = (55.0 * 3.141592653589793) / 180.0 - 0.6 * max(atan2(sy - hy, sx - hx), 0.0)
-    trunk_angle_rad = atan2(sy - hy, sx - hx)
+    neck_angle = (55.0 * 3.141592653589793) / 180.0 - 0.6 * np.maximum(trunk_angle_rad, 0.0)
     neck_length = 185.0 * rider.height / 1800.0
     head_dir = trunk_angle_rad + neck_angle
-    head_x = sx + cos(head_dir) * neck_length
-    head_y = sy + sin(head_dir) * neck_length
+    head_x = sx + np.cos(head_dir) * neck_length
+    head_y = sy + np.sin(head_dir) * neck_length
     # Neck base: 15% along the shoulder→head vector (neck is short)
     neck_base_x = sx + (head_x - sx) * 0.15
     neck_base_y = sy + (head_y - sy) * 0.15
 
-    # Joint angles (knee_extension already computed by solve_leg_2d)
+    # Joint angles (knee_extension computed with the leg IK above)
     hip_angle = _angle_at_point(sx, sy, hx, hy, kx, ky)
     shoulder_flexion = _angle_at_point(hx, hy, sx, sy, ex, ey)
     elbow_interior = _angle_at_point(sx, sy, ex, ey, hand_x, hand_y)
     elbow_flexion = 180.0 - elbow_interior
 
-    metrics = PoseMetrics(
+    return RawPose2D(
+        hip=(hx, hy),
+        knee=(kx, ky),
+        ankle=(ax, ay),
+        shoulder=(sx, sy),
+        elbow=(ex, ey),
+        wrist=(wx, wy),
+        hand=(hand_x, hand_y),
+        head=(head_x, head_y),
+        neck_base=(neck_base_x, neck_base_y),
+        spine_joint=(spine_jx, spine_jy),
         trunk_angle_deg=trunk_angle,
         hip_angle_deg=hip_angle,
         shoulder_flexion_deg=shoulder_flexion,
         elbow_flexion_deg=elbow_flexion,
         knee_extension_deg=knee_extension,
     )
+
+
+def solve_pose_2d_full(
+    bike_points: BikePoints,
+    rider: RiderAnthropometrics,
+    pedal_stack_height: float = 11.0,
+) -> tuple[PoseMetrics, MannequinJoints2D]:
+    """Solve 2D pose and return both metrics and joint positions."""
+    raw = solve_pose_raw(bike_points, rider, pedal_stack_height)
+
+    metrics = PoseMetrics(
+        trunk_angle_deg=float(raw.trunk_angle_deg),
+        hip_angle_deg=float(raw.hip_angle_deg),
+        shoulder_flexion_deg=float(raw.shoulder_flexion_deg),
+        elbow_flexion_deg=float(raw.elbow_flexion_deg),
+        knee_extension_deg=float(raw.knee_extension_deg),
+    )
+    as_vec2 = lambda pt: Vec2(float(pt[0]), float(pt[1]))  # noqa: E731
     joints = MannequinJoints2D(
-        hip=Vec2(hx, hy),
-        knee=Vec2(kx, ky),
-        ankle=Vec2(ax, ay),
-        shoulder=Vec2(sx, sy),
-        elbow=Vec2(ex, ey),
-        wrist=Vec2(wx, wy),
-        hand=Vec2(hand_x, hand_y),
-        head=Vec2(head_x, head_y),
-        neck_base=Vec2(neck_base_x, neck_base_y),
-        spine_joint=Vec2(spine_jx, spine_jy),
+        hip=as_vec2(raw.hip),
+        knee=as_vec2(raw.knee),
+        ankle=as_vec2(raw.ankle),
+        shoulder=as_vec2(raw.shoulder),
+        elbow=as_vec2(raw.elbow),
+        wrist=as_vec2(raw.wrist),
+        hand=as_vec2(raw.hand),
+        head=as_vec2(raw.head),
+        neck_base=as_vec2(raw.neck_base),
+        spine_joint=as_vec2(raw.spine_joint),
     )
     return metrics, joints
 
