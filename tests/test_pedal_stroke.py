@@ -1,8 +1,5 @@
 import math
 
-from fastapi.testclient import TestClient
-
-from bikegeo_api.main import app
 from bikegeo_core import (
     Components,
     ContactPoint,
@@ -213,31 +210,3 @@ def test_solve_setup_populates_stroke_metrics() -> None:
     assert solved.pose_metrics.knee_extension_max_deg is not None
     assert solved.pose_metrics.kops_offset_mm is not None
     assert solved.pose_metrics.knee_flexion_tdc_deg > 60.0
-
-
-# ── API export ────────────────────────────────────────────────────────────────
-
-
-def test_geometry3d_exports_stroke_metrics_and_keeps_points() -> None:
-    client = TestClient(app)
-    resp = client.post("/geometry3d", json={"setup": _setup_input().model_dump()})
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["version"] == "1.1.0"
-    assert "kops_offset_mm" in data["pose_metrics"]
-    assert "knee_flexion_tdc_deg" in data["pose_metrics"]
-
-    point_names = {p["name"] for p in data["points"]}
-    # The pre-existing geometry contract must be unchanged
-    expected = {
-        "bb", "rear_axle", "front_axle", "saddle", "steerer_top", "bar_clamp",
-        "hoods_l", "hoods_r", "cleat_l", "cleat_r", "ankle_l", "ankle_r",
-        "knee_l", "knee_r", "hip_l", "hip_r", "hip_center", "spine_joint",
-        "shoulder_l", "shoulder_r", "shoulder_center", "elbow_l", "elbow_r",
-        "wrist_l", "wrist_r", "hand_l", "hand_r", "head_center",
-        "neck_base_center", "head_tube_top", "head_tube_bottom",
-        "seat_tube_top", "seat_cluster", "saddle_clamp", "seatpost_top",
-        "chainstay_l", "chainstay_r", "fork_l", "fork_r",
-        "bar_top_l", "bar_top_r", "bar_drop_l", "bar_drop_r",
-    }
-    assert expected.issubset(point_names)

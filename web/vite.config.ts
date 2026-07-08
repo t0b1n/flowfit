@@ -6,7 +6,6 @@ export default defineConfig({
   server: {
     proxy: {
       "/solve": "http://localhost:8000",
-      "/geometry3d": "http://localhost:8000",
       "/auth": {
         target: "http://localhost:8000",
         changeOrigin: true,

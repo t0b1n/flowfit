@@ -4,7 +4,7 @@ Bikegeo Python SOP loader for Houdini.
 Usage:
   1. Create a Python SOP node.
   2. Add a String parameter named "bikegeo_file" pointing to a .json export
-     produced by bikegeo_core.exporter.export_json().
+     downloaded from the web app's 3D view (Dev toolbar → "Export JSON").
   3. Paste this script into the Python SOP's Code tab.
 
 The SOP creates:

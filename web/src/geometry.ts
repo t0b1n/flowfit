@@ -10,7 +10,7 @@ import type {
   RiderFit,
   SeatpostRecommendation,
 } from "./types";
-import type { Geometry3DPoint, Geometry3DEdge } from "./bike3d";
+import type { Geometry3DPoint, Geometry3DEdge, Geometry3DResponse } from "./bike3d";
 import { FrameGeometry } from "./frameCatalog";
 
 export const DEFAULT_TYRE_SIZE = 28;
@@ -407,20 +407,6 @@ export const bandStatus = (value: number, band: AngleBand): BandStatus => {
   }
   return value >= band.min_deg - 3 && value <= band.max_deg + 3 ? "near" : "out";
 };
-
-export const buildSetup = (
-  frame: FrameGeometry,
-  components: Components,
-  targets: typeof DEFAULT_TARGETS,
-  rider: ReturnType<typeof buildRider>
-) => ({
-  frame,
-  components,
-  target_contact_points: targets,
-  rider,
-  preset: { ...POSTURE_PRESET, shoulder_abduction: null },
-  schema_version: "0.1.0",
-});
 
 // ── Pedal-stroke solver (client-side, powers the 3D pedaling animation) ──────
 //
@@ -1030,4 +1016,150 @@ export function buildMannequin3DPoints(
   }
 
   return { points, edges };
+}
+
+// ── Full 3D scene graph (bike + mannequin) ───────────────────────────────────
+//
+// Built entirely client-side from the same BikeSketch / MannequinSketch the
+// 2D view renders, so the 2D and 3D views agree by construction. The output
+// shape matches the former /geometry3d response (and stays loadable by
+// houdini/load_bikegeo.py via the dev-toolbar JSON export).
+
+const _FRAME_EDGES: [string, string][] = [
+  // Diamond main frame
+  ["bb", "seat_cluster"],
+  ["seat_cluster", "seat_tube_top"],
+  ["seat_cluster", "head_tube_top"],
+  ["bb", "head_tube_bottom"],
+  ["head_tube_top", "head_tube_bottom"],
+  // Bilateral chainstays: BB centre → lateral rear-dropout points
+  ["bb", "chainstay_l"],
+  ["bb", "chainstay_r"],
+  // Bilateral seatstays: seat-tube top → same lateral rear-dropout points
+  ["seat_cluster", "chainstay_l"],
+  ["seat_cluster", "chainstay_r"],
+  // Bilateral fork blades: fork crown → lateral front-dropout points
+  ["head_tube_bottom", "fork_l"],
+  ["head_tube_bottom", "fork_r"],
+  // Seatpost (straight along seat tube axis to clamp — saddle rendered separately)
+  ["seat_tube_top", "seatpost_top"],
+  // Cockpit: steerer/spacers follow head angle, then stem, then handlebar
+  ["head_tube_top", "steerer_top"],
+  ["steerer_top", "bar_clamp"],
+  ["bar_clamp", "bar_top_l"],
+  ["bar_clamp", "bar_top_r"],
+  ["bar_top_l", "hoods_l"],
+  ["bar_top_r", "hoods_r"],
+  ["hoods_l", "bar_drop_l"],
+  ["hoods_r", "bar_drop_r"],
+];
+
+/** Lateral half-spread of the rear dropouts / fork dropouts (mm). */
+const _CHAINSTAY_HALF_SPREAD = 38;
+const _FORK_HALF_SPREAD = 25;
+/** Vertical depth of the handlebar drops below the hoods (mm). */
+const _DROP_DEPTH = 130;
+/** Visual seatpost head extension above the rail clamp centre (mm). */
+const _SEATPOST_HEAD_EXTENSION = 5;
+
+const _numericEntries = (obj: object): Record<string, number> =>
+  Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => typeof v === "number")
+  ) as Record<string, number>;
+
+export function buildGeometry3D(
+  frame: FrameGeometry,
+  components: Components,
+  rider: ReturnType<typeof buildRider>,
+  bike: BikeSketch,
+  mannequin: MannequinSketch,
+  strokeLUT?: PedalStrokeLUT,
+): Geometry3DResponse {
+  const hoodW = components.hood_width ?? components.bar_width;
+  const stanceW = components.stance_width ?? _DEFAULT_STANCE_WIDTH;
+  const halfHood = hoodW / 2;
+  const halfBar = components.bar_width / 2;
+  const halfStance = stanceW / 2;
+
+  const points: Geometry3DPoint[] = [];
+  const p = (name: string, pt: ContactPoint, z = 0) => {
+    points.push({ name, pos: [pt.x, pt.y, z], group: "frame" });
+  };
+
+  // Centerline frame points — straight from the 2D sketch
+  p("bb", bike.bb);
+  p("rear_axle", bike.rearAxle);
+  p("front_axle", bike.frontAxle);
+  p("saddle", bike.saddle);
+  p("saddle_clamp", bike.saddleClamp);
+  p("seat_cluster", bike.seatCluster);
+  p("seat_tube_top", bike.seatTubeTop);
+  p("head_tube_top", bike.headTubeTop);
+  p("head_tube_bottom", bike.headTubeBottom);
+  p("steerer_top", bike.steererTop);
+  p("bar_clamp", bike.barClamp);
+
+  // Seatpost head extends a short distance past the clamp along the seat
+  // tube so the rendered post is not truncated at the rail support.
+  const seatAngle = radiansFromDegrees(frame.seat_angle_deg);
+  p("seatpost_top", {
+    x: bike.saddleClamp.x - Math.cos(seatAngle) * _SEATPOST_HEAD_EXTENSION,
+    y: bike.saddleClamp.y + Math.sin(seatAngle) * _SEATPOST_HEAD_EXTENSION,
+  });
+
+  // Bilateral frame points (positive Z = rider's left)
+  p("hoods_l", bike.hoods, +halfHood);
+  p("hoods_r", bike.hoods, -halfHood);
+  p("cleat_l", bike.cleat, +halfStance);
+  p("cleat_r", bike.cleat, -halfStance);
+  p("chainstay_l", bike.rearAxle, +_CHAINSTAY_HALF_SPREAD);
+  p("chainstay_r", bike.rearAxle, -_CHAINSTAY_HALF_SPREAD);
+  p("fork_l", bike.frontAxle, +_FORK_HALF_SPREAD);
+  p("fork_r", bike.frontAxle, -_FORK_HALF_SPREAD);
+  p("bar_top_l", bike.barClamp, +halfBar);
+  p("bar_top_r", bike.barClamp, -halfBar);
+  p("bar_drop_l", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, +halfHood);
+  p("bar_drop_r", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, -halfHood);
+
+  // Mannequin — the same bilateral expansion the 2D mannequin drives.
+  // Pushed after the frame points so duplicate names (cleat_l/cleat_r)
+  // resolve to the mannequin pose in name→position maps.
+  const mann = buildMannequin3DPoints(mannequin, rider, components);
+  points.push(...mann.points);
+
+  const edges: Geometry3DEdge[] = [
+    ..._FRAME_EDGES.map(([a, b]) => ({ a, b, group: "frame" })),
+    ...mann.edges,
+  ];
+
+  const trunkAngleDeg =
+    (Math.atan2(
+      mannequin.shoulder.y - mannequin.hip.y,
+      mannequin.shoulder.x - mannequin.hip.x
+    ) * 180) / Math.PI;
+  const pose_metrics: Record<string, number> = {
+    trunk_angle_deg: trunkAngleDeg,
+    hip_angle_deg: angleAtPoint(mannequin.shoulder, mannequin.hip, mannequin.knee),
+    shoulder_flexion_deg: angleAtPoint(mannequin.hip, mannequin.shoulder, mannequin.elbow),
+    elbow_flexion_deg: 180 - angleAtPoint(mannequin.shoulder, mannequin.elbow, mannequin.hands),
+    knee_extension_deg: angleAtPoint(mannequin.hip, mannequin.knee, mannequin.ankle),
+    ...(strokeLUT
+      ? {
+          knee_flexion_tdc_deg: strokeLUT.kneeFlexionTdcDeg,
+          knee_extension_max_deg: strokeLUT.kneeExtensionMaxDeg,
+          kops_offset_mm: strokeLUT.kopsOffsetMm,
+        }
+      : {}),
+  };
+
+  return {
+    version: "1.1.0",
+    points,
+    edges,
+    pose_metrics,
+    frame: _numericEntries(frame),
+    components: _numericEntries(components),
+    rider: _numericEntries(rider),
+    constraints: {},
+  };
 }
