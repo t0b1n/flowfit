@@ -1,12 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
 import {
   FRAME_MEASUREMENT_IDS,
   type FrameMeasurementId,
   type FrameMeasurementVisibility,
 } from "./BikeAnnotations";
-import { FrameGeometry } from "./frameCatalog";
 import { useCatalog } from "./catalog/CatalogContext";
+import { Drivetrain2D, JointAngleArc, Wheel2D } from "./components/BikeParts2D";
+import { CollapsibleSection } from "./components/CollapsibleSection";
+import { HOOD_PRESETS } from "./components/hoodPresets";
+import { MetricCard } from "./components/MetricCard";
+import { PresetPills } from "./components/PresetPills";
+import { SaddleShape } from "./components/SaddleShape";
+import { SliderCard } from "./components/SliderCard";
 import {
   DEFAULT_COMPONENTS,
   DEFAULT_RIDER_FIT,
@@ -36,81 +42,12 @@ import {
   bandStatus,
   type BandStatus,
 } from "./geometry";
-import type { BikeSelection, Components, ContactPoint, FitMode, RiderFit, SeatpostRecommendation } from "./types";
+import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
 import { fetchGeometry3D } from "./api";
 import type { Geometry3DResponse } from "./bike3d";
 
-// ── Saddle shape SVG sub-component ────────────────────────────────────────────
-
-const SaddleShape: React.FC<{
-  contact: ContactPoint;  // bike coordinates (y up) — saddle surface
-  clamp: ContactPoint;    // bike coordinates — visual seatpost head / rail support
-  className?: string;
-}> = ({ contact, clamp, className }) => {
-  const cx = contact.x;
-  const cy = -contact.y; // SVG y (flipped)
-  const clampSvgX = clamp.x;
-  const clampSvgY = -clamp.y;
-  const w = 120;
-  const h = 25;
-  const r = 8;
-  const d = [
-    `M ${cx - w + r},${cy}`,
-    `L ${cx + w - r},${cy}`,
-    `Q ${cx + w},${cy} ${cx + w},${cy + r}`,
-    `L ${cx + w},${cy + h - r}`,
-    `Q ${cx + w},${cy + h} ${cx + w - r},${cy + h}`,
-    `L ${cx - w + r},${cy + h}`,
-    `Q ${cx - w},${cy + h} ${cx - w},${cy + h - r}`,
-    `L ${cx - w},${cy + r}`,
-    `Q ${cx - w},${cy} ${cx - w + r},${cy}`,
-    "Z",
-  ].join(" ");
-  return (
-    <g className={className}>
-      <path d={d} className="geometry-saddle-body" />
-      <line x1={cx - 40} y1={cy + h} x2={clampSvgX} y2={clampSvgY} className="geometry-saddle-rail" />
-      <line x1={cx + 40} y1={cy + h} x2={clampSvgX} y2={clampSvgY} className="geometry-saddle-rail" />
-      <circle cx={clampSvgX} cy={clampSvgY} r={4} className="geometry-saddle-clamp" />
-    </g>
-  );
-};
-
-// ── Collapsible section ───────────────────────────────────────────────────────
-
-const CollapsibleSection: React.FC<{
-  eyebrow: string;
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}> = ({ eyebrow, title, defaultOpen = true, children }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="subpanel">
-      <button
-        className="subpanel-toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <div>
-          <div className="eyebrow">{eyebrow}</div>
-          <h3>{title}</h3>
-        </div>
-        <span className={`subpanel-chevron${open ? "" : " subpanel-chevron--closed"}`} />
-      </button>
-      {open && <div className="subpanel-body">{children}</div>}
-    </div>
-  );
-};
-
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const HOOD_PRESETS = [
-  { id: "shimano", label: "Shimano DA", hoodReachOffset: 24 },
-  { id: "sram-red", label: "SRAM Red", hoodReachOffset: 28 },
-  { id: "sram-force", label: "SRAM Force", hoodReachOffset: 28 },
-];
 
 const PEDAL_PRESETS = [
   { id: "spd-sl", label: "SPD-SL", stack: 6, note: "Shimano 3-bolt" },
@@ -184,6 +121,46 @@ const DEFAULT_FRAME_MEASUREMENT_VISIBILITY: FrameMeasurementVisibility = {
   forkOffset: true,
 };
 
+type ViewKind = "side" | "front" | "3d";
+type SummaryTone = "ok" | "warn" | "bad" | "muted";
+
+// ── Tier header: numbers the conceptual flow (rider → posture → hardware) ────
+
+const Tier: React.FC<{
+  n: number;
+  tone: "frame" | "rider";
+  title: string;
+  desc: string;
+  children: React.ReactNode;
+}> = ({ n, tone, title, desc, children }) => (
+  <div className={`tier tier--${tone}`}>
+    <div className="tier-header">
+      <span className="tier-chip">{n}</span>
+      <div className="tier-header__text">
+        <strong>{title}</strong>
+        <span>{desc}</span>
+      </div>
+    </div>
+    {children}
+  </div>
+);
+
+const SummaryRow: React.FC<{
+  label: string;
+  value: React.ReactNode;
+  caption?: React.ReactNode;
+  tone: SummaryTone;
+}> = ({ label, value, caption, tone }) => (
+  <div className="fit-summary__row">
+    <span className={`status-dot status-dot--${tone}`} />
+    <div className="fit-summary__text">
+      <span className="fit-summary__label">{label}</span>
+      {caption && <span className="fit-summary__caption">{caption}</span>}
+    </div>
+    <strong className="fit-summary__value">{value}</strong>
+  </div>
+);
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export const FitBuilderMode: React.FC = () => {
@@ -198,19 +175,23 @@ export const FitBuilderMode: React.FC = () => {
   const [preset, setPreset] = useState<MannequinPresetKey>("endurance");
   const [trunkAngleOverride, setTrunkAngleOverride] = useState<number | null>(35);
   const [backBendOverride, setBackBendOverride] = useState<number | null>(null);
-  const [hoodPresetId, setHoodPresetId] = useState(HOOD_PRESETS[0].id);
+  const [hoodPresetId, setHoodPresetId] = useState<string>(HOOD_PRESETS[0].id);
   const [showFrameGeometry, setShowFrameGeometry] = useState(false);
   const [showFitPositions, setShowFitPositions] = useState(false);
+  const [showJointAngles, setShowJointAngles] = useState(true);
   const [riderVisibility, setRiderVisibility] = useState<RiderVisibility>(DEFAULT_RIDER_VISIBILITY);
   const [frameMeasurementVisibility, setFrameMeasurementVisibility] = useState<FrameMeasurementVisibility>(
     DEFAULT_FRAME_MEASUREMENT_VISIBILITY
   );
   const [fullscreen, setFullscreen] = useState(false);
-  const [viewMode, setViewMode] = useState<'side' | 'front'>('side');
-  const [view3d, setView3d] = useState(false);
+  const [view, setView] = useState<ViewKind>("side");
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<"controls" | "results" | null>(null);
   const [geo3d, setGeo3d] = useState<Geometry3DResponse | null>(null);
   const [geo3dLoading, setGeo3dLoading] = useState(false);
   const [geo3dError, setGeo3dError] = useState<string | null>(null);
+  const [geo3dNonce, setGeo3dNonce] = useState(0);
+  const layersRef = useRef<HTMLDivElement | null>(null);
   // Partial — any unset field falls back to the height-derived default in buildRider.
   // This means height changes still rescale the body unless the user has explicitly
   // overridden a measurement by moving its slider.
@@ -225,6 +206,8 @@ export const FitBuilderMode: React.FC = () => {
   const [shoePresetId, setShoePresetId] = useState<string>(SHOE_PRESETS[0].id);
   const [fitMode, setFitMode] = useState<FitMode>("contact");
   const [targetSaddleHeightMm, setTargetSaddleHeightMm] = useState(700);
+
+  const view3d = view === "3d";
 
   const model = getModelById(selection.modelId);
   const sizeData = useMemo(
@@ -340,7 +323,19 @@ export const FitBuilderMode: React.FC = () => {
       .finally(() => { if (!cancelled) setGeo3dLoading(false); });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view3d, effectiveFrame, components, rider, idealContacts.saddle.y, idealContacts.saddle.x, idealContacts.hoods.x, idealContacts.hoods.y]);
+  }, [view3d, effectiveFrame, components, rider, idealContacts.saddle.y, idealContacts.saddle.x, idealContacts.hoods.x, idealContacts.hoods.y, geo3dNonce]);
+
+  // Close the layers popover on outside click
+  useEffect(() => {
+    if (!layersOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (layersRef.current && !layersRef.current.contains(e.target as Node)) {
+        setLayersOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [layersOpen]);
 
   // Build a 3D mannequin from backend bike contact points + frontend forward kinematics.
   // This ensures the 3D mesh mannequin uses the same trunk angle as the 2D view.
@@ -447,13 +442,21 @@ export const FitBuilderMode: React.FC = () => {
   );
 
   const severityColor = (s: "ok" | "warning" | "bad") =>
-    s === "ok" ? "var(--teal)" : s === "warning" ? "#d4880a" : "var(--accent)";
+    s === "ok" ? "var(--ok)" : s === "warning" ? "var(--warn)" : "var(--bad)";
+  // Brighter variants for strokes/labels on the dark visualization canvas
+  const severitySvgColor = (s: "ok" | "warning" | "bad") =>
+    s === "ok" ? "#4cbf7e" : s === "warning" ? "#e8a33c" : "#e05252";
+  const severityTone = (s: "ok" | "warning" | "bad"): SummaryTone =>
+    s === "ok" ? "ok" : s === "warning" ? "warn" : "bad";
 
   const bandColor = (s: BandStatus) =>
     s === "in" ? "var(--teal)" : s === "near" ? "#d4880a" : "var(--accent)";
 
   const updateComponent = (key: keyof Components, value: number) =>
     setComponents((c) => ({ ...c, [key]: value }));
+
+  const resetComponent = (key: keyof Components) =>
+    updateComponent(key, DEFAULT_COMPONENTS_BUILDER[key] as number);
 
   const handleFitModeChange = (mode: FitMode) => {
     if (mode === "saddle_height" && fitMode === "contact") {
@@ -530,455 +533,661 @@ export const FitBuilderMode: React.FC = () => {
     updateComponent("pedal_stack_height", pedal.stack + shoe.stack);
   };
 
-  return (
-    <div className={`mode-layout mode-layout--builder${fullscreen ? " mode-layout--fullscreen" : ""}`}>
+  // ── Fit summary (headline numbers + status) ────────────────────────────────
+  const saddleWarning = warnings.find((w) => w.contact === "saddle");
+  const hoodsWarning = warnings.find((w) => w.contact === "hoods");
+  const saddleDelta = actualSaddleY - idealSaddleY;
+  const kneeFlexDelta = kneeFlex - riderFit.targetKneeFlexDeg;
+  const kneeTone: SummaryTone =
+    fitMode === "saddle_height"
+      ? "muted"
+      : Math.abs(kneeFlexDelta) <= 2
+      ? "ok"
+      : Math.abs(kneeFlexDelta) <= 5
+      ? "warn"
+      : "bad";
+  const barReachDelta = barReachNeededValue !== null ? barReachNeededValue - components.bar_reach : null;
+  const barReachTone: SummaryTone =
+    barReachDelta === null ? "bad" : Math.abs(barReachDelta) <= 3 ? "ok" : Math.abs(barReachDelta) <= 10 ? "warn" : "bad";
+  const issueCount = warnings.filter((w) => w.severity !== "ok").length;
 
+  const viewOptions: Array<{ id: ViewKind; label: string }> = [
+    { id: "side", label: "Side" },
+    { id: "front", label: "Front" },
+    { id: "3d", label: "3D" },
+  ];
+
+  const controlPanels = (
+    <>
       {/* ── Left panel ── */}
-      <aside className="controls-panel controls-panel--dense builder-left" style={{ display: fullscreen ? "none" : undefined }}>
-
-        <CollapsibleSection eyebrow="Frame" title="Select frame">
-          <label className="field">
-            <span>Brand</span>
-            <select
-              value={currentBrand}
-              onChange={(e) => {
-                const firstModel = FRAME_CATALOG.find((m) => m.brand === e.target.value)!;
-                setSelection({ modelId: firstModel.id, size: firstModel.sizes[0].size });
-              }}
-            >
-              {brands.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Model</span>
-            <select
-              value={selection.modelId}
-              onChange={(e) => {
-                const m = getModelById(e.target.value);
-                setSelection({ modelId: m.id, size: m.sizes[0].size });
-              }}
-            >
-              {modelsForBrand.map((m) => (
-                <option key={m.id} value={m.id}>{m.model}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Size</span>
-            <select
-              value={selection.size}
-              onChange={(e) => setSelection((s) => ({ ...s, size: e.target.value }))}
-            >
-              {model.sizes.map((entry) => (
-                <option key={entry.size} value={entry.size}>{entry.size}</option>
-              ))}
-            </select>
-          </label>
-          <div className="bike-card__meta">
-            <span>Stack {sizeData.geometry.stack} mm</span>
-            <span>Reach {sizeData.geometry.reach} mm</span>
-            <span>Seat {sizeData.geometry.seat_angle_deg}°</span>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Posture" title="Riding preset">
-          <div className="tab-row">
-            {(Object.keys(MANNEQUIN_PRESETS) as MannequinPresetKey[]).map((p) => (
+      <aside
+        className={`controls-panel controls-panel--dense builder-left${mobilePanel === "controls" ? " mobile-open" : ""}`}
+        style={{ display: fullscreen ? "none" : undefined }}
+      >
+        <Tier n={1} tone="rider" title="Rider" desc="Who is being fitted">
+          <CollapsibleSection eyebrow="Rider" title="Fit targets">
+            <div className="seg-control" role="tablist" aria-label="Fit target mode">
               <button
-                key={p}
-                className={`tab-pill ${preset === p ? "tab-pill--active" : ""}`}
-                onClick={() => { setPreset(p); setTrunkAngleOverride(null); setBackBendOverride(null); }}
+                role="tab"
+                aria-selected={fitMode === "contact"}
+                className={`seg-control__btn${fitMode === "contact" ? " seg-control__btn--active" : ""}`}
+                onClick={() => handleFitModeChange("contact")}
               >
-                {PRESET_LABELS[p]}
+                Knee flex
               </button>
-            ))}
-          </div>
-          <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
-            <label className="slider-card slider-card--target">
-              <div className="slider-card__header">
-                <span>Trunk angle</span>
-                <strong>{targetTrunkAngleDeg.toFixed(0)}°</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--target"
-                type="range"
-                min={0} max={70} step={1} value={targetTrunkAngleDeg}
-                onChange={(e) => setTrunkAngleOverride(Number(e.target.value))}
+              <button
+                role="tab"
+                aria-selected={fitMode === "saddle_height"}
+                className={`seg-control__btn${fitMode === "saddle_height" ? " seg-control__btn--active" : ""}`}
+                onClick={() => handleFitModeChange("saddle_height")}
+              >
+                Saddle height
+              </button>
+            </div>
+            <p className="subpanel-note subpanel-note--tight">
+              {fitMode === "contact"
+                ? `Saddle height follows knee flex → ${idealSaddleY.toFixed(0)} mm`
+                : `Knee flex follows saddle height → ${kneeFlex.toFixed(1)}°`}
+            </p>
+            <div className="slider-grid slider-grid--compact">
+              <SliderCard
+                label="Height"
+                value={`${riderFit.height} mm`}
+                min={1500} max={2050} step={5}
+                sliderValue={riderFit.height}
+                variant="target"
+                onChange={(v) => setRiderFit((r) => ({ ...r, height: v }))}
               />
-            </label>
-            <label className="slider-card slider-card--target">
-              <div className="slider-card__header">
-                <span>Back bend</span>
-                <strong>{backBendDeg}°</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--target"
-                type="range"
-                min={-10} max={30} step={1} value={backBendDeg}
-                onChange={(e) => setBackBendOverride(Number(e.target.value))}
+              <SliderCard
+                label="Inseam"
+                value={`${riderFit.inseam} mm`}
+                min={700} max={1000} step={5}
+                sliderValue={riderFit.inseam}
+                variant="target"
+                onChange={(v) => setRiderFit((r) => ({ ...r, inseam: v }))}
               />
-            </label>
-          </div>
-        </CollapsibleSection>
+              {fitMode === "contact" ? (
+                <SliderCard
+                  label="Target knee flex"
+                  value={`${riderFit.targetKneeFlexDeg}°`}
+                  min={0} max={45} step={1}
+                  sliderValue={riderFit.targetKneeFlexDeg}
+                  variant="target"
+                  onChange={(v) => setRiderFit((r) => ({ ...r, targetKneeFlexDeg: v }))}
+                />
+              ) : (
+                <SliderCard
+                  label="Target saddle height"
+                  value={`${targetSaddleHeightMm} mm`}
+                  min={550} max={850} step={1}
+                  sliderValue={targetSaddleHeightMm}
+                  variant="target"
+                  onChange={setTargetSaddleHeightMm}
+                />
+              )}
+            </div>
+          </CollapsibleSection>
 
-        <CollapsibleSection eyebrow="Rider" title="Fit targets">
-          <div className="preset-row" style={{ marginBottom: 8 }}>
-            <button
-              className={`preset-pill ${fitMode === "contact" ? "preset-pill--active" : ""}`}
-              onClick={() => handleFitModeChange("contact")}
-            >
-              Knee flex
+          <CollapsibleSection eyebrow="Advanced" title="Body dimensions" defaultOpen={false}>
+            <p className="subpanel-note">
+              Defaults scale with height. Override with tape-measured values for precision.
+            </p>
+            <div className="slider-grid slider-grid--compact">
+              {(
+                [
+                  ["Shoulder width", Math.round(rider.shoulder_width), 300, 520, 5, "shoulderWidth"],
+                  ["Torso length", Math.round(rider.torso_length), 430, 780, 5, "torsoLength"],
+                  ["Upper arm", Math.round(rider.upper_arm_length), 220, 420, 5, "upperArmLength"],
+                  ["Forearm", Math.round(rider.forearm_length), 190, 360, 5, "forearmLength"],
+                ] as const
+              ).map(([label, value, min, max, step, key]) => (
+                <SliderCard
+                  key={key}
+                  label={label}
+                  value={`${value} mm`}
+                  min={min} max={max} step={step}
+                  sliderValue={value}
+                  variant="target"
+                  onChange={(v) => updateBodyMeasurement(key as keyof BodyMeasurements, v)}
+                />
+              ))}
+              <SliderCard
+                label="Saddle–hip joint offset"
+                value={`${rider.hip_joint_offset} mm`}
+                min={0} max={130} step={5}
+                sliderValue={rider.hip_joint_offset}
+                variant="target"
+                onChange={(v) => updateBodyMeasurement("hipJointOffset", v)}
+              />
+              <SliderCard
+                label="Shoe size (EU)"
+                value={`EU ${Math.round(rider.foot_length / 6.67)}`}
+                min={36} max={48} step={1}
+                sliderValue={Math.round(rider.foot_length / 6.67)}
+                variant="target"
+                onChange={(v) => updateBodyMeasurement("footLength", v * 6.67)}
+              />
+              <SliderCard
+                label="Body weight"
+                value={`${riderFit.weight} kg`}
+                min={40} max={130} step={1}
+                sliderValue={riderFit.weight}
+                variant="target"
+                onChange={(v) => setRiderFit((f) => ({ ...f, weight: v }))}
+              />
+            </div>
+            <button className="ghost-button" onClick={() => setBodyMeasurements({})}>
+              Reset to height defaults
             </button>
-            <button
-              className={`preset-pill ${fitMode === "saddle_height" ? "preset-pill--active" : ""}`}
-              onClick={() => handleFitModeChange("saddle_height")}
-            >
-              Saddle height
-            </button>
-          </div>
-          <div className="slider-grid slider-grid--compact">
-            {(
-              [
-                ["Height", riderFit.height, 1500, 2050, 5, "height", "mm"],
-                ["Inseam", riderFit.inseam, 700, 1000, 5, "inseam", "mm"],
-              ] as const
-            ).map(([label, value, min, max, step, key, unit]) => (
-              <label className="slider-card slider-card--target" key={key}>
-                <div className="slider-card__header">
-                  <span>{label}</span>
-                  <strong>{value} {unit}</strong>
-                </div>
-                <input
-                  className="slider-card__input slider-card__input--target"
-                  type="range"
-                  min={min} max={max} step={step} value={value}
-                  onChange={(e) => setRiderFit((r) => ({ ...r, [key]: Number(e.target.value) }))}
-                />
-              </label>
-            ))}
+          </CollapsibleSection>
+        </Tier>
 
-            {/* Target knee flex — disabled in saddle_height mode */}
-            <label
-              className="slider-card slider-card--target"
-              style={{ opacity: fitMode === "saddle_height" ? 0.45 : 1 }}
-            >
-              <div className="slider-card__header">
-                <span>Target knee flex</span>
-                <strong>
-                  {fitMode === "saddle_height"
-                    ? `${kneeFlex.toFixed(1)}°`
-                    : `${riderFit.targetKneeFlexDeg}°`}
-                </strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--target"
-                type="range"
-                min={0} max={45} step={1}
-                value={fitMode === "saddle_height" ? Math.round(kneeFlex) : riderFit.targetKneeFlexDeg}
-                disabled={fitMode === "saddle_height"}
-                onChange={(e) => setRiderFit((r) => ({ ...r, targetKneeFlexDeg: Number(e.target.value) }))}
+        <Tier n={2} tone="rider" title="Posture" desc="How they want to sit">
+          <CollapsibleSection eyebrow="Posture" title="Riding intent">
+            <PresetPills
+              options={(Object.keys(MANNEQUIN_PRESETS) as MannequinPresetKey[]).map((p) => ({
+                id: p,
+                label: PRESET_LABELS[p],
+              }))}
+              activeId={trunkAngleOverride === null && backBendOverride === null ? preset : null}
+              onSelect={(id) => {
+                setPreset(id as MannequinPresetKey);
+                setTrunkAngleOverride(null);
+                setBackBendOverride(null);
+              }}
+            />
+            <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
+              <SliderCard
+                label="Trunk angle"
+                value={`${targetTrunkAngleDeg.toFixed(0)}°`}
+                min={0} max={70} step={1}
+                sliderValue={targetTrunkAngleDeg}
+                variant="target"
+                onChange={setTrunkAngleOverride}
+                onReset={() => setTrunkAngleOverride(null)}
               />
-            </label>
+              <SliderCard
+                label="Back bend"
+                value={`${backBendDeg}°`}
+                min={-10} max={30} step={1}
+                sliderValue={backBendDeg}
+                variant="target"
+                onChange={setBackBendOverride}
+                onReset={() => setBackBendOverride(null)}
+              />
+            </div>
+          </CollapsibleSection>
+        </Tier>
 
-            {/* Saddle height — disabled in contact (knee flex) mode */}
-            <label
-              className="slider-card slider-card--target"
-              style={{ opacity: fitMode === "contact" ? 0.45 : 1 }}
-            >
-              <div className="slider-card__header">
-                <span>Saddle height</span>
-                <strong>
-                  {fitMode === "contact"
-                    ? `${idealSaddleY.toFixed(0)} mm`
-                    : `${targetSaddleHeightMm} mm`}
-                </strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--target"
-                type="range"
-                min={550} max={850} step={1}
-                value={fitMode === "contact" ? Math.round(idealSaddleY) : targetSaddleHeightMm}
-                disabled={fitMode === "contact"}
-                onChange={(e) => setTargetSaddleHeightMm(Number(e.target.value))}
-              />
-            </label>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Rider" title="Body dimensions" defaultOpen={false}>
-          <p className="subpanel-note">
-            Defaults scale with height. Override with tape-measured values for precision.
-          </p>
-          <div className="slider-grid slider-grid--compact">
-            {(
-              [
-                ["Shoulder width", Math.round(rider.shoulder_width), 300, 520, 5, "shoulderWidth", "mm"],
-                ["Torso length", Math.round(rider.torso_length), 430, 780, 5, "torsoLength", "mm"],
-                ["Upper arm", Math.round(rider.upper_arm_length), 220, 420, 5, "upperArmLength", "mm"],
-                ["Forearm", Math.round(rider.forearm_length), 190, 360, 5, "forearmLength", "mm"],
-              ] as const
-            ).map(([label, value, min, max, step, key, unit]) => (
-              <label className="slider-card" key={key}>
-                <div className="slider-card__header">
-                  <span>{label}</span>
-                  <strong>{value} {unit}</strong>
-                </div>
-                <input
-                  className="slider-card__input slider-card__input--frame"
-                  type="range"
-                  min={min} max={max} step={step} value={value}
-                  onChange={(e) => updateBodyMeasurement(key as keyof BodyMeasurements, Number(e.target.value))}
-                />
-              </label>
-            ))}
-            <label className="slider-card">
-              <div className="slider-card__header">
-                <span>Saddle–hip joint offset</span>
-                <strong>{rider.hip_joint_offset} mm</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--frame"
-                type="range"
-                min={0} max={130} step={5} value={rider.hip_joint_offset}
-                onChange={(e) => updateBodyMeasurement("hipJointOffset", Number(e.target.value))}
-              />
-            </label>
-            <label className="slider-card">
-              <div className="slider-card__header">
-                <span>Shoe size (EU)</span>
-                <strong>EU {Math.round(rider.foot_length / 6.67)}</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--frame"
-                type="range"
-                min={36} max={48} step={1} value={Math.round(rider.foot_length / 6.67)}
-                onChange={(e) => updateBodyMeasurement("footLength", Number(e.target.value) * 6.67)}
-              />
-            </label>
-            <label className="slider-card">
-              <div className="slider-card__header">
-                <span>Body weight</span>
-                <strong>{riderFit.weight} kg</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--frame"
-                type="range"
-                min={40} max={130} step={1} value={riderFit.weight}
-                onChange={(e) => setRiderFit((f) => ({ ...f, weight: Number(e.target.value) }))}
-              />
-            </label>
-          </div>
-          <button
-            className="ghost-button"
-            onClick={() => setBodyMeasurements({})}
-          >
-            Reset to height defaults
-          </button>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Cockpit" title="Component setup">
-          <div className="slider-grid slider-grid--compact">
-            {(
-              [
-                ["Stem length", components.stem_length, 50, 180, 1, "stem_length", "mm"],
-                ["Stem angle", components.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
-                ["Spacers", components.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
-                ["Bar reach", components.bar_reach, 65, 105, 1, "bar_reach", "mm"],
-                ["Bar width", components.bar_width, 200, 460, 10, "bar_width", "mm"],
-              ] as const
-            ).map(([label, value, min, max, step, key, unit]) => (
-              <label className="slider-card" key={key}>
-                <div className="slider-card__header">
-                  <span>{label}</span>
-                  <strong>{Number(value).toFixed(0)} {unit}</strong>
-                </div>
-                <input
-                  className="slider-card__input slider-card__input--frame"
-                  type="range"
-                  min={min} max={max} step={step} value={value}
-                  onChange={(e) => updateComponent(key as keyof Components, Number(e.target.value))}
-                />
-              </label>
-            ))}
-            {/* Hood reach with lever preset inline */}
-            <label className="slider-card">
-              <div className="slider-card__header">
-                <span>Hood reach</span>
-                <strong>{components.hood_reach_offset.toFixed(1)} mm</strong>
-              </div>
-              <div className="preset-row preset-row--inline">
-                {HOOD_PRESETS.map((hp) => (
-                  <button
-                    key={hp.id}
-                    className={`preset-pill preset-pill--sm ${hoodPresetId === hp.id ? "preset-pill--active" : ""}`}
-                    onClick={() => {
-                      setHoodPresetId(hp.id);
-                      updateComponent("hood_reach_offset", hp.hoodReachOffset);
-                    }}
-                  >
-                    {hp.label}
-                  </button>
+        <Tier n={3} tone="frame" title="Bike" desc="Hardware that achieves it">
+          <CollapsibleSection eyebrow="Frame" title="Select frame">
+            <label className="field">
+              <span>Brand</span>
+              <select
+                value={currentBrand}
+                onChange={(e) => {
+                  const firstModel = FRAME_CATALOG.find((m) => m.brand === e.target.value)!;
+                  setSelection({ modelId: firstModel.id, size: firstModel.sizes[0].size });
+                }}
+              >
+                {brands.map((b) => (
+                  <option key={b} value={b}>{b}</option>
                 ))}
-              </div>
-              <input
-                className="slider-card__input slider-card__input--frame"
-                type="range"
-                min={16} max={32} step={0.5} value={components.hood_reach_offset}
-                onChange={(e) => updateComponent("hood_reach_offset", Number(e.target.value))}
-              />
+              </select>
             </label>
-          </div>
-        </CollapsibleSection>
+            <label className="field">
+              <span>Model</span>
+              <select
+                value={selection.modelId}
+                onChange={(e) => {
+                  const m = getModelById(e.target.value);
+                  setSelection({ modelId: m.id, size: m.sizes[0].size });
+                }}
+              >
+                {modelsForBrand.map((m) => (
+                  <option key={m.id} value={m.id}>{m.model}</option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Size</span>
+              <select
+                value={selection.size}
+                onChange={(e) => setSelection((s) => ({ ...s, size: e.target.value }))}
+              >
+                {model.sizes.map((entry) => (
+                  <option key={entry.size} value={entry.size}>{entry.size}</option>
+                ))}
+              </select>
+            </label>
+            <div className="bike-card__meta">
+              <span>Stack {sizeData.geometry.stack} mm</span>
+              <span>Reach {sizeData.geometry.reach} mm</span>
+              <span>Seat {sizeData.geometry.seat_angle_deg}°</span>
+            </div>
+          </CollapsibleSection>
 
-        <CollapsibleSection eyebrow="Saddle" title="Saddle & seatpost">
-          <div className="slider-grid slider-grid--compact">
-            {(
-              [
-                ["Saddle stack", components.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
-                ["Seatpost offset", components.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
-                ["Rail offset", components.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
-                ["Tyre size", tyreSize, 25, 38, 1, "__tyre__", "mm"],
-                ["Crank length", components.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
-              ] as const
-            ).map(([label, value, min, max, step, key, unit]) => (
-              <label className="slider-card" key={key}>
-                <div className="slider-card__header">
-                  <span>{label}</span>
-                  <strong>{Number(value).toFixed(step === 2.5 ? 1 : 0)} {unit}</strong>
-                </div>
-                <input
-                  className="slider-card__input slider-card__input--frame"
-                  type="range"
-                  min={min} max={max} step={step} value={value}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    key === "__tyre__" ? setTyreSize(v) : updateComponent(key as keyof Components, v);
+          <CollapsibleSection eyebrow="Cockpit" title="Component setup">
+            <div className="slider-grid slider-grid--compact">
+              {(
+                [
+                  ["Stem length", components.stem_length, 50, 180, 1, "stem_length", "mm"],
+                  ["Stem angle", components.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
+                  ["Spacers", components.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
+                  ["Bar reach", components.bar_reach, 65, 105, 1, "bar_reach", "mm"],
+                  ["Bar width", components.bar_width, 200, 460, 10, "bar_width", "mm"],
+                ] as const
+              ).map(([label, value, min, max, step, key, unit]) => (
+                <SliderCard
+                  key={key}
+                  label={label}
+                  value={`${Number(value).toFixed(0)} ${unit}`}
+                  min={min} max={max} step={step}
+                  sliderValue={value}
+                  onChange={(v) => updateComponent(key as keyof Components, v)}
+                  onReset={() => resetComponent(key as keyof Components)}
+                />
+              ))}
+              <SliderCard
+                label="Hood reach"
+                value={`${components.hood_reach_offset.toFixed(1)} mm`}
+                min={16} max={32} step={0.5}
+                sliderValue={components.hood_reach_offset}
+                onChange={(v) => updateComponent("hood_reach_offset", v)}
+              >
+                <PresetPills
+                  small
+                  inline
+                  options={HOOD_PRESETS}
+                  activeId={hoodPresetId}
+                  onSelect={(id) => {
+                    setHoodPresetId(id);
+                    const hp = HOOD_PRESETS.find((p) => p.id === id)!;
+                    updateComponent("hood_reach_offset", hp.hoodReachOffset);
                   }}
                 />
-              </label>
-            ))}
-          </div>
-        </CollapsibleSection>
+              </SliderCard>
+            </div>
+          </CollapsibleSection>
 
-        <CollapsibleSection eyebrow="Shoes & Pedals" title="Foot stack" defaultOpen={false}>
-          <p className="subpanel-note">
-            Affects saddle height — more stack raises the saddle to maintain knee angle.
-          </p>
-          <div style={{ marginBottom: 8 }}>
-            <div className="eyebrow" style={{ marginBottom: 4 }}>Pedal system</div>
-            <div className="preset-row">
-              {PEDAL_PRESETS.map((pp) => (
-                <button
-                  key={pp.id}
-                  className={`preset-pill preset-pill--sm ${pedalPresetId === pp.id ? "preset-pill--active" : ""}`}
-                  title={pp.note}
-                  onClick={() => handlePedalPreset(pp.id)}
-                >
-                  {pp.label}
-                </button>
+          <CollapsibleSection eyebrow="Saddle" title="Saddle & seatpost">
+            <div className="slider-grid slider-grid--compact">
+              {(
+                [
+                  ["Saddle stack", components.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
+                  ["Seatpost offset", components.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
+                  ["Rail offset", components.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
+                  ["Crank length", components.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
+                ] as const
+              ).map(([label, value, min, max, step, key, unit]) => (
+                <SliderCard
+                  key={key}
+                  label={label}
+                  value={`${Number(value).toFixed(step === 2.5 ? 1 : 0)} ${unit}`}
+                  min={min} max={max} step={step}
+                  sliderValue={value}
+                  onChange={(v) => updateComponent(key as keyof Components, v)}
+                  onReset={() => resetComponent(key as keyof Components)}
+                />
               ))}
+              <SliderCard
+                label="Tyre size"
+                value={`${tyreSize} mm`}
+                min={25} max={38} step={1}
+                sliderValue={tyreSize}
+                onChange={setTyreSize}
+                onReset={() => setTyreSize(DEFAULT_TYRE_SIZE)}
+              />
             </div>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <div className="eyebrow" style={{ marginBottom: 4 }}>Shoe type</div>
-            <div className="preset-row">
-              {SHOE_PRESETS.map((sp) => (
-                <button
-                  key={sp.id}
-                  className={`preset-pill preset-pill--sm ${shoePresetId === sp.id ? "preset-pill--active" : ""}`}
-                  title={sp.note}
-                  onClick={() => handleShoePreset(sp.id)}
-                >
-                  {sp.label}
-                </button>
-              ))}
+          </CollapsibleSection>
+
+          <CollapsibleSection eyebrow="Advanced" title="Shoes & pedals" defaultOpen={false}>
+            <p className="subpanel-note">
+              Affects saddle height — more stack raises the saddle to maintain knee angle.
+            </p>
+            <div style={{ marginBottom: 8 }}>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Pedal system</div>
+              <PresetPills
+                small
+                options={PEDAL_PRESETS.map((p) => ({ id: p.id, label: p.label, title: p.note }))}
+                activeId={pedalPresetId}
+                onSelect={handlePedalPreset}
+              />
             </div>
-          </div>
-          <div className="slider-grid slider-grid--compact">
-            <label className="slider-card">
-              <div className="slider-card__header">
-                <span>Total foot stack</span>
-                <strong>{components.pedal_stack_height} mm</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--frame"
-                type="range"
-                min={0} max={35} step={1} value={components.pedal_stack_height}
-                onChange={(e) => {
-                  updateComponent("pedal_stack_height", Number(e.target.value));
+            <div style={{ marginBottom: 8 }}>
+              <div className="eyebrow" style={{ marginBottom: 4 }}>Shoe type</div>
+              <PresetPills
+                small
+                options={SHOE_PRESETS.map((s) => ({ id: s.id, label: s.label, title: s.note }))}
+                activeId={shoePresetId}
+                onSelect={handleShoePreset}
+              />
+            </div>
+            <div className="slider-grid slider-grid--compact">
+              <SliderCard
+                label="Total foot stack"
+                value={`${components.pedal_stack_height} mm`}
+                min={0} max={35} step={1}
+                sliderValue={components.pedal_stack_height}
+                onChange={(v) => {
+                  updateComponent("pedal_stack_height", v);
                   setPedalPresetId("");
                   setShoePresetId("");
                 }}
               />
-            </label>
-            <label className="slider-card">
-              <div className="slider-card__header">
-                <span>Cleat setback</span>
-                <strong>{components.cleat_setback > 0 ? "+" : ""}{components.cleat_setback} mm</strong>
-              </div>
-              <input
-                className="slider-card__input slider-card__input--frame"
-                type="range"
-                min={-15} max={15} step={1} value={components.cleat_setback}
-                onChange={(e) => updateComponent("cleat_setback", Number(e.target.value))}
+              <SliderCard
+                label="Cleat setback"
+                value={`${components.cleat_setback > 0 ? "+" : ""}${components.cleat_setback} mm`}
+                min={-15} max={15} step={1}
+                sliderValue={components.cleat_setback}
+                onChange={(v) => updateComponent("cleat_setback", v)}
+                onReset={() => resetComponent("cleat_setback")}
               />
-            </label>
-          </div>
-        </CollapsibleSection>
-
+            </div>
+          </CollapsibleSection>
+        </Tier>
       </aside>
+    </>
+  );
 
-      {/* ── Centre: SVG ── */}
+  const metricsPanel = (
+    <aside
+      className={`controls-panel controls-panel--dense builder-right${mobilePanel === "results" ? " mobile-open" : ""}`}
+      style={{ display: fullscreen ? "none" : undefined }}
+    >
+      {/* ── Fit summary: the numbers that matter, always visible ── */}
+      <div className="fit-summary">
+        <div className="fit-summary__header">
+          <div>
+            <div className="eyebrow">Fit summary</div>
+            <h3>At a glance</h3>
+          </div>
+          {issueCount > 0 ? (
+            <span className="warn-chip">{issueCount} issue{issueCount === 1 ? "" : "s"}</span>
+          ) : (
+            <span className="warn-chip warn-chip--ok">All on target</span>
+          )}
+        </div>
+        <SummaryRow
+          label="Saddle height"
+          value={`${actualSaddleY.toFixed(0)} mm`}
+          caption={`${saddleDelta >= 0 ? "+" : ""}${saddleDelta.toFixed(0)} mm vs ideal ${idealSaddleY.toFixed(0)}`}
+          tone={saddleWarning ? severityTone(saddleWarning.severity) : "muted"}
+        />
+        <SummaryRow
+          label="Knee flex at BDC"
+          value={`${kneeFlex.toFixed(1)}°`}
+          caption={
+            fitMode === "contact"
+              ? `target ${riderFit.targetKneeFlexDeg}°`
+              : "follows saddle height"
+          }
+          tone={kneeTone}
+        />
+        <SummaryRow
+          label="Hoods position"
+          value={
+            hoodsWarning
+              ? hoodsWarning.severity === "ok"
+                ? "On target"
+                : `${hoodsWarning.distance.toFixed(0)} mm off`
+              : "—"
+          }
+          caption={
+            hoodsWarning && hoodsWarning.severity !== "ok"
+              ? `ΔX ${hoodsWarning.deltaX.toFixed(0)} · ΔY ${hoodsWarning.deltaY.toFixed(0)} mm`
+              : undefined
+          }
+          tone={hoodsWarning ? severityTone(hoodsWarning.severity) : "muted"}
+        />
+        <SummaryRow
+          label="Bar reach"
+          value={barReachNeededValue !== null ? `${Math.round(barReachNeededValue)} mm needed` : "Out of range"}
+          caption={
+            barReachDelta !== null
+              ? `${barReachDelta >= 0 ? "+" : ""}${Math.round(barReachDelta)} mm vs current ${components.bar_reach}`
+              : undefined
+          }
+          tone={barReachTone}
+        />
+      </div>
+
+      <CollapsibleSection eyebrow="Fit Analysis" title="Ideal vs actual" defaultOpen={false}>
+        <div className="metric-grid">
+          <MetricCard
+            title="Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface. This is the height that gives your target knee flex angle at bottom dead centre."
+            label={fitMode === "saddle_height" ? "Target saddle height" : "Ideal saddle height"}
+            value={`${idealSaddleY.toFixed(0)} mm`}
+          />
+          <MetricCard
+            title="Current saddle height based on your seatpost and saddle stack settings. Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface."
+            label="Actual saddle height"
+            value={`${actualSaddleY.toFixed(0)} mm`}
+            delta={`${saddleDelta.toFixed(0)} mm vs ideal`}
+          />
+          <MetricCard
+            title="Distance measured along the seat tube from the centre of the bottom bracket axle to the top of the saddle surface. This matches the standard tape measurement a bike fitter takes."
+            label="BB to saddle"
+            value={`${Math.round(bbToSaddleDistance)} mm`}
+          />
+          <MetricCard
+            title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper."
+            label="Seatpost extension"
+            value={`${seatpostExtension.toFixed(0)} mm`}
+          />
+          <MetricCard
+            label="Knee flex at BDC"
+            value={`${kneeFlex.toFixed(1)}°`}
+            delta={fitMode === "contact" ? `Target ${riderFit.targetKneeFlexDeg}°` : undefined}
+          />
+          <MetricCard
+            title="Knee flexion when the crank is at top dead centre. Values above ~115° suggest the saddle is too low or the cranks too long for your hip mobility."
+            label="Knee flex at TDC"
+            value={`${strokeMetrics.kneeFlexionTdcDeg.toFixed(1)}°`}
+            color={bandColor(bandStatus(strokeMetrics.kneeFlexionTdcDeg, POSTURE_PRESET.knee_flexion_tdc))}
+            delta={`Band ${POSTURE_PRESET.knee_flexion_tdc.min_deg}–${POSTURE_PRESET.knee_flexion_tdc.max_deg}°`}
+          />
+          <MetricCard
+            title="KOPS: horizontal distance from the knee joint centre to the pedal spindle with the crank at 3 o'clock. Positive = knee ahead of the spindle. A neutral starting point is ±20 mm; it is a reference, not a rule."
+            label="KOPS offset"
+            value={`${strokeMetrics.kopsOffsetMm >= 0 ? "+" : ""}${strokeMetrics.kopsOffsetMm.toFixed(0)} mm`}
+            delta={strokeMetrics.kopsOffsetMm > 20 ? "Knee forward of spindle" : strokeMetrics.kopsOffsetMm < -20 ? "Knee behind spindle" : "Near neutral"}
+          />
+          <MetricCard
+            label="Trunk angle"
+            value={`${targetTrunkAngleDeg}°`}
+            delta={`${PRESET_LABELS[preset]} preset`}
+          />
+          <MetricCard label="Current bar reach" value={`${components.bar_reach} mm`} />
+          {barReachNeededValue !== null ? (
+            <MetricCard
+              label="Bar reach needed"
+              value={`${Math.round(barReachNeededValue)} mm`}
+              delta={`${barReachNeededValue - components.bar_reach >= 0 ? "+" : ""}${Math.round(barReachNeededValue - components.bar_reach)} mm vs current`}
+            />
+          ) : (
+            <MetricCard label="Bar reach needed" value="Out of range" color="var(--bad)" />
+          )}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection eyebrow="Warnings" title="Contact point match">
+        <div className="metric-grid">
+          {warnings.map((w) => (
+            <MetricCard
+              key={w.contact}
+              label={w.contact}
+              labelStyle={{ textTransform: "capitalize" }}
+              value={w.severity === "ok" ? `On target (${w.distance.toFixed(0)} mm)` : `${w.distance.toFixed(0)} mm off`}
+              color={severityColor(w.severity)}
+              delta={
+                w.severity !== "ok"
+                  ? `ΔX ${w.deltaX.toFixed(0)} mm · ΔY ${w.deltaY.toFixed(0)} mm`
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection eyebrow="Coordinates" title="Contact positions (from BB)" defaultOpen={false}>
+        <div className="metric-grid">
+          {([
+            ["Saddle X", bike.saddle.x],
+            ["Saddle Y", bike.saddle.y],
+            ["Hoods X",  bike.hoods.x],
+            ["Hoods Y",  bike.hoods.y],
+            ["Cleat X",  bike.cleat.x],
+            ["Cleat Y",  bike.cleat.y],
+          ] as [string, number][]).map(([label, value]) => (
+            <MetricCard key={label} label={label} value={`${Math.round(value)} mm`} />
+          ))}
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection eyebrow="Seatpost" title="Seatpost recommendation" defaultOpen={false}>
+        <div className="metric-grid">
+          <MetricCard
+            label="BB to rail distance"
+            value={`${Math.round(seatpostRec.bbToRailDistance)} mm`}
+          />
+          <MetricCard
+            label="Seatpost type"
+            value={<span style={{ textTransform: "capitalize" }}>{seatpostRec.type}</span>}
+            color={
+              seatpostRec.type === "straight"
+                ? "var(--ok)"
+                : seatpostRec.type === "setback"
+                ? "var(--warn)"
+                : "var(--bad)"
+            }
+            delta={seatpostRec.note}
+          />
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection eyebrow="Frame" title="Geometry" defaultOpen={false}>
+        <div className="metric-grid">
+          {frameGeometryRows.map(([label, value]) => (
+            <MetricCard key={label} label={label} value={value} />
+          ))}
+        </div>
+      </CollapsibleSection>
+    </aside>
+  );
+
+  return (
+    <div className={`mode-layout mode-layout--builder${fullscreen ? " mode-layout--fullscreen" : ""}`}>
+
+      {controlPanels}
+
+      {/* ── Centre: visualization ── */}
       <section className="visual-panel builder-center">
         <div className="panel-header">
           <div>
             <div className="eyebrow eyebrow--light">Fit Builder</div>
             <h2>{model.brand} {model.model} {sizeData.size}</h2>
           </div>
-          <div className="legend-row">
-            <span><i className="legend-swatch legend-swatch--a" /> Frame</span>
-            <span><i className="legend-swatch legend-swatch--target" /> Ideal contacts</span>
+          <div className="viz-toolbar">
+            <div className="seg-control seg-control--dark" role="tablist" aria-label="View">
+              {viewOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  role="tab"
+                  aria-selected={view === opt.id}
+                  className={`seg-control__btn${view === opt.id ? " seg-control__btn--active" : ""}`}
+                  onClick={() => setView(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             {!view3d && (
-              <>
+              <div className="layers-anchor" ref={layersRef}>
                 <button
-                  className={`tab-pill tab-pill--visual ${viewMode === 'side' ? "tab-pill--active" : ""}`}
-                  style={{ marginLeft: "auto" }}
-                  onClick={() => setViewMode('side')}
+                  className={`tab-pill tab-pill--visual${layersOpen ? " tab-pill--active" : ""}`}
+                  aria-expanded={layersOpen}
+                  onClick={() => setLayersOpen((v) => !v)}
                 >
-                  Side
+                  Layers ▾
                 </button>
-                <button
-                  className={`tab-pill tab-pill--visual ${viewMode === 'front' ? "tab-pill--active" : ""}`}
-                  onClick={() => setViewMode('front')}
-                >
-                  Front
-                </button>
-              </>
-            )}
-            <button
-              className={`tab-pill tab-pill--visual ${view3d ? "tab-pill--active" : ""}`}
-              style={view3d ? undefined : { marginLeft: "auto" }}
-              onClick={() => setView3d((v) => !v)}
-            >
-              3D
-            </button>
-            {!view3d && (
-              <>
-                <button
-                  className={`tab-pill tab-pill--visual ${showFitPositions ? "tab-pill--active" : ""}`}
-                  onClick={() => setShowFitPositions((v) => !v)}
-                >
-                  Fit positions
-                </button>
-                <button
-                  className={`tab-pill tab-pill--visual ${showFrameGeometry ? "tab-pill--active" : ""}`}
-                  onClick={() => setShowFrameGeometry((v) => !v)}
-                >
-                  Frame geometry
-                </button>
-              </>
+                {layersOpen && (
+                  <div className="layers-popover">
+                    <div className="overlay-drawer__section">
+                      <div className="overlay-drawer__header">
+                        <span>Rider</span>
+                        <div className="overlay-drawer__actions">
+                          <button className="overlay-chip overlay-chip--action" onClick={() => setAllRiderVisibility(true)}>All</button>
+                          <button className="overlay-chip overlay-chip--action" onClick={() => setAllRiderVisibility(false)}>None</button>
+                        </div>
+                      </div>
+                      <div className="overlay-chip-row">
+                        {(["legs", "torso", "arms", "head", "feet", "contactMarkers"] as RiderVisibilityPart[]).map((part) => (
+                          <button
+                            key={part}
+                            className={`overlay-chip ${riderVisibility[part] ? "overlay-chip--active" : ""}`}
+                            onClick={() => toggleRiderVisibility(part)}
+                          >
+                            {RIDER_VISIBILITY_LABELS[part]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="overlay-drawer__section">
+                      <div className="overlay-drawer__header">
+                        <span>Annotations</span>
+                      </div>
+                      <div className="overlay-chip-row">
+                        <button
+                          className={`overlay-chip ${showJointAngles ? "overlay-chip--active" : ""}`}
+                          onClick={() => setShowJointAngles((v) => !v)}
+                        >
+                          Joint angles
+                        </button>
+                        <button
+                          className={`overlay-chip ${showFitPositions ? "overlay-chip--active" : ""}`}
+                          onClick={() => setShowFitPositions((v) => !v)}
+                        >
+                          Fit positions
+                        </button>
+                        <button
+                          className={`overlay-chip ${showFrameGeometry ? "overlay-chip--active" : ""}`}
+                          onClick={() => setShowFrameGeometry((v) => !v)}
+                        >
+                          Frame geometry
+                        </button>
+                      </div>
+                    </div>
+                    {showFrameGeometry && (
+                      <div className="overlay-drawer__section">
+                        <div className="overlay-drawer__header">
+                          <span>Frame measurements</span>
+                          <div className="overlay-drawer__actions">
+                            <button className="overlay-chip overlay-chip--action" onClick={() => setAllFrameMeasurements(true)}>All</button>
+                            <button className="overlay-chip overlay-chip--action" onClick={() => setAllFrameMeasurements(false)}>None</button>
+                          </div>
+                        </div>
+                        <div className="overlay-chip-row">
+                          {FRAME_MEASUREMENT_IDS.map((measurement) => {
+                            if (measurement === "seatTubeLength" && sizeData.geometry.seat_tube_ct == null) {
+                              return null;
+                            }
+                            return (
+                              <button
+                                key={measurement}
+                                className={`overlay-chip ${frameMeasurementVisibility[measurement] ? "overlay-chip--active" : ""}`}
+                                onClick={() => toggleFrameMeasurement(measurement)}
+                              >
+                                {FRAME_MEASUREMENT_LABELS[measurement]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
             <button
               className="tab-pill tab-pill--visual"
@@ -991,55 +1200,9 @@ export const FitBuilderMode: React.FC = () => {
         </div>
 
         {!view3d && (
-          <div className="overlay-drawer">
-            <div className="overlay-drawer__section">
-              <div className="overlay-drawer__header">
-                <span>Rider visibility</span>
-                <div className="overlay-drawer__actions">
-                  <button className="overlay-chip overlay-chip--action" onClick={() => setAllRiderVisibility(true)}>Show all</button>
-                  <button className="overlay-chip overlay-chip--action" onClick={() => setAllRiderVisibility(false)}>Hide all</button>
-                </div>
-              </div>
-              <div className="overlay-chip-row">
-                {(["legs", "torso", "arms", "head", "feet", "contactMarkers"] as RiderVisibilityPart[]).map((part) => (
-                  <button
-                    key={part}
-                    className={`overlay-chip ${riderVisibility[part] ? "overlay-chip--active" : ""}`}
-                    onClick={() => toggleRiderVisibility(part)}
-                  >
-                    {RIDER_VISIBILITY_LABELS[part]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {showFrameGeometry && (
-              <div className="overlay-drawer__section">
-                <div className="overlay-drawer__header">
-                  <span>Frame measurements</span>
-                  <div className="overlay-drawer__actions">
-                    <button className="overlay-chip overlay-chip--action" onClick={() => setAllFrameMeasurements(true)}>Show all</button>
-                    <button className="overlay-chip overlay-chip--action" onClick={() => setAllFrameMeasurements(false)}>Hide all</button>
-                  </div>
-                </div>
-                <div className="overlay-chip-row">
-                  {FRAME_MEASUREMENT_IDS.map((measurement) => {
-                    if (measurement === "seatTubeLength" && sizeData.geometry.seat_tube_ct == null) {
-                      return null;
-                    }
-                    return (
-                      <button
-                        key={measurement}
-                        className={`overlay-chip ${frameMeasurementVisibility[measurement] ? "overlay-chip--active" : ""}`}
-                        onClick={() => toggleFrameMeasurement(measurement)}
-                      >
-                        {FRAME_MEASUREMENT_LABELS[measurement]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+          <div className="legend-row">
+            <span><i className="legend-swatch legend-swatch--a" /> Frame</span>
+            <span><i className="legend-swatch legend-swatch--target" /> Ideal contacts</span>
           </div>
         )}
 
@@ -1051,11 +1214,21 @@ export const FitBuilderMode: React.FC = () => {
                   <strong>Could not load 3D geometry</strong>
                   <p style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>{geo3dError}</p>
                   <p style={{ marginTop: 4, fontSize: 12, opacity: 0.5 }}>Is the API running? <code>make api</code></p>
+                  <button
+                    className="tab-pill tab-pill--visual"
+                    style={{ marginTop: 12 }}
+                    onClick={() => setGeo3dNonce((n) => n + 1)}
+                  >
+                    Retry
+                  </button>
                 </div>
               </div>
             ) : geo3dLoading || !geo3d ? (
               <div className="visual-stage__loading">
-                {geo3dLoading ? "Loading 3D geometry…" : "Switch to 3D to load"}
+                <div className="viz-skeleton">
+                  <span className="viz-skeleton__pulse" />
+                  {geo3dLoading ? "Loading 3D geometry…" : "Switch to 3D to load"}
+                </div>
               </div>
             ) : (
               <BikeScene3D
@@ -1068,7 +1241,7 @@ export const FitBuilderMode: React.FC = () => {
                 postureBands={POSTURE_PRESET}
               />
             )
-          ) : viewMode === 'side' ? (
+          ) : view === "side" ? (
             <svg viewBox={viewBox} className="geometry-svg">
               <line
                 x1={activeBounds.minX} y1={groundY} x2={activeBounds.maxX} y2={groundY}
@@ -1076,11 +1249,17 @@ export const FitBuilderMode: React.FC = () => {
               />
 
               <g className="geometry-layer geometry-layer--a">
-                <circle cx={bike.rearAxle.x} cy={-bike.rearAxle.y} r={effectiveFrame.wheel_radius} className="geometry-tyre" />
-                <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={effectiveFrame.wheel_radius} className="geometry-tyre" />
-                <circle cx={bike.rearAxle.x} cy={-bike.rearAxle.y} r={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)} className="geometry-wheel" />
-                <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)} className="geometry-wheel" />
-                <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.crankEnd.x} y2={-bike.crankEnd.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                <Wheel2D
+                  axle={bike.rearAxle}
+                  tyreRadius={effectiveFrame.wheel_radius}
+                  rimRadius={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)}
+                />
+                <Wheel2D
+                  axle={bike.frontAxle}
+                  tyreRadius={effectiveFrame.wheel_radius}
+                  rimRadius={Math.max(effectiveFrame.wheel_radius - tyreSize, effectiveFrame.wheel_radius - 42)}
+                />
+                <Drivetrain2D bb={bike.bb} crankEnd={bike.crankEnd} />
                 <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.bb.x} y2={-bike.bb.y} className="geometry-frame geometry-frame--main" />
                 <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
                 <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
@@ -1093,6 +1272,10 @@ export const FitBuilderMode: React.FC = () => {
                 <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.seatpostTop.x} y2={-bike.seatpostTop.y} className="geometry-frame geometry-frame--cockpit-thin" />
                 <line x1={bike.steererTop.x} y1={-bike.steererTop.y} x2={bike.barClamp.x} y2={-bike.barClamp.y} className="geometry-frame geometry-frame--cockpit" />
                 <line x1={bike.barClamp.x} y1={-bike.barClamp.y} x2={bike.hoods.x} y2={-bike.hoods.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                {/* Tube-junction dots so the frame reads as welded tubes, not a wireframe */}
+                {[bike.bb, bike.seatCluster, bike.headTubeTop, bike.headTubeBottom, bike.rearAxle, bike.frontAxle, bike.barClamp].map((pt, i) => (
+                  <circle key={i} cx={pt.x} cy={-pt.y} r={6} className="geometry-joint" />
+                ))}
                 <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="geometry-layer--a" />
                 {riderVisibility.contactMarkers && (
                   <>
@@ -1107,6 +1290,13 @@ export const FitBuilderMode: React.FC = () => {
                 // Anatomical ankle joint is ~19% of foot length behind the ball of foot.
                 // Used both for shoe collar drawing and as the shank line endpoint.
                 const visualAnkleX = bike.cleat.x - rider.foot_length * 0.19 * s;
+                // Two-tone limb: a wider low-opacity underlay gives the stick figure volume
+                const bodyLine = (x1: number, y1: number, x2: number, y2: number, sw: number) => (
+                  <g>
+                    <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__flesh" strokeWidth={Math.round(sw * 1.18 * s)} />
+                    <line x1={x1} y1={-y1} x2={x2} y2={-y2} className="geometry-mannequin__line" strokeWidth={Math.round(sw * s)} />
+                  </g>
+                );
                 return (
                   <g className="geometry-mannequin">
                     {/* ── Foot / shoe ── */}
@@ -1172,30 +1362,30 @@ export const FitBuilderMode: React.FC = () => {
                           opacity={0.45}
                         />
                         {/* Lower torso: hip → spine joint */}
-                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.spineJoint.x} y2={-mannequin.spineJoint.y} className="geometry-mannequin__line" strokeWidth={Math.round(160 * s)} />
+                        {bodyLine(mannequin.hip.x, mannequin.hip.y, mannequin.spineJoint.x, mannequin.spineJoint.y, 160)}
                         {/* Upper torso: spine joint → shoulder */}
-                        <line x1={mannequin.spineJoint.x} y1={-mannequin.spineJoint.y} x2={mannequin.shoulder.x} y2={-mannequin.shoulder.y} className="geometry-mannequin__line" strokeWidth={Math.round(175 * s)} />
+                        {bodyLine(mannequin.spineJoint.x, mannequin.spineJoint.y, mannequin.shoulder.x, mannequin.shoulder.y, 175)}
                       </>
                     )}
                     {riderVisibility.legs && (
                       <>
-                        <line x1={mannequin.hip.x} y1={-mannequin.hip.y} x2={mannequin.knee.x} y2={-mannequin.knee.y} className="geometry-mannequin__line" strokeWidth={Math.round(110 * s)} />
-                        <line x1={mannequin.knee.x} y1={-mannequin.knee.y} x2={visualAnkleX} y2={-mannequin.ankle.y} className="geometry-mannequin__line" strokeWidth={Math.round(82 * s)} />
+                        {bodyLine(mannequin.hip.x, mannequin.hip.y, mannequin.knee.x, mannequin.knee.y, 110)}
+                        {bodyLine(mannequin.knee.x, mannequin.knee.y, visualAnkleX, mannequin.ankle.y, 82)}
                       </>
                     )}
                     {riderVisibility.arms && (
                       <>
-                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.elbow.x} y2={-mannequin.elbow.y} className="geometry-mannequin__line" strokeWidth={Math.round(70 * s)} />
-                        <line x1={mannequin.elbow.x} y1={-mannequin.elbow.y} x2={mannequin.wrist.x} y2={-mannequin.wrist.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
-                        <line x1={mannequin.wrist.x} y1={-mannequin.wrist.y} x2={mannequin.hands.x} y2={-mannequin.hands.y} className="geometry-mannequin__line" strokeWidth={Math.round(45 * s)} />
+                        {bodyLine(mannequin.shoulder.x, mannequin.shoulder.y, mannequin.elbow.x, mannequin.elbow.y, 70)}
+                        {bodyLine(mannequin.elbow.x, mannequin.elbow.y, mannequin.wrist.x, mannequin.wrist.y, 55)}
+                        {bodyLine(mannequin.wrist.x, mannequin.wrist.y, mannequin.hands.x, mannequin.hands.y, 45)}
                       </>
                     )}
                     {riderVisibility.head && (
                       <>
                         {/* Neck: shoulder → neck base */}
-                        <line x1={mannequin.shoulder.x} y1={-mannequin.shoulder.y} x2={mannequin.neckBase.x} y2={-mannequin.neckBase.y} className="geometry-mannequin__line" strokeWidth={Math.round(55 * s)} />
+                        {bodyLine(mannequin.shoulder.x, mannequin.shoulder.y, mannequin.neckBase.x, mannequin.neckBase.y, 55)}
                         {/* Neck → head */}
-                        <line x1={mannequin.neckBase.x} y1={-mannequin.neckBase.y} x2={mannequin.head.x} y2={-mannequin.head.y} className="geometry-mannequin__line" strokeWidth={Math.round(45 * s)} />
+                        {bodyLine(mannequin.neckBase.x, mannequin.neckBase.y, mannequin.head.x, mannequin.head.y, 45)}
                         <circle cx={mannequin.head.x} cy={-mannequin.head.y} r={Math.round(88 * s)} className="geometry-mannequin__head" strokeWidth={Math.round(4 * s)} style={{ fillOpacity: 0.22 }} />
                       </>
                     )}
@@ -1203,12 +1393,49 @@ export const FitBuilderMode: React.FC = () => {
                 );
               })()}
 
+              {/* ── On-figure joint angle arcs, color-coded by constraint status ── */}
+              {showJointAngles && (
+                <g>
+                  <JointAngleArc
+                    joint={mannequin.knee}
+                    a={mannequin.hip}
+                    b={{ x: bike.cleat.x - rider.foot_length * 0.19 * (rider.height / 1800), y: mannequin.ankle.y }}
+                    label={`Knee ${kneeFlex.toFixed(0)}° flex`}
+                    color={
+                      kneeTone === "ok" ? "#4cbf7e" : kneeTone === "warn" ? "#e8a33c" : kneeTone === "bad" ? "#e05252" : "rgba(250, 240, 226, 0.85)"
+                    }
+                  />
+                  <JointAngleArc
+                    joint={mannequin.hip}
+                    a={mannequin.shoulder}
+                    b={{ x: mannequin.hip.x + 300, y: mannequin.hip.y }}
+                    label={`Trunk ${targetTrunkAngleDeg.toFixed(0)}°`}
+                    color="#5fb8c4"
+                    radius={90}
+                    labelRadiusFactor={1.35}
+                  />
+                  <JointAngleArc
+                    joint={mannequin.elbow}
+                    a={mannequin.shoulder}
+                    b={mannequin.wrist}
+                    label={`Elbow ${(180 - angleAtPoint(mannequin.shoulder, mannequin.elbow, mannequin.wrist)).toFixed(0)}°`}
+                    color="rgba(250, 240, 226, 0.75)"
+                    radius={52}
+                  />
+                </g>
+              )}
+
               {riderVisibility.contactMarkers && (["saddle", "hoods", "cleat"] as const).map((contact) => {
                 const pt = idealContacts[contact];
+                const w = warnings.find((warning) => warning.contact === contact);
+                const crossStyle =
+                  w && w.severity !== "ok"
+                    ? { stroke: w.severity === "warning" ? "#e8a33c" : "#e05252" }
+                    : undefined;
                 return (
                   <g key={contact}>
-                    <line x1={pt.x - 18} y1={-pt.y} x2={pt.x + 18} y2={-pt.y} className="geometry-target" />
-                    <line x1={pt.x} y1={-pt.y - 18} x2={pt.x} y2={-pt.y + 18} className="geometry-target" />
+                    <line x1={pt.x - 18} y1={-pt.y} x2={pt.x + 18} y2={-pt.y} className="geometry-target" style={crossStyle} />
+                    <line x1={pt.x} y1={-pt.y - 18} x2={pt.x} y2={-pt.y + 18} className="geometry-target" style={crossStyle} />
                     <text x={pt.x + 12} y={-pt.y - 12} className="geometry-label geometry-label--target">
                       Ideal {contact}
                     </text>
@@ -1226,13 +1453,14 @@ export const FitBuilderMode: React.FC = () => {
                     <g key={w.contact}>
                       <line
                         x1={actual.x} y1={-actual.y} x2={ideal.x} y2={-ideal.y}
-                        stroke={severityColor(w.severity)}
-                        strokeWidth={1.5} strokeDasharray="5 3" opacity={0.7}
+                        stroke={severitySvgColor(w.severity)}
+                        strokeWidth={1.5} strokeDasharray="5 3" opacity={0.8}
                       />
                       <text
                         x={(actual.x + ideal.x) / 2 + 8}
                         y={-((actual.y + ideal.y) / 2)}
-                        style={{ fill: severityColor(w.severity), fontSize: 20 }}
+                        className="geometry-label"
+                        style={{ fill: severitySvgColor(w.severity), fontSize: 20 }}
                       >
                         {w.distance.toFixed(0)} mm
                       </text>
@@ -1321,163 +1549,23 @@ export const FitBuilderMode: React.FC = () => {
         </div>
       </section>
 
-      {/* ── Right panel: metrics ── */}
-      <aside className="controls-panel controls-panel--dense builder-right" style={{ display: fullscreen ? "none" : undefined }}>
+      {metricsPanel}
 
-        <CollapsibleSection eyebrow="Fit Analysis" title="Ideal vs actual">
-          <div className="metric-grid">
-            <div className="metric-card"
-              title="Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface. This is the height that gives your target knee flex angle at bottom dead centre.">
-              <div className="metric-card__label">{fitMode === "saddle_height" ? "Target saddle height" : "Ideal saddle height"}</div>
-              <div className="metric-card__compare"><strong>{idealSaddleY.toFixed(0)} mm</strong></div>
-            </div>
-            <div className="metric-card"
-              title="Current saddle height based on your seatpost and saddle stack settings. Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface.">
-              <div className="metric-card__label">Actual saddle height</div>
-              <div className="metric-card__compare"><strong>{actualSaddleY.toFixed(0)} mm</strong></div>
-              <div className="metric-card__delta">{(actualSaddleY - idealSaddleY).toFixed(0)} mm vs ideal</div>
-            </div>
-            <div className="metric-card"
-              title="Distance measured along the seat tube from the centre of the bottom bracket axle to the top of the saddle surface. This matches the standard tape measurement a bike fitter takes.">
-              <div className="metric-card__label">BB to saddle</div>
-              <div className="metric-card__compare"><strong>{Math.round(bbToSaddleDistance)} mm</strong></div>
-            </div>
-            <div className="metric-card"
-              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper.">
-              <div className="metric-card__label">Seatpost extension</div>
-              <div className="metric-card__compare"><strong>{seatpostExtension.toFixed(0)} mm</strong></div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Knee flex at BDC</div>
-              <div className="metric-card__compare"><strong>{kneeFlex.toFixed(1)}°</strong></div>
-              {fitMode === "contact" && (
-                <div className="metric-card__delta">Target {riderFit.targetKneeFlexDeg}°</div>
-              )}
-            </div>
-            <div className="metric-card"
-              title="Knee flexion when the crank is at top dead centre. Values above ~115° suggest the saddle is too low or the cranks too long for your hip mobility.">
-              <div className="metric-card__label">Knee flex at TDC</div>
-              <div className="metric-card__compare" style={{ color: bandColor(bandStatus(strokeMetrics.kneeFlexionTdcDeg, POSTURE_PRESET.knee_flexion_tdc)) }}>
-                <strong>{strokeMetrics.kneeFlexionTdcDeg.toFixed(1)}°</strong>
-              </div>
-              <div className="metric-card__delta">
-                Band {POSTURE_PRESET.knee_flexion_tdc.min_deg}–{POSTURE_PRESET.knee_flexion_tdc.max_deg}°
-              </div>
-            </div>
-            <div className="metric-card"
-              title="KOPS: horizontal distance from the knee joint centre to the pedal spindle with the crank at 3 o'clock. Positive = knee ahead of the spindle. A neutral starting point is ±20 mm; it is a reference, not a rule.">
-              <div className="metric-card__label">KOPS offset</div>
-              <div className="metric-card__compare">
-                <strong>{strokeMetrics.kopsOffsetMm >= 0 ? "+" : ""}{strokeMetrics.kopsOffsetMm.toFixed(0)} mm</strong>
-              </div>
-              <div className="metric-card__delta">
-                {strokeMetrics.kopsOffsetMm > 20 ? "Knee forward of spindle" : strokeMetrics.kopsOffsetMm < -20 ? "Knee behind spindle" : "Near neutral"}
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Trunk angle</div>
-              <div className="metric-card__compare"><strong>{targetTrunkAngleDeg}°</strong></div>
-              <div className="metric-card__delta">{PRESET_LABELS[preset]} preset</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Current bar reach</div>
-              <div className="metric-card__compare"><strong>{components.bar_reach} mm</strong></div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Bar reach needed</div>
-              {barReachNeededValue !== null ? (
-                <>
-                  <div className="metric-card__compare"><strong>{Math.round(barReachNeededValue)} mm</strong></div>
-                  <div className="metric-card__delta">
-                    {barReachNeededValue - components.bar_reach >= 0 ? "+" : ""}
-                    {Math.round(barReachNeededValue - components.bar_reach)} mm vs current
-                  </div>
-                </>
-              ) : (
-                <div className="metric-card__compare" style={{ color: "var(--accent)" }}>
-                  <strong>Out of range</strong>
-                </div>
-              )}
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Warnings" title="Contact point match">
-          <div className="metric-grid">
-            {warnings.map((w) => (
-              <div className="metric-card" key={w.contact}>
-                <div className="metric-card__label" style={{ textTransform: "capitalize" }}>{w.contact}</div>
-                <div className="metric-card__compare" style={{ color: severityColor(w.severity) }}>
-                  <strong>
-                    {w.severity === "ok"
-                      ? `On target (${w.distance.toFixed(0)} mm)`
-                      : `${w.distance.toFixed(0)} mm off`}
-                  </strong>
-                </div>
-                {w.severity !== "ok" && (
-                  <div className="metric-card__delta">
-                    ΔX {w.deltaX.toFixed(0)} mm · ΔY {w.deltaY.toFixed(0)} mm
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Coordinates" title="Contact positions (from BB)" defaultOpen={false}>
-          <div className="metric-grid">
-            {([
-              ["Saddle X", bike.saddle.x],
-              ["Saddle Y", bike.saddle.y],
-              ["Hoods X",  bike.hoods.x],
-              ["Hoods Y",  bike.hoods.y],
-              ["Cleat X",  bike.cleat.x],
-              ["Cleat Y",  bike.cleat.y],
-            ] as [string, number][]).map(([label, value]) => (
-              <div className="metric-card" key={label}>
-                <div className="metric-card__label">{label}</div>
-                <div className="metric-card__compare"><strong>{Math.round(value)} mm</strong></div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Seatpost" title="Seatpost recommendation" defaultOpen={false}>
-          <div className="metric-grid">
-            <div className="metric-card">
-              <div className="metric-card__label">BB to rail distance</div>
-              <div className="metric-card__compare">
-                <strong>{Math.round(seatpostRec.bbToRailDistance)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Seatpost type</div>
-              <div className="metric-card__compare" style={{
-                color: seatpostRec.type === "straight"
-                  ? "var(--teal)"
-                  : seatpostRec.type === "setback"
-                  ? "#d4880a"
-                  : "var(--accent)"
-              }}>
-                <strong style={{ textTransform: "capitalize" }}>{seatpostRec.type}</strong>
-              </div>
-              <div className="metric-card__delta">{seatpostRec.note}</div>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection eyebrow="Frame" title="Geometry" defaultOpen={false}>
-          <div className="metric-grid">
-            {frameGeometryRows.map(([label, value]) => (
-              <div className="metric-card" key={label}>
-                <div className="metric-card__label">{label}</div>
-                <div className="metric-card__compare"><strong>{value}</strong></div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-
-      </aside>
+      {/* ── Mobile: bottom bar toggling controls/results sheets ── */}
+      <div className="builder-mobilebar">
+        <button
+          className={`builder-mobilebar__btn${mobilePanel === "controls" ? " builder-mobilebar__btn--active" : ""}`}
+          onClick={() => setMobilePanel((p) => (p === "controls" ? null : "controls"))}
+        >
+          Controls
+        </button>
+        <button
+          className={`builder-mobilebar__btn${mobilePanel === "results" ? " builder-mobilebar__btn--active" : ""}`}
+          onClick={() => setMobilePanel((p) => (p === "results" ? null : "results"))}
+        >
+          Results{issueCount > 0 ? ` (${issueCount})` : ""}
+        </button>
+      </div>
     </div>
   );
 };

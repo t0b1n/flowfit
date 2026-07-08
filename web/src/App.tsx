@@ -18,8 +18,8 @@ const Header: React.FC = () => {
   return (
     <header className="mode-nav">
       <div className="mode-nav__brand">
-        <div className="eyebrow">bikegeo</div>
-        <h1>Bike Fit Tool</h1>
+        <div className="eyebrow">Contact-point bike fitting</div>
+        <h1>FlowFit</h1>
       </div>
       <nav className="mode-nav__tabs">
         <NavLink
@@ -42,7 +42,7 @@ const Header: React.FC = () => {
           className={({ isActive }) => `mode-tab ${isActive ? "mode-tab--active" : ""}`}
         >
           <strong>Add bike</strong>
-          <span>Contribute a frame to the catalog</span>
+          <span>{user ? "Contribute a frame to the catalog" : "Sign in to contribute a frame"}</span>
         </NavLink>
       </nav>
       <div className="mode-nav__auth">
@@ -72,8 +72,6 @@ const Header: React.FC = () => {
 
 const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="app-shell">
-    <div className="app-glow app-glow--left" />
-    <div className="app-glow app-glow--right" />
     <Header />
     <main>{children}</main>
   </div>

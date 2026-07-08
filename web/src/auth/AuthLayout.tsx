@@ -12,7 +12,7 @@ export const AuthLayout: React.FC<Props> = ({ title, subtitle, children, footer 
   <div className="auth-layout">
     <div className="auth-card">
       <div className="auth-card__brand">
-        <Link to="/" className="eyebrow">bikegeo</Link>
+        <Link to="/" className="eyebrow">FlowFit</Link>
         <h1>{title}</h1>
         {subtitle ? <p className="auth-card__subtitle">{subtitle}</p> : null}
       </div>

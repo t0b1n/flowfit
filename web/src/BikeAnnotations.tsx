@@ -239,18 +239,22 @@ export const FRAME_MEASUREMENT_IDS = [
 export type FrameMeasurementId = typeof FRAME_MEASUREMENT_IDS[number];
 export type FrameMeasurementVisibility = Record<FrameMeasurementId, boolean>;
 
+const ALL_MEASUREMENTS_VISIBLE = Object.fromEntries(
+  FRAME_MEASUREMENT_IDS.map((id) => [id, true])
+) as FrameMeasurementVisibility;
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export const BikeGeometryAnnotations: React.FC<{
   bike: BikeSketch;
   frame: FrameGeometry;
-  sizeData: SizeData;
-  visibleMeasurements: FrameMeasurementVisibility;
-}> = ({ bike, frame, sizeData, visibleMeasurements }) => {
+  sizeData?: SizeData;
+  visibleMeasurements?: FrameMeasurementVisibility;
+}> = ({ bike, frame, sizeData, visibleMeasurements = ALL_MEASUREMENTS_VISIBLE }) => {
   // Convert all key points to SVG coords (x same, y = -bikeY)
   const bb    = { x: 0, y: 0 };
   const htTop = { x: frame.reach, y: -frame.stack };
   const htBot = { x: bike.headTubeBottom.x, y: -bike.headTubeBottom.y };
-  const ettSeat = sizeData.top_tube_effective != null
+  const ettSeat = sizeData?.top_tube_effective != null
     ? { x: htTop.x - sizeData.top_tube_effective, y: htTop.y }
     : { x: bike.seatCluster.x, y: htTop.y };
   const stTop = { x: bike.seatTubeTop.x,    y: -bike.seatTubeTop.y };
@@ -261,7 +265,7 @@ export const BikeGeometryAnnotations: React.FC<{
   const htLen = Math.round(frame.head_tube ?? Math.hypot(htTop.x - htBot.x, htTop.y - htBot.y));
 
   // Effective top tube is horizontal from the seat tube axis at HT-top height.
-  const ettLen = Math.round(sizeData.top_tube_effective ?? (htTop.x - ettSeat.x));
+  const ettLen = Math.round(sizeData?.top_tube_effective ?? (htTop.x - ettSeat.x));
 
   // Placement offsets
   const dimRightX  = htTop.x + 85;
@@ -276,7 +280,7 @@ export const BikeGeometryAnnotations: React.FC<{
   const sa = frame.seat_angle_deg;
   // Head tube angle: SVG angle of tube's downward extension = ha° from rightward
   const ha = frame.head_angle_deg;
-  const wheelbase = sizeData.wheelbase ?? Math.round(frontA.x - rearA.x);
+  const wheelbase = sizeData?.wheelbase ?? Math.round(frontA.x - rearA.x);
   const seatTubeLength = frame.seat_tube_ct ?? null;
 
   return (

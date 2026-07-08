@@ -24,25 +24,25 @@ import {
 } from "./bike3d";
 import { legPoseAt, PedalStrokeLUT } from "./geometry";
 
-// Materials — match the declarative mannequin/frame materials in BikeScene3D
-// so paused animation is indistinguishable from the static render.
+// Materials — match the declarative mannequin/drivetrain materials in
+// BikeScene3D so paused animation is indistinguishable from the static render.
 const BODY_MATERIAL = (
-  <meshStandardMaterial color="#7a8fa6" roughness={0.55} metalness={0.05} />
+  <meshStandardMaterial color="#8a7f76" roughness={0.6} metalness={0.02} />
 );
 const JOINT_MATERIAL = (
-  <meshStandardMaterial color="#5c6e82" roughness={0.4} metalness={0.1} />
+  <meshStandardMaterial color="#6b6159" roughness={0.45} metalness={0.05} />
 );
 const OUTLINE_MATERIAL = (
-  <meshBasicMaterial color="#2a3540" side={THREE.BackSide} />
+  <meshBasicMaterial color="#221b16" side={THREE.BackSide} />
 );
 const CRANK_MATERIAL = (
-  <meshStandardMaterial color="#26262b" roughness={0.35} metalness={0.7} />
+  <meshStandardMaterial color="#26292d" roughness={0.35} metalness={0.7} />
 );
 const CHAINRING_MATERIAL = (
-  <meshStandardMaterial color="#3d3d44" roughness={0.3} metalness={0.8} />
+  <meshStandardMaterial color="#26292d" roughness={0.3} metalness={0.75} />
 );
 const PEDAL_MATERIAL = (
-  <meshStandardMaterial color="#141416" roughness={0.6} metalness={0.3} />
+  <meshStandardMaterial color="#141414" roughness={0.6} metalness={0.3} />
 );
 
 const OUTLINE_SCALE = 1.015;
@@ -54,11 +54,15 @@ const _dir = new THREE.Vector3();
 const _mid = new THREE.Vector3();
 const _Y = new THREE.Vector3(0, 1, 0);
 
-/** Orient a group like a Y-axis capsule spanning A→B (midpoint + rotation). */
+/** Orient a group like a Y-axis capsule spanning A→B (midpoint + rotation).
+ *  When baseLen is given the group is Y-scaled so a capsule built for baseLen
+ *  spans the actual segment (drawn shin/foot lengths drift a few % through
+ *  the stroke because of the anatomical ankle setback). */
 function setSegment(
   g: THREE.Group | null,
   ax: number, ay: number, az: number,
   bx: number, by: number, bz: number,
+  baseLen?: number,
 ): void {
   if (!g) return;
   _a.set(ax, ay, az);
@@ -70,6 +74,7 @@ function setSegment(
   _mid.addVectors(_a, _b).multiplyScalar(0.5);
   g.position.copy(_mid);
   g.quaternion.setFromUnitVectors(_Y, _dir);
+  if (baseLen && baseLen > 1) g.scale.setY(len / baseLen);
 }
 
 const dist3 = (
@@ -166,9 +171,12 @@ export function AnimatedLegs({
       scaleRadius(footSpec.baseRadiusEnd ?? footSpec.baseRadius, weightKg, footSpec.sensitivity)
     ) / 2;
 
+    // Drawn ankle sits ankleSetback behind the pedal spindle (matches the
+    // static mannequin's anatomical ankle convention)
+    const drawnAnkleX = p0.ankle.x - lut.ankleSetbackMm;
     const thighLen = dist3(hipL[0], hipL[1], hipL[2], p0.knee.x, p0.knee.y, halfStance);
-    const shinLen = dist3(p0.knee.x, p0.knee.y, 0, p0.ankle.x, p0.ankle.y, 0);
-    const footLen = dist3(p0.cleat.x, p0.cleat.y, 0, p0.ankle.x, p0.ankle.y, 0);
+    const shinLen = dist3(p0.knee.x, p0.knee.y, 0, drawnAnkleX, p0.ankle.y, 0);
+    const footLen = dist3(p0.cleat.x, p0.cleat.y, 0, drawnAnkleX, p0.ankle.y, 0);
     const crankLen = dist3(bb[0], bb[1], CRANK_ROOT_Z, p0.spindle.x, p0.spindle.y, halfStance);
 
     const body = (len: number, radius: number) =>
@@ -179,8 +187,10 @@ export function AnimatedLegs({
       thighBody: body(thighLen, r("mannequin_thigh")),
       shinR: r("mannequin_shin"),
       shinBody: body(shinLen, r("mannequin_shin")),
+      shinLen,
       footR,
       footBody: body(footLen, footR),
+      footLen,
       kneeJr: jr("knee_l"),
       ankleJr: jr("ankle_l"),
       crankBody: Math.max(0, crankLen - CRANK_RADIUS * 2),
@@ -199,17 +209,22 @@ export function AnimatedLegs({
     const zL = +halfStance;
     const zR = -halfStance;
 
+    // Drawn ankle: anatomical joint behind the spindle (IK ankle stays above it)
+    const setback = lut.ankleSetbackMm;
+    const lAnkleX = left.ankle.x - setback;
+    const rAnkleX = right.ankle.x - setback;
+
     setSegment(thighLRef.current, hipL[0], hipL[1], hipL[2], left.knee.x, left.knee.y, zL);
     setSegment(thighRRef.current, hipR[0], hipR[1], hipR[2], right.knee.x, right.knee.y, zR);
-    setSegment(shinLRef.current, left.knee.x, left.knee.y, zL, left.ankle.x, left.ankle.y, zL);
-    setSegment(shinRRef.current, right.knee.x, right.knee.y, zR, right.ankle.x, right.ankle.y, zR);
-    setSegment(footLRef.current, left.cleat.x, left.cleat.y, zL, left.ankle.x, left.ankle.y, zL);
-    setSegment(footRRef.current, right.cleat.x, right.cleat.y, zR, right.ankle.x, right.ankle.y, zR);
+    setSegment(shinLRef.current, left.knee.x, left.knee.y, zL, lAnkleX, left.ankle.y, zL, dims.shinLen);
+    setSegment(shinRRef.current, right.knee.x, right.knee.y, zR, rAnkleX, right.ankle.y, zR, dims.shinLen);
+    setSegment(footLRef.current, left.cleat.x, left.cleat.y, zL, lAnkleX, left.ankle.y, zL, dims.footLen);
+    setSegment(footRRef.current, right.cleat.x, right.cleat.y, zR, rAnkleX, right.ankle.y, zR, dims.footLen);
 
     kneeLRef.current?.position.set(left.knee.x, left.knee.y, zL);
     kneeRRef.current?.position.set(right.knee.x, right.knee.y, zR);
-    ankleLRef.current?.position.set(left.ankle.x, left.ankle.y, zL);
-    ankleRRef.current?.position.set(right.ankle.x, right.ankle.y, zR);
+    ankleLRef.current?.position.set(lAnkleX, left.ankle.y, zL);
+    ankleRRef.current?.position.set(rAnkleX, right.ankle.y, zR);
 
     setSegment(crankLRef.current, bb[0], bb[1], +CRANK_ROOT_Z, left.spindle.x, left.spindle.y, zL);
     setSegment(crankRRef.current, bb[0], bb[1], -CRANK_ROOT_Z, right.spindle.x, right.spindle.y, zR);

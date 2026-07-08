@@ -445,6 +445,9 @@ export interface PedalStrokeLUT {
   kneeExtensionMaxDeg: number;
   crankLength: number;
   hip: ContactPoint;
+  /** Anatomical ankle-joint setback behind the pedal spindle (drawn geometry
+   *  only — the IK solves from the spindle; see buildMannequin3DPoints). */
+  ankleSetbackMm: number;
 }
 
 export function solvePedalStroke(
@@ -495,6 +498,7 @@ export function solvePedalStroke(
     kneeExtensionMaxDeg,
     crankLength,
     hip,
+    ankleSetbackMm: rider.foot_length * 0.19 * (rider.height / 1800),
   };
 }
 
@@ -955,13 +959,41 @@ export function buildMannequin3DPoints(
     points.push({ name, pos: [x, y, z], group: "mannequin" });
   };
 
-  // Legs at ±half_stance
-  p("cleat_l", mannequin.ankle.x, mannequin.ankle.y - (components.pedal_stack_height || 0), +halfStance);
-  p("cleat_r", mannequin.ankle.x, mannequin.ankle.y - (components.pedal_stack_height || 0), -halfStance);
-  p("ankle_l", mannequin.ankle.x, mannequin.ankle.y, +halfStance);
-  p("ankle_r", mannequin.ankle.x, mannequin.ankle.y, -halfStance);
+  const pedalStack = components.pedal_stack_height || 0;
+
+  // Anatomical ankle joint sits ~19% of foot length behind the ball of the
+  // foot / pedal spindle. The 2D side view draws the shin to this shifted
+  // point (visualAnkleX in FitBuilderMode); use the same convention here so
+  // the 3D knee bend reads identically. The IK itself solves with the
+  // unshifted ankle in both views.
+  const ankleSetback = rider.foot_length * 0.19 * (rider.height / 1800);
+
+  // Left leg: the 2D fit pose (crank at bottom dead center — this is the leg
+  // "knee flex at BDC" is measured on, matching the 2D side view).
+  p("cleat_l", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
+  p("ankle_l", mannequin.ankle.x - ankleSetback, mannequin.ankle.y, +halfStance);
   p("knee_l", mannequin.knee.x, mannequin.knee.y, +halfStance);
-  p("knee_r", mannequin.knee.x, mannequin.knee.y, -halfStance);
+
+  // Right leg: posed at the opposed crank position (top dead center) so the
+  // rider isn't impossibly pedaling with both feet down. The pedal spindle
+  // sits at (0, −crank_length) from the BB (origin), so the opposed spindle is
+  // at +crank_length; the cleat keeps its setback. Knee solved with the same
+  // two-bone IK as the left leg, picking the forward (toward-the-bars)
+  // candidate since a strongly bent knee must point ahead of the hip–ankle line.
+  const cleatR2d = { x: -components.cleat_setback, y: components.crank_length };
+  const ankleR2d = { x: cleatR2d.x, y: cleatR2d.y + pedalStack };
+  const hip2d = { x: mannequin.hip.x, y: mannequin.hip.y };
+  const [kneeCandA, kneeCandB] = circleIntersections(
+    hip2d,
+    ankleR2d,
+    rider.thigh_length,
+    rider.shank_length,
+    true
+  );
+  const kneeR2d = kneeCandA.x >= kneeCandB.x ? kneeCandA : kneeCandB;
+  p("cleat_r", cleatR2d.x, cleatR2d.y, -halfStance);
+  p("ankle_r", ankleR2d.x - ankleSetback, ankleR2d.y, -halfStance);
+  p("knee_r", kneeR2d.x, kneeR2d.y, -halfStance);
 
   // Hips at ±half_hip + centerline
   p("hip_l", mannequin.hip.x, mannequin.hip.y, +halfHip);

@@ -1,8 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
-import type { FrameMeasurementVisibility } from "./BikeAnnotations";
 import { solve } from "./api";
 import { useCatalog } from "./catalog/CatalogContext";
+import { Drivetrain2D, Wheel2D } from "./components/BikeParts2D";
+import { CollapsibleSection } from "./components/CollapsibleSection";
+import { HOOD_PRESETS } from "./components/hoodPresets";
+import { MetricCard } from "./components/MetricCard";
+import { PresetPills } from "./components/PresetPills";
+import { SaddleShape } from "./components/SaddleShape";
+import { SliderCard } from "./components/SliderCard";
 import {
   DEFAULT_COMPONENTS,
   DEFAULT_RIDER_FIT,
@@ -17,64 +23,7 @@ import {
   synthesizeBike,
   withTyreSize,
 } from "./geometry";
-import type { BikeSelection, Components, ContactPoint, ReferenceMode, RiderFit, SetupResult } from "./types";
-
-// ── Saddle shape SVG sub-component ────────────────────────────────────────────
-
-const SaddleShape: React.FC<{
-  contact: ContactPoint; // bike coordinates (y up) — saddle surface
-  clamp: ContactPoint;   // bike coordinates — visual seatpost head / rail support
-  className?: string;
-}> = ({ contact, clamp, className }) => {
-  const cx = contact.x;
-  const cy = -contact.y;
-  const clampSvgX = clamp.x;
-  const clampSvgY = -clamp.y;
-  const w = 120;
-  const h = 25;
-  const r = 8;
-  const d = [
-    `M ${cx - w + r},${cy}`,
-    `L ${cx + w - r},${cy}`,
-    `Q ${cx + w},${cy} ${cx + w},${cy + r}`,
-    `L ${cx + w},${cy + h - r}`,
-    `Q ${cx + w},${cy + h} ${cx + w - r},${cy + h}`,
-    `L ${cx - w + r},${cy + h}`,
-    `Q ${cx - w},${cy + h} ${cx - w},${cy + h - r}`,
-    `L ${cx - w},${cy + r}`,
-    `Q ${cx - w},${cy} ${cx - w + r},${cy}`,
-    "Z",
-  ].join(" ");
-  return (
-    <g className={className}>
-      <path d={d} className="geometry-saddle-body" />
-      <line x1={cx - 40} y1={cy + h} x2={clampSvgX} y2={clampSvgY} className="geometry-saddle-rail" />
-      <line x1={cx + 40} y1={cy + h} x2={clampSvgX} y2={clampSvgY} className="geometry-saddle-rail" />
-      <circle cx={clampSvgX} cy={clampSvgY} r={4} className="geometry-saddle-clamp" />
-    </g>
-  );
-};
-
-const ALL_FRAME_MEASUREMENTS: FrameMeasurementVisibility = {
-  stack: true,
-  reach: true,
-  effectiveTopTube: true,
-  headTubeLength: true,
-  headTubeAngle: true,
-  seatTubeAngle: true,
-  seatTubeLength: true,
-  bbDrop: true,
-  chainstay: true,
-  wheelbase: true,
-  forkLength: true,
-  forkOffset: true,
-};
-
-const HOOD_PRESETS = [
-  { id: "shimano", label: "Shimano DA", hoodReachOffset: 24 },
-  { id: "sram-red", label: "SRAM Red E1", hoodReachOffset: 28 },
-  { id: "sram-force", label: "SRAM Force E1", hoodReachOffset: 28 },
-];
+import type { BikeSelection, Components, ReferenceMode, RiderFit, SetupResult } from "./types";
 
 const ENDURANCE_PRESET = {
   name: "Endurance",
@@ -85,6 +34,56 @@ const ENDURANCE_PRESET = {
   knee_extension: { min_deg: 140, max_deg: 150, weight: 1 },
   shoulder_abduction: null,
 };
+
+// The four fields the solver owns on Frame B
+const SOLVER_FIELDS = new Set<keyof Components>([
+  "stem_length",
+  "stem_angle_deg",
+  "spacer_stack",
+  "saddle_clamp_offset",
+]);
+
+type SliderRow = readonly [string, number, number, number, number, string, string];
+
+const COCKPIT_SLIDERS = (comps: Components, tyreSize: number): readonly SliderRow[] => [
+  ["Stem length", comps.stem_length, 50, 180, 1, "stem_length", "mm"],
+  ["Stem angle", comps.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
+  ["Spacers", comps.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
+  ["Saddle offset", comps.saddle_clamp_offset, 550, 900, 5, "saddle_clamp_offset", "mm"],
+  ["Saddle stack", comps.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
+  ["Seatpost offset", comps.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
+  ["Rail offset", comps.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
+  ["Bar reach", comps.bar_reach, 65, 105, 1, "bar_reach", "mm"],
+  ["Hood reach", comps.hood_reach_offset, 16, 32, 0.5, "hood_reach_offset", "mm"],
+  ["Bar width", comps.bar_width, 200, 460, 10, "bar_width", "mm"],
+  ["Crank length", comps.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
+  ["Tyre size", tyreSize, 25, 38, 1, "__tyre__", "mm"],
+];
+
+// Small padlock used on solver-owned sliders
+const LockToggle: React.FC<{ locked: boolean; onToggle: (locked: boolean) => void }> = ({
+  locked,
+  onToggle,
+}) => (
+  <button
+    type="button"
+    className={`lock-btn${locked ? " lock-btn--locked" : ""}`}
+    title={locked ? "Pinned — solver holds this value fixed. Click to release." : "Pin this value — solver will hold it fixed"}
+    onClick={(e) => {
+      e.preventDefault();
+      onToggle(!locked);
+    }}
+  >
+    <svg width="11" height="12" viewBox="0 0 11 12" aria-hidden="true">
+      <rect x="1" y="5" width="9" height="6.5" rx="1" fill="currentColor" />
+      {locked ? (
+        <path d="M 3 5 V 3.4 A 2.5 2.5 0 0 1 8 3.4 V 5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      ) : (
+        <path d="M 3 5 V 3.4 A 2.5 2.5 0 0 1 8 3.4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      )}
+    </svg>
+  </button>
+);
 
 export const FitTransferMode: React.FC = () => {
   const { catalog: FRAME_CATALOG, getModelById, getSizeData } = useCatalog();
@@ -106,8 +105,8 @@ export const FitTransferMode: React.FC = () => {
   const [componentsB, setComponentsB] = useState<Components>({ ...DEFAULT_COMPONENTS });
   const [tyreSizeA, setTyreSizeA] = useState(DEFAULT_TYRE_SIZE);
   const [tyreSizeB, setTyreSizeB] = useState(DEFAULT_TYRE_SIZE);
-  const [hoodPresetA, setHoodPresetA] = useState(HOOD_PRESETS[0].id);
-  const [hoodPresetB, setHoodPresetB] = useState(HOOD_PRESETS[0].id);
+  const [hoodPresetA, setHoodPresetA] = useState<string>(HOOD_PRESETS[0].id);
+  const [hoodPresetB, setHoodPresetB] = useState<string>(HOOD_PRESETS[0].id);
   const [riderFit, setRiderFit] = useState<RiderFit>(DEFAULT_RIDER_FIT);
 
   const [autoSizeB, setAutoSizeB] = useState(false);
@@ -335,19 +334,158 @@ export const FitTransferMode: React.FC = () => {
     [resultB, contactsA.hoods, bikeB.barClamp, solvedComponentsB.hood_reach_offset]
   );
 
+  // Renders one cockpit slider for card A or B; on Frame B the solver-owned
+  // fields display solver output (plus any tweak) and route edits to tweaksB
+  // so they don't retrigger a solve.
+  const renderSlider = (
+    row: SliderRow,
+    cardKey: "a" | "b",
+    comps: Components,
+    updateComp: (k: keyof Components, v: number) => void,
+    setTyre: (v: number) => void
+  ) => {
+    const [label, value, min, max, step, k, unit] = row;
+    const fieldKey = k as keyof Components;
+    const solverOwns = cardKey === "b" && SOLVER_FIELDS.has(fieldKey);
+    const isPinned = solverOwns && pinnedB.has(fieldKey);
+    const isTweaked = solverOwns && !isPinned && tweaksB[fieldKey] !== undefined;
+    // Pinned fields display the user's input (componentsB). Otherwise after a
+    // solve, solver-owned sliders display the solver output (merged with any
+    // tweak) so they match what's rendered.
+    const displayValue =
+      solverOwns && isPinned
+        ? (componentsB[fieldKey] as number)
+        : solverOwns && resultB
+        ? (solvedComponentsB[fieldKey] as number)
+        : value;
+
+    const handleChange = (v: number) => {
+      if (k === "__tyre__") {
+        setTyre(v);
+      } else if (solverOwns && isPinned) {
+        updateComp(fieldKey, v);
+      } else if (solverOwns && resultB) {
+        setTweaksB((t) => ({ ...t, [k]: v }));
+      } else {
+        updateComp(fieldKey, v);
+      }
+    };
+
+    const handlePinToggle = (locked: boolean) => {
+      setPinnedB((s) => {
+        const next = new Set(s);
+        if (locked) next.add(fieldKey);
+        else next.delete(fieldKey);
+        return next;
+      });
+      if (locked) {
+        // Promote any existing tweak to the pinned input, then clear the tweak
+        // entry so it can't fight the pin.
+        const tweaked = tweaksB[fieldKey];
+        if (tweaked !== undefined) {
+          updateComp(fieldKey, tweaked as number);
+          setTweaksB((t) => {
+            const { [fieldKey]: _omit, ...rest } = t;
+            return rest;
+          });
+        } else if (resultB) {
+          // Seed pinned value from the solver result so the visible slider
+          // value doesn't jump on pin.
+          updateComp(fieldKey, solvedComponentsB[fieldKey] as number);
+        }
+      }
+    };
+
+    const stateChip = solverOwns ? (
+      <span
+        className={`state-chip state-chip--${isPinned ? "pinned" : isTweaked ? "tweaked" : "solver"}`}
+      >
+        {isPinned ? "Pinned" : isTweaked ? "Tweaked" : "Auto"}
+      </span>
+    ) : null;
+
+    const resetTweak = isTweaked ? (
+      <button
+        type="button"
+        className="reset-mini"
+        title="Reset to solver value"
+        onClick={(e) => {
+          e.preventDefault();
+          setTweaksB((t) => {
+            const { [fieldKey]: _omit, ...rest } = t;
+            return rest;
+          });
+        }}
+      >
+        ↺
+      </button>
+    ) : null;
+
+    return (
+      <SliderCard
+        key={k}
+        label={
+          solverOwns ? (
+            <span className="solver-slider-label">
+              <LockToggle locked={isPinned} onToggle={handlePinToggle} />
+              {label}
+            </span>
+          ) : (
+            label
+          )
+        }
+        value={`${Number(displayValue).toFixed(step === 0.5 || step === 2.5 ? 1 : 0)} ${unit}`}
+        min={min}
+        max={max}
+        step={step}
+        sliderValue={displayValue}
+        onChange={handleChange}
+        trailing={
+          stateChip || resetTweak ? (
+            <>
+              {stateChip}
+              {resetTweak}
+            </>
+          ) : undefined
+        }
+      >
+        {k === "hood_reach_offset" ? (
+          <PresetPills
+            small
+            inline
+            options={HOOD_PRESETS}
+            activeId={cardKey === "a" ? hoodPresetA : hoodPresetB}
+            onSelect={(id) => {
+              const hp = HOOD_PRESETS.find((p) => p.id === id)!;
+              if (cardKey === "a") setHoodPresetA(id);
+              else setHoodPresetB(id);
+              updateComp("hood_reach_offset", hp.hoodReachOffset);
+            }}
+          />
+        ) : undefined}
+      </SliderCard>
+    );
+  };
+
+  const solveStatusLabel = loading ? "Solving Frame B…" : resultB ? "Solved" : "Waiting";
+
   return (
     <div className={`mode-layout mode-layout--transfer${fullscreen ? " mode-layout--fullscreen" : ""}`}>
       {/* ── Frame pickers row ── */}
       <section className="selector-panel" style={{ display: fullscreen ? "none" : undefined }}>
-        <div className="tab-row" style={{ marginBottom: 12 }}>
+        <div className="seg-control" role="tablist" aria-label="Reference mode" style={{ marginBottom: 12 }}>
           <button
-            className={`tab-pill ${refMode === "frame" ? "tab-pill--active" : ""}`}
+            role="tab"
+            aria-selected={refMode === "frame"}
+            className={`seg-control__btn${refMode === "frame" ? " seg-control__btn--active" : ""}`}
             onClick={() => setRefMode("frame")}
           >
             Frame A reference
           </button>
           <button
-            className={`tab-pill ${refMode === "direct" ? "tab-pill--active" : ""}`}
+            role="tab"
+            aria-selected={refMode === "direct"}
+            className={`seg-control__btn${refMode === "direct" ? " seg-control__btn--active" : ""}`}
             onClick={() => setRefMode("direct")}
           >
             Direct X/Y input
@@ -356,10 +494,10 @@ export const FitTransferMode: React.FC = () => {
         <div className="compare-picker compare-picker--horizontal">
           {(
             [
-              ["a", "Reference fit", selectionA, setSelectionA, modelA, sizeA, componentsA, updateComponentA, hoodPresetA, setHoodPresetA, tyreSizeA, setTyreSizeA],
-              ["b", "Target frame", selectionB, setSelectionB, modelB, sizeB, componentsB, updateComponentB, hoodPresetB, setHoodPresetB, tyreSizeB, setTyreSizeB],
+              ["a", "Reference fit", selectionA, setSelectionA, modelA, sizeA, componentsA, updateComponentA, tyreSizeA, setTyreSizeA],
+              ["b", "Target frame", selectionB, setSelectionB, modelB, sizeB, componentsB, updateComponentB, tyreSizeB, setTyreSizeB],
             ] as const
-          ).map(([key, roleLabel, sel, setSel, model, sizeData, comps, updateComp, hoodId, setHoodId, tyreSize, setTyreSize]) => {
+          ).map(([key, roleLabel, sel, setSel, model, sizeData, comps, updateComp, tyreSize, setTyreSize]) => {
             if (key === "a" && refMode === "direct") {
               return (
                 <div className="bike-card bike-card--a" key={key}>
@@ -373,13 +511,13 @@ export const FitTransferMode: React.FC = () => {
                   </p>
                   <div className="slider-grid slider-grid--compact">
                     {(([
-                      ["Saddle X", directSaddleX, setDirectSaddleX, -200, 100],
-                      ["Saddle Y", directSaddleY, setDirectSaddleY, 500, 900],
-                      ["Hoods X",  directHoodsX,  setDirectHoodsX,  200, 700],
-                      ["Hoods Y",  directHoodsY,  setDirectHoodsY,  400, 800],
-                      ["Cleat X",  directCleatX,  setDirectCleatX,  -50, 50],
-                      ["Cleat Y",  directCleatY,  setDirectCleatY, -300, -100],
-                    ] as [string, number, (v: number) => void, number, number][])).map(([label, value, setter, min, max]) => (
+                      ["Saddle X", directSaddleX, setDirectSaddleX],
+                      ["Saddle Y", directSaddleY, setDirectSaddleY],
+                      ["Hoods X",  directHoodsX,  setDirectHoodsX],
+                      ["Hoods Y",  directHoodsY,  setDirectHoodsY],
+                      ["Cleat X",  directCleatX,  setDirectCleatX],
+                      ["Cleat Y",  directCleatY,  setDirectCleatY],
+                    ] as [string, number, (v: number) => void][])).map(([label, value, setter]) => (
                       <label className="slider-card" key={label}>
                         <div className="slider-card__header">
                           <span>{label}</span>
@@ -398,6 +536,9 @@ export const FitTransferMode: React.FC = () => {
                 </div>
               );
             }
+            const rows = COCKPIT_SLIDERS(comps, tyreSize);
+            const solverRows = rows.filter((r) => key === "b" && SOLVER_FIELDS.has(r[5] as keyof Components));
+            const manualRows = rows.filter((r) => !(key === "b" && SOLVER_FIELDS.has(r[5] as keyof Components)));
             return (
             <div className={`bike-card bike-card--${key}`} key={key}>
               <div className="bike-card__header">
@@ -454,6 +595,7 @@ export const FitTransferMode: React.FC = () => {
                     <button
                       className={`preset-pill${autoSizeB ? " preset-pill--active" : ""}`}
                       style={{ whiteSpace: "nowrap" }}
+                      title="Let the solver pick the best size"
                       onClick={() => setAutoSizeB((v) => !v)}
                     >
                       Auto
@@ -480,179 +622,31 @@ export const FitTransferMode: React.FC = () => {
                 <span>Reach {sizeData.geometry.reach} mm</span>
               </div>
 
-              {/* Hood preset pills */}
-              <div className="preset-row" style={{ marginTop: 8 }}>
-                {HOOD_PRESETS.map((hp) => (
-                  <button
-                    key={hp.id}
-                    className={`preset-pill ${hoodId === hp.id ? "preset-pill--active" : ""}`}
-                    onClick={() => {
-                      setHoodId(hp.id);
-                      updateComp("hood_reach_offset", hp.hoodReachOffset);
-                    }}
-                  >
-                    {hp.label}
-                  </button>
-                ))}
-              </div>
-
-              {key === "b" && resultB && (Object.keys(tweaksB).length > 0 || pinnedB.size > 0) && (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginTop: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="preset-pill"
-                    onClick={() => {
-                      setTweaksB({});
-                      setPinnedB(new Set());
-                    }}
-                  >
-                    Reset overrides
-                  </button>
+              {key === "b" && solverRows.length > 0 && (
+                <div className="solver-block">
+                  <div className="solver-block__header">
+                    <span>Solver controls</span>
+                    {resultB && (Object.keys(tweaksB).length > 0 || pinnedB.size > 0) && (
+                      <button
+                        type="button"
+                        className="preset-pill preset-pill--sm"
+                        onClick={() => {
+                          setTweaksB({});
+                          setPinnedB(new Set());
+                        }}
+                      >
+                        Reset overrides
+                      </button>
+                    )}
+                  </div>
+                  <div className="slider-grid slider-grid--compact">
+                    {solverRows.map((row) => renderSlider(row, key, comps, updateComp, setTyreSize))}
+                  </div>
                 </div>
               )}
 
-              {/* Cockpit sliders. On Frame B, the four solver-owned fields display
-                  solver output (plus any tweak) and route edits to tweaksB so they
-                  don't retrigger a solve. */}
               <div className="slider-grid slider-grid--compact" style={{ marginTop: 8 }}>
-                {(
-                  [
-                    ["Stem length", comps.stem_length, 50, 180, 1, "stem_length", "mm"],
-                    ["Stem angle", comps.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
-                    ["Spacers", comps.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
-                    ["Saddle offset", comps.saddle_clamp_offset, 550, 900, 5, "saddle_clamp_offset", "mm"],
-                    ["Saddle stack", comps.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
-                    ["Seatpost offset", comps.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
-                    ["Rail offset", comps.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
-                    ["Bar reach", comps.bar_reach, 65, 105, 1, "bar_reach", "mm"],
-                    ["Hood reach", comps.hood_reach_offset, 16, 32, 0.5, "hood_reach_offset", "mm"],
-                    ["Bar width", comps.bar_width, 200, 460, 10, "bar_width", "mm"],
-                    ["Crank length", comps.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
-                    ["Tyre size", tyreSize, 25, 38, 1, "__tyre__", "mm"],
-                  ] as const
-                ).map(([label, value, min, max, step, k, unit]) => {
-                  const solverOwns =
-                    key === "b" &&
-                    (k === "stem_length" || k === "spacer_stack" || k === "saddle_clamp_offset" || k === "stem_angle_deg");
-                  const fieldKey = k as keyof Components;
-                  const isPinned = solverOwns && pinnedB.has(fieldKey);
-                  const isTweaked =
-                    solverOwns && !isPinned && tweaksB[fieldKey] !== undefined;
-                  // Pinned fields display the user's input (componentsB).
-                  // Otherwise after a solve, solver-owned sliders display the solver
-                  // output (merged with any tweak) so they match what's rendered.
-                  const displayValue =
-                    solverOwns && isPinned
-                      ? (componentsB[fieldKey] as number)
-                      : solverOwns && resultB
-                      ? (solvedComponentsB[fieldKey] as number)
-                      : value;
-                  const badge = solverOwns
-                    ? isPinned
-                      ? " (pinned)"
-                      : isTweaked
-                      ? " (tweaked)"
-                      : " (solver)"
-                    : "";
-                  return (
-                    <label className="slider-card" key={k}>
-                      <div className="slider-card__header">
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          {solverOwns && (
-                            <input
-                              type="checkbox"
-                              title="Pin this value — solver will hold it fixed"
-                              checked={isPinned}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setPinnedB((s) => {
-                                  const next = new Set(s);
-                                  if (checked) next.add(fieldKey);
-                                  else next.delete(fieldKey);
-                                  return next;
-                                });
-                                if (checked) {
-                                  // Promote any existing tweak to the pinned input,
-                                  // then clear the tweak entry so it can't fight the pin.
-                                  const tweaked = tweaksB[fieldKey];
-                                  if (tweaked !== undefined) {
-                                    updateComp(fieldKey, tweaked as number);
-                                    setTweaksB((t) => {
-                                      const { [fieldKey]: _omit, ...rest } = t;
-                                      return rest;
-                                    });
-                                  } else if (resultB) {
-                                    // Seed pinned value from the solver result so the
-                                    // visible slider value doesn't jump on pin.
-                                    updateComp(
-                                      fieldKey,
-                                      solvedComponentsB[fieldKey] as number
-                                    );
-                                  }
-                                }
-                              }}
-                            />
-                          )}
-                          {label}
-                          {badge}
-                        </span>
-                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <strong>
-                            {Number(displayValue).toFixed(step === 0.5 || step === 2.5 ? 1 : 0)} {unit}
-                          </strong>
-                          {isTweaked && (
-                            <button
-                              type="button"
-                              title="Reset to solver value"
-                              onClick={() =>
-                                setTweaksB((t) => {
-                                  const { [fieldKey]: _omit, ...rest } = t;
-                                  return rest;
-                                })
-                              }
-                              style={{
-                                background: "transparent",
-                                border: "none",
-                                cursor: "pointer",
-                                fontSize: 12,
-                                padding: "0 2px",
-                                lineHeight: 1,
-                              }}
-                            >
-                              ↺
-                            </button>
-                          )}
-                        </span>
-                      </div>
-                      <input
-                        className="slider-card__input slider-card__input--frame"
-                        type="range"
-                        min={min}
-                        max={max}
-                        step={step}
-                        value={displayValue}
-                        onChange={(e) => {
-                          const v = Number(e.target.value);
-                          if (k === "__tyre__") {
-                            setTyreSize(v);
-                          } else if (solverOwns && isPinned) {
-                            updateComp(fieldKey, v);
-                          } else if (solverOwns && resultB) {
-                            setTweaksB((t) => ({ ...t, [k]: v }));
-                          } else {
-                            updateComp(k as keyof Components, v);
-                          }
-                        }}
-                      />
-                    </label>
-                  );
-                })}
+                {manualRows.map((row) => renderSlider(row, key, comps, updateComp, setTyreSize))}
               </div>
             </div>
             );
@@ -668,32 +662,22 @@ export const FitTransferMode: React.FC = () => {
             </div>
           </div>
           <div className="slider-grid slider-grid--compact">
-            {(
-              [
-                ["Height", riderFit.height, 1500, 2050, 5, "height", "mm"],
-                ["Inseam", riderFit.inseam, 700, 1000, 5, "inseam", "mm"],
-              ] as const
-            ).map(([label, value, min, max, step, key, unit]) => (
-              <label className="slider-card slider-card--target" key={key}>
-                <div className="slider-card__header">
-                  <span>{label}</span>
-                  <strong>
-                    {value} {unit}
-                  </strong>
-                </div>
-                <input
-                  className="slider-card__input slider-card__input--target"
-                  type="range"
-                  min={min}
-                  max={max}
-                  step={step}
-                  value={value}
-                  onChange={(e) =>
-                    setRiderFit((r) => ({ ...r, [key]: Number(e.target.value) }))
-                  }
-                />
-              </label>
-            ))}
+            <SliderCard
+              label="Height"
+              value={`${riderFit.height} mm`}
+              min={1500} max={2050} step={5}
+              sliderValue={riderFit.height}
+              variant="target"
+              onChange={(v) => setRiderFit((r) => ({ ...r, height: v }))}
+            />
+            <SliderCard
+              label="Inseam"
+              value={`${riderFit.inseam} mm`}
+              min={700} max={1000} step={5}
+              sliderValue={riderFit.inseam}
+              variant="target"
+              onChange={(v) => setRiderFit((r) => ({ ...r, inseam: v }))}
+            />
           </div>
         </div>
       </section>
@@ -706,9 +690,40 @@ export const FitTransferMode: React.FC = () => {
               <div className="eyebrow eyebrow--light">Fit Transfer</div>
               <h2>Contact point overlay</h2>
             </div>
-            <div className={`status-pill ${loading ? "status-pill--live" : ""}`}>
-              {loading ? "Solving Frame B…" : resultB ? "Solved" : "Waiting"}
+            <div className="viz-toolbar">
+              <button
+                className={`tab-pill tab-pill--visual ${showFit ? "tab-pill--active" : ""}`}
+                onClick={() => setShowFit((v) => !v)}
+              >
+                Fit positions
+              </button>
+              <button
+                className={`tab-pill tab-pill--visual ${showGeometry ? "tab-pill--active" : ""}`}
+                onClick={() => setShowGeometry((v) => !v)}
+              >
+                Frame geometry
+              </button>
+              <button
+                className="tab-pill tab-pill--visual"
+                title={fullscreen ? "Show controls" : "Hide controls"}
+                onClick={() => setFullscreen((v) => !v)}
+              >
+                {fullscreen ? "⊠" : "⛶"}
+              </button>
             </div>
+          </div>
+
+          {/* Solve status bar: live state + residual match error */}
+          <div className={`solve-status${loading ? " solve-status--live" : ""}${error ? " solve-status--error" : ""}`}>
+            <span className="solve-status__dot" />
+            <strong>{error ? "Solve failed" : solveStatusLabel}</strong>
+            {!error && residualSaddle !== null && residualHoods !== null && (
+              <span className="solve-status__residuals">
+                Saddle Δ {residualSaddle.toFixed(1)} mm · Hoods Δ {residualHoods.toFixed(1)} mm
+                {resultB?.constraints.status ? ` · Constraints ${resultB.constraints.status}` : ""}
+              </span>
+            )}
+            {error && <span className="solve-status__residuals">{error}</span>}
           </div>
 
           <div className="legend-row">
@@ -721,27 +736,6 @@ export const FitTransferMode: React.FC = () => {
             <span>
               <i className="legend-swatch legend-swatch--target" /> A contacts (targets)
             </span>
-            {error && <span style={{ color: "var(--accent)" }}>{error}</span>}
-            <button
-              className={`tab-pill ${showFit ? "tab-pill--active" : ""}`}
-              style={{ marginLeft: "auto" }}
-              onClick={() => setShowFit((v) => !v)}
-            >
-              Fit positions
-            </button>
-            <button
-              className={`tab-pill ${showGeometry ? "tab-pill--active" : ""}`}
-              onClick={() => setShowGeometry((v) => !v)}
-            >
-              Frame geometry
-            </button>
-            <button
-              className="tab-pill"
-              title={fullscreen ? "Show controls" : "Hide controls"}
-              onClick={() => setFullscreen((v) => !v)}
-            >
-              {fullscreen ? "⊠" : "⛶"}
-            </button>
           </div>
 
           <div className="visual-stage">
@@ -761,11 +755,9 @@ export const FitTransferMode: React.FC = () => {
                 const rimRadius = Math.max(radius - tyreS, radius - 42);
                 return (
                   <g key={tone} className={`geometry-layer geometry-layer--${tone}`}>
-                    <circle cx={bike.rearAxle.x} cy={-bike.rearAxle.y} r={radius} className="geometry-tyre" />
-                    <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={radius} className="geometry-tyre" />
-                    <circle cx={bike.rearAxle.x} cy={-bike.rearAxle.y} r={rimRadius} className="geometry-wheel" />
-                    <circle cx={bike.frontAxle.x} cy={-bike.frontAxle.y} r={rimRadius} className="geometry-wheel" />
-                    <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.crankEnd.x} y2={-bike.crankEnd.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                    <Wheel2D axle={bike.rearAxle} tyreRadius={radius} rimRadius={rimRadius} />
+                    <Wheel2D axle={bike.frontAxle} tyreRadius={radius} rimRadius={rimRadius} />
+                    <Drivetrain2D bb={bike.bb} crankEnd={bike.crankEnd} />
                     <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.bb.x} y2={-bike.bb.y} className="geometry-frame geometry-frame--main" />
                     <line x1={bike.rearAxle.x} y1={-bike.rearAxle.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
                     <line x1={bike.bb.x} y1={-bike.bb.y} x2={bike.seatCluster.x} y2={-bike.seatCluster.y} className="geometry-frame geometry-frame--seat" />
@@ -778,6 +770,9 @@ export const FitTransferMode: React.FC = () => {
                     <line x1={bike.seatpostBend.x} y1={-bike.seatpostBend.y} x2={bike.seatpostTop.x} y2={-bike.seatpostTop.y} className="geometry-frame geometry-frame--cockpit-thin" />
                     <line x1={bike.steererTop.x} y1={-bike.steererTop.y} x2={bike.barClamp.x} y2={-bike.barClamp.y} className="geometry-frame geometry-frame--cockpit" />
                     <line x1={bike.barClamp.x} y1={-bike.barClamp.y} x2={bike.hoods.x} y2={-bike.hoods.y} className="geometry-frame geometry-frame--cockpit-thin" />
+                    {[bike.bb, bike.seatCluster, bike.headTubeTop, bike.headTubeBottom, bike.rearAxle, bike.frontAxle, bike.barClamp].map((pt, i) => (
+                      <circle key={i} cx={pt.x} cy={-pt.y} r={6} className="geometry-joint" />
+                    ))}
                     {/* Saddle shape + contact nodes */}
                     {tone === "a" ? (
                       <>
@@ -810,15 +805,16 @@ export const FitTransferMode: React.FC = () => {
                       <line
                         x1={ptA.x} y1={-ptA.y}
                         x2={ptB.x} y2={-ptB.y}
-                        stroke="var(--muted)"
-                        strokeWidth={1}
+                        stroke="rgba(250, 240, 226, 0.55)"
+                        strokeWidth={1.5}
                         strokeDasharray="6 3"
-                        opacity={0.5}
+                        opacity={0.7}
                       />
                       <text
                         x={(ptA.x + ptB.x) / 2 + 6}
                         y={-((ptA.y + ptB.y) / 2)}
-                        style={{ fill: "var(--muted)", fontSize: 18 }}
+                        className="geometry-label"
+                        style={{ fontSize: 18 }}
                       >
                         {dist.toFixed(0)} mm
                       </text>
@@ -845,182 +841,93 @@ export const FitTransferMode: React.FC = () => {
               )}
               {showGeometry && (
                 <>
-                  <BikeGeometryAnnotations bike={bikeA} frame={effectiveFrameA} sizeData={sizeA} visibleMeasurements={ALL_FRAME_MEASUREMENTS} />
-                  <BikeGeometryAnnotations bike={bikeB} frame={effectiveFrameB} sizeData={sizeB} visibleMeasurements={ALL_FRAME_MEASUREMENTS} />
+                  <BikeGeometryAnnotations bike={bikeA} frame={effectiveFrameA} />
+                  <BikeGeometryAnnotations bike={bikeB} frame={effectiveFrameB} />
                 </>
               )}
             </svg>
           </div>
-
-          {/* Component delta table */}
-          <div className="metric-grid metric-grid--visual" style={{ marginTop: 16 }}>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame A saddle offset</div>
-              <div className="metric-card__compare">
-                <strong>{componentsA.saddle_clamp_offset.toFixed(0)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame B saddle offset</div>
-              <div className="metric-card__compare">
-                <strong>{solvedComponentsB.saddle_clamp_offset.toFixed(0)} mm</strong>
-              </div>
-              {deltas && (
-                <div className="metric-card__delta">
-                  {deltas.saddle_clamp_offset >= 0 ? "+" : ""}
-                  {deltas.saddle_clamp_offset.toFixed(0)} mm vs A
-                </div>
-              )}
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame A spacers</div>
-              <div className="metric-card__compare">
-                <strong>{componentsA.spacer_stack.toFixed(0)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame B spacers</div>
-              <div className="metric-card__compare">
-                <strong>{solvedComponentsB.spacer_stack.toFixed(0)} mm</strong>
-              </div>
-              {deltas && (
-                <div className="metric-card__delta">
-                  {deltas.spacer_stack >= 0 ? "+" : ""}
-                  {deltas.spacer_stack.toFixed(0)} mm vs A
-                </div>
-              )}
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame A stem</div>
-              <div className="metric-card__compare">
-                <strong>{componentsA.stem_length.toFixed(0)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame B stem</div>
-              <div className="metric-card__compare">
-                <strong>{solvedComponentsB.stem_length.toFixed(0)} mm</strong>
-              </div>
-              {deltas && (
-                <div className="metric-card__delta">
-                  {deltas.stem_length >= 0 ? "+" : ""}
-                  {deltas.stem_length.toFixed(0)} mm vs A
-                </div>
-              )}
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame A stem angle</div>
-              <div className="metric-card__compare">
-                <strong>{componentsA.stem_angle_deg.toFixed(0)}°</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame B stem angle</div>
-              <div className="metric-card__compare">
-                <strong>{solvedComponentsB.stem_angle_deg.toFixed(0)}°</strong>
-              </div>
-              {deltas && (
-                <div className="metric-card__delta">
-                  {deltas.stem_angle_deg >= 0 ? "+" : ""}
-                  {deltas.stem_angle_deg.toFixed(0)}° vs A
-                </div>
-              )}
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Saddle match error</div>
-              <div className="metric-card__compare">
-                <strong>
-                  {residualSaddle !== null ? `${residualSaddle.toFixed(1)} mm` : "—"}
-                </strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Hood match error</div>
-              <div className="metric-card__compare">
-                <strong>
-                  {residualHoods !== null ? `${residualHoods.toFixed(1)} mm` : "—"}
-                </strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">Frame B constraint</div>
-              <div className="metric-card__compare">
-                <strong>{resultB?.constraints.status ?? "waiting"}</strong>
-              </div>
-            </div>
-            <div className="metric-card"
-              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper.">
-              <div className="metric-card__label">A seatpost extension</div>
-              <div className="metric-card__compare">
-                <strong>{seatpostExtA.toFixed(0)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card"
-              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper.">
-              <div className="metric-card__label">B seatpost extension</div>
-              <div className="metric-card__compare">
-                <strong>{seatpostExtB.toFixed(0)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">A saddle (X, Y)</div>
-              <div className="metric-card__compare">
-                <strong>{Math.round(bikeA.saddle.x)}, {Math.round(bikeA.saddle.y)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">B saddle (X, Y)</div>
-              <div className="metric-card__compare">
-                <strong>{Math.round(bikeB.saddle.x)}, {Math.round(bikeB.saddle.y)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">A hoods (X, Y)</div>
-              <div className="metric-card__compare">
-                <strong>{Math.round(bikeA.hoods.x)}, {Math.round(bikeA.hoods.y)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">B hoods (X, Y)</div>
-              <div className="metric-card__compare">
-                <strong>{Math.round(bikeB.hoods.x)}, {Math.round(bikeB.hoods.y)} mm</strong>
-              </div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">A seatpost type</div>
-              <div className="metric-card__compare"
-                style={{ color: seatpostRecA.type === "straight" ? "var(--teal)" : "#d4880a" }}
-              >
-                <strong style={{ textTransform: "capitalize" }}>{seatpostRecA.type}</strong>
-              </div>
-              <div className="metric-card__delta">{Math.round(seatpostRecA.bbToRailDistance)} mm BB→rail</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">B seatpost type</div>
-              <div className="metric-card__compare"
-                style={{ color: seatpostRecB.type === "straight" ? "var(--teal)" : "#d4880a" }}
-              >
-                <strong style={{ textTransform: "capitalize" }}>{seatpostRecB.type}</strong>
-              </div>
-              <div className="metric-card__delta">{Math.round(seatpostRecB.bbToRailDistance)} mm BB→rail</div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-card__label">B bar reach needed</div>
-              <div className="metric-card__compare">
-                {barReachNeededB !== null
-                  ? <strong>{Math.round(barReachNeededB)} mm</strong>
-                  : <strong style={{ color: "var(--accent)" }}>Out of range</strong>
-                }
-              </div>
-              {barReachNeededB !== null && (
-                <div className="metric-card__delta">
-                  {barReachNeededB - solvedComponentsB.bar_reach >= 0 ? "+" : ""}
-                  {Math.round(barReachNeededB - solvedComponentsB.bar_reach)} mm vs current
-                </div>
-              )}
-            </div>
-          </div>
         </section>
+      </section>
+
+      {/* ── Results: component changes + details ── */}
+      <section className="selector-panel" style={{ display: fullscreen ? "none" : undefined }}>
+        <CollapsibleSection eyebrow="Results" title="Component changes A → B">
+          <div className="metric-grid">
+            <MetricCard
+              label="Stem"
+              value={`${solvedComponentsB.stem_length.toFixed(0)} mm`}
+              delta={deltas ? `A ${componentsA.stem_length.toFixed(0)} mm · ${deltas.stem_length >= 0 ? "+" : ""}${deltas.stem_length.toFixed(0)} mm` : undefined}
+            />
+            <MetricCard
+              label="Stem angle"
+              value={`${solvedComponentsB.stem_angle_deg.toFixed(0)}°`}
+              delta={deltas ? `A ${componentsA.stem_angle_deg.toFixed(0)}° · ${deltas.stem_angle_deg >= 0 ? "+" : ""}${deltas.stem_angle_deg.toFixed(0)}°` : undefined}
+            />
+            <MetricCard
+              label="Spacers"
+              value={`${solvedComponentsB.spacer_stack.toFixed(0)} mm`}
+              delta={deltas ? `A ${componentsA.spacer_stack.toFixed(0)} mm · ${deltas.spacer_stack >= 0 ? "+" : ""}${deltas.spacer_stack.toFixed(0)} mm` : undefined}
+            />
+            <MetricCard
+              label="Saddle offset"
+              value={`${solvedComponentsB.saddle_clamp_offset.toFixed(0)} mm`}
+              delta={deltas ? `A ${componentsA.saddle_clamp_offset.toFixed(0)} mm · ${deltas.saddle_clamp_offset >= 0 ? "+" : ""}${deltas.saddle_clamp_offset.toFixed(0)} mm` : undefined}
+            />
+            {barReachNeededB !== null ? (
+              <MetricCard
+                label="B bar reach needed"
+                value={`${Math.round(barReachNeededB)} mm`}
+                delta={`${barReachNeededB - solvedComponentsB.bar_reach >= 0 ? "+" : ""}${Math.round(barReachNeededB - solvedComponentsB.bar_reach)} mm vs current`}
+              />
+            ) : (
+              <MetricCard label="B bar reach needed" value="Out of range" color="var(--bad)" />
+            )}
+            <MetricCard
+              label="Frame B constraint"
+              value={resultB?.constraints.status ?? "waiting"}
+            />
+          </div>
+        </CollapsibleSection>
+
+        <CollapsibleSection eyebrow="Details" title="Seatposts & contact coordinates" defaultOpen={false}>
+          <div className="metric-grid">
+            <MetricCard
+              label="Saddle match error"
+              value={residualSaddle !== null ? `${residualSaddle.toFixed(1)} mm` : "—"}
+            />
+            <MetricCard
+              label="Hood match error"
+              value={residualHoods !== null ? `${residualHoods.toFixed(1)} mm` : "—"}
+            />
+            <MetricCard
+              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper."
+              label="A seatpost extension"
+              value={`${seatpostExtA.toFixed(0)} mm`}
+            />
+            <MetricCard
+              title="Visible exposed seatpost measured along the post axis from the frame top to the visible top of the post/topper."
+              label="B seatpost extension"
+              value={`${seatpostExtB.toFixed(0)} mm`}
+            />
+            <MetricCard
+              label="A seatpost type"
+              value={<span style={{ textTransform: "capitalize" }}>{seatpostRecA.type}</span>}
+              color={seatpostRecA.type === "straight" ? "var(--ok)" : "var(--warn)"}
+              delta={`${Math.round(seatpostRecA.bbToRailDistance)} mm BB→rail`}
+            />
+            <MetricCard
+              label="B seatpost type"
+              value={<span style={{ textTransform: "capitalize" }}>{seatpostRecB.type}</span>}
+              color={seatpostRecB.type === "straight" ? "var(--ok)" : "var(--warn)"}
+              delta={`${Math.round(seatpostRecB.bbToRailDistance)} mm BB→rail`}
+            />
+            <MetricCard label="A saddle (X, Y)" value={`${Math.round(bikeA.saddle.x)}, ${Math.round(bikeA.saddle.y)} mm`} />
+            <MetricCard label="B saddle (X, Y)" value={`${Math.round(bikeB.saddle.x)}, ${Math.round(bikeB.saddle.y)} mm`} />
+            <MetricCard label="A hoods (X, Y)" value={`${Math.round(bikeA.hoods.x)}, ${Math.round(bikeA.hoods.y)} mm`} />
+            <MetricCard label="B hoods (X, Y)" value={`${Math.round(bikeB.hoods.x)}, ${Math.round(bikeB.hoods.y)} mm`} />
+          </div>
+        </CollapsibleSection>
       </section>
     </div>
   );
