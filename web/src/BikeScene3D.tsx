@@ -1494,10 +1494,11 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [cameraRequest, setCameraRequest] = useState<{ kind: CameraPresetKind; nonce: number } | null>(null);
   // Pedaling animation: crank angle lives in a ref (mutated per frame inside
   // the canvas); scrub state mirrors it at low frequency for the slider thumb.
-  const crankAngleRef = useRef(180); // BDC — matches the static pose
+  // 0° puts the near-side (left) leg at BDC — the pose the 2D fit view shows.
+  const crankAngleRef = useRef(0);
   const [playing, setPlaying] = useState(false);
   const [cadenceRpm, setCadenceRpm] = useState(60);
-  const [scrubDeg, setScrubDeg] = useState(180);
+  const [scrubDeg, setScrubDeg] = useState(0);
   // Analytics layers
   const [showAngles, setShowAngles] = useState(true);
   const [showDimensions, setShowDimensions] = useState(false);
