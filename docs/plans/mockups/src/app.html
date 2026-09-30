@@ -5,7 +5,7 @@
 <script type="module">
 import { build, METRICS, band } from './geom.js';
 import { mark } from './overlay.js';
-import { rasterBody, bikeLayers, headSVG, extremitiesSVG, clayDefs, clayFigure, clayHead } from './draw2d.js';
+import { bikeLayers, headSVG, extremitiesSVG, clayDefs, clayFigure, clayHead } from './draw2d.js';
 const SEX = new URLSearchParams(location.search).get('sex') || 'm';
 const theme = new URLSearchParams(location.search).get('theme') || 'light';
 document.documentElement.dataset.theme = theme;
