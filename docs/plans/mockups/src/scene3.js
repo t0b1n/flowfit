@@ -41,7 +41,7 @@ const MAT = {
   hair: phys(0x3B3430, { roughness: .9, sheen: .6, sheenColor: 0x8a7a6a }),
   body: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .74, sheen: .35, sheenColor: 0xbbbbbb }),
   cols: { skin: T.skin, jersey: T.jersey, bib: T.bib, sock: T.sock },
-  helmet: phys(T.helmet, { roughness: .28, clearcoat: 1, clearcoatRoughness: .12, side: THREE.DoubleSide }), vent: phys(0x141516, { roughness: .6, side: THREE.DoubleSide }),
+  helmet: phys(T.helmet, { roughness: .35, clearcoat: 1, clearcoatRoughness: .08, side: THREE.DoubleSide }), vent: phys(0x141516, { roughness: .6, side: THREE.DoubleSide }),
 };
 const G = build(0, SEX), G0 = build(-6, SEX), { P, J, F, R } = G;
 const scene = new THREE.Scene(); scene.background = new THREE.Color(T.bg);

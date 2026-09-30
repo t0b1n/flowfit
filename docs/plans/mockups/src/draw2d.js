@@ -124,7 +124,5 @@ export function clayHead(G) {
   for (let i = 0; i < NS; i++) for (let j = 0; j < NV; j++) { const s0 = i / NS, v = .3 + .7 * j / NV, m = ventMask(s0 + .5 / NS, v + .35 / NV); if (m < .5) continue;
     const q = (ss, vv) => { const p = sect(x0 + (x1 - x0) * ss, vv); return R(p.x, p.y); };
     vd += `<polygon class="ventf" points="${pts([q(s0, v), q(s0 + 1 / NS, v), q(s0 + 1 / NS, v + .7 / NV), q(s0, v + .7 / NV)])}"/>`; }
-  s += vd;
-  s += `<polygon class="lens" points="${pts([R(48, 18), R(100, 18), R(102, -12), R(90, -16), R(60, -14), R(44, -2)])}"/>`;
   return s;
 }

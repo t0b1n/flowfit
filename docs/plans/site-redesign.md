@@ -295,19 +295,15 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
   - **Head:** one deformed ellipsoid (`headDeform`) rather than separate nose and chin blobs: a skull of 96×118×76, a
     flattened face plane, a squarer jaw that narrows gently below the equator, and a subtle nose ridge and chin built
     into the surface. Small ears.
-  - **Helmet, modelled on the Specialized S-Works Evade 4** (`HELMET`): compact and rounded, sitting close to the head.
-    - Shell: the cranium offset by +16 mm, superellipse sections (q 2.3), and a short, squared-off tail (rear stretch 1.1).
-    - Rim line: high at the brow, low at the back.
-    - Vents: painted as dark, slightly recessed regions from a mask in shell (s, v) space:
-      - a mouth-port brow intake;
-      - 7 front vents that curve outward towards the rear;
-      - 4 rear top channels;
-      - a diagonal flank vent on each side;
-      - a wide rear exhaust.
-    - A liner band along the rim, and straps in front of and behind the ear to a buckle under the jaw.
-  - **Glasses:** a wrap shield lens.
-  - **2D:** the head profile is the z=0 slice of `headDeform`. The helmet is the shell's crown line and rim, with the
-    near-side vents drawn by sampling the same `ventMask`. So 2D and 3D share one model.
+  - **Helmet: a clean abstract shell (decided)** (`HELMET`), matching the clay-mannequin language: a smooth, glossy
+    `--kit-light` shell with **no vents and no glasses**. The silhouette follows an aero-road helmet like the Evade 4:
+    compact, rounded and close-fitting (the cranium offset by +16 mm, superellipse sections q 2.3), with a short squared tail.
+    The rim is high at the brow and low at the back. A dark liner band runs along the rim, with straps in front of and
+    behind the ear to a buckle under the jaw. Painted-on vents were tried and rejected: they read as amateur.
+  - **Future upgrade:** a professionally modelled (CC0 or licensed) generic aero-road helmet and athletic body as GLB assets,
+    fitted to the IK joints. This is the route to a fully detailed, photoreal look. It must not be a replica of a branded
+    product.
+  - **2D:** the head profile is the z=0 slice of `headDeform`. The helmet is the shell's crown line and rim, so 2D and 3D share one model.
   - **Reference:** `mockups/09-head-helmet.png`.
 - **Build:** all limb profiles and muscle amplitudes are ×1.1, the torso ×1.08, glutes (64, 58, 58); a little fuller than a
   climber. **Calves:** gastrocnemius medial amp 36 (t 0.30) and lateral amp 28 (t 0.24), both spread 4 and angled 0.75
