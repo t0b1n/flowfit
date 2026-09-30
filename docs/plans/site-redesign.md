@@ -50,6 +50,7 @@ of PNS, MAAP or Rapha). They care about details and exactness. They are nerdy ab
 |---|---|
 | `00-brand-directions.png` | The three brand directions, in light and dark |
 | `01-app-fit-builder-2d-light.png` | **The canonical app screen:** nav, controls column, 2D side view, readout, Metric Rail, results column with fit history |
+| `06/07/08-rider-*.png` | **The current rider figure** (side, rear ¾ showing the calves, front ¾) with the earlier helmet |
 | `05-fresnel-options.png` | **The rider figure and Fresnel options:** clay / tonal rim / focus rim + x-ray ghost / dark |
 | `02-view3d-light.png` | 3D view, light (default) |
 | `03-view3d-dark.png` | 3D view, dark |
@@ -269,17 +270,17 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
 
 - **Representation:** a **segmented clay mannequin**, one neutral clay material (`--clay`), built from lathe limbs with
   anatomical profiles. There is no kit colouring, and **no** single blended/SDF surface: that was tried and rejected.
-- **Base physique:** an optimal road racer, **toned male** (1800 mm / 75 kg):
-  - broad shoulders: deltoid ellipsoids 60×70×56, set 34 mm outboard of the shoulder joints;
-  - a heavy trapezius slope and a thick neck (r 58→52);
-  - a V-taper torso: waist pinch at t≈0.36, width scale 1.08→1.6 towards the chest, a deep flat back, lat masses under the armpits;
-  - biceps / forearm mass;
-  - quads with vastus and VMO teardrop, a calf mass behind the shin;
-  - pelvis + glutes;
-  - **no pec masses** (they read wrongly when the rider leans).
-  
-  The exact numbers are in `rider3.js`. **Lengths and joint positions always come from the app's IK**; the base only sets
-  radii and shapes, scaled by `(weightKg / 75)^sensitivity` per segment. A female base in the same style is a later decision.
+- **Base physique:** modelled on **Freddy Ovett's build**: a tall, lean, toned male road racer (1800 mm / 75 kg base).
+  - **Shoulders and torso:** broad, capped deltoids (60×70×56, set 34 mm outboard of the shoulder joints). V-taper torso
+    (waist pinch at t≈0.36, width scale 1.08→1.6 towards the chest, a deep flat back, lat masses). A moderate trapezius
+    slope and a neck of r 54→49. Tight glutes. **No pec masses.**
+  - **Muscles are built into the limb surfaces, not added as blobs** (`rider3.js#muscleLimb`): each lathe vertex's radius
+    gets `amp·gauss(t)·max(0, cos θ)^spread` towards a world direction. Thigh: rectus/vastus at the front, a VMO teardrop at
+    the front-medial just above the knee, a vastus lateralis sweep, hamstrings. **Calves:** gastrocnemius medial (amp 26)
+    and lateral (amp 18) heads on the **posterior** side of the upper shin, soleus tapering to a slim ankle.
+    Arms: biceps, triceps, deltoid insertion, forearm brachioradialis.
+  - The exact numbers are in `rider3.js`. **Lengths and joint positions always come from the app's IK**; the base only sets
+    radii and shapes, scaled by `(weightKg / 75)^sensitivity` per segment. A female base in the same style is a later decision.
 - **Fresnel (tonal rim light)**, `fresnel.js#withFresnel`: a rim term mixed into the material colour. It is **not** emissive
   and has no bloom.
   - Light theme: rim `#FFFBF3`, strength ≈ 0.38, power 4. Dark theme: rim `#D6DDE6`, strength ≈ 0.5.
@@ -289,11 +290,11 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
   - **Pending product decision:** level 2 (tonal rim only) vs level 2+3 (plus the focus rim and x-ray ghost). The recommendation is 2+3.
 - **2D:** the same profiles drawn as clay polygons, with an SVG filter that erodes the alpha and flood-fills the ring to give an
   inner rim (tonal), plus an accent ring on the focused limb (`draw2d.js#clayDefs`, `clayFigure`).
-- **Helmet** (`kit.js#helmetPoint`): a lofted road-helmet shell in head-local space.
-  - The top line is an asymmetric superellipse (it peaks forward, with a long sloping tail).
-  - The bottom edge is a spline (brow high, low behind the ear, tail kick); cross-sections are superellipses.
-  - Add 9 recessed vent channels (`VENTS`), a dark liner lip, and wrap glasses.
-  - The head is an ellipsoid with jaw and brow masses; gaze = neck angle − 80°.
+- **Helmet: the earlier shell** (the lofted/vented version was rejected): `SphereGeometry(1, 72, 36, 0, 2π, 0, 0.62π)`,
+  with per-vertex `z *= .86; y *= .78; if (x < 0) { x *= 1.28; y -= .18·x² } else x *= 1.06`, then scaled `(116, 122, 95)`
+  and offset `(−10, 16, 0)` in head-local space. It is a plain shell in `--kit-light`, with no vents, glasses or straps.
+  The 2D side view uses the same curve as a crescent (outer shell plus a 0.88-scale inner line).
+  The head is an ellipsoid with jaw and brow masses; gaze = neck angle − 80°.
 
 ### 5.6 3D view (tracks C and E)
 

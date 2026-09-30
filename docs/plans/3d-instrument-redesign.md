@@ -6,9 +6,10 @@
 >   the Design System track and consumed here. Do not build the local `theme3d.ts` / `useTheme3D` described below;
 >   use `useTheme()` + `TOKENS` from `web/src/design/`.
 > - The accent is `#FF4F00` (brand direction 01 "Contact", **decided**), via tokens.
-> - **Superseded by master plan §5.5:** this plan's §5.2 profile numbers and §5.3 helmet recipe. The rider stays a
->   segmented lathe clay mannequin (as here), but reshaped to the toned male base, with a tonal Fresnel rim. The helmet
->   is the lofted recipe in `mockups/src/kit.js`.
+> - **Superseded by master plan §5.5:** this plan's §5.2 profile numbers. The rider stays a segmented lathe clay mannequin
+>   (as here), reshaped to a Freddy-Ovett-style toned build, with muscles deformed into the limb surfaces
+>   (`muscleLimb`) and a tonal Fresnel rim. The §5.3 helmet shell is kept as-is (values `(116, 122, 95)`, offset
+>   `(−10, 16, 0)`); vents are not used.
 > - **Bike (Phase 6) additions:** a full disc road bike: 52/36 chainrings, front and rear derailleurs, 11-speed cassette,
 >   chain through the pulleys, flat-mount calipers, 160/140 rotors on the left, STI hoods + levers, dropped stays,
 >   sloping top tube, aero seatpost, bottle + cage. Carbon-black deep rims and black tyres; **no tan walls, no light rim bands**.

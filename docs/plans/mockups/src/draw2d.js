@@ -95,7 +95,7 @@ export function clayDefs(tok) {
 export function clayFigure(G, part) {
   const { J } = G; const s = [];
   const Pg = p => `<polygon class="clay" points="${p}"/>`;
-  if (part === 'farLeg') { s.push(Pg(seg(J.hip, J.kneeR, t => lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.kneeR, J.ankleR, t => lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankleR.y - J.kneeR.y, J.ankleR.x - J.kneeR.x); const cc = v(lerp(J.kneeR.x, J.ankleR.x, .3) + Math.sin(sd) * -18, lerp(J.kneeR.y, J.ankleR.y, .3) - Math.cos(sd) * -18); s.push(Pg(ellP(cc, 88, 34, sd))); }
+  if (part === 'farLeg') { s.push(Pg(seg(J.hip, J.kneeR, t => lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.kneeR, J.ankleR, t => lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankleR.y - J.kneeR.y, J.ankleR.x - J.kneeR.x); const cc = v(lerp(J.kneeR.x, J.ankleR.x, .28) - 26, lerp(J.kneeR.y, J.ankleR.y, .28)); s.push(Pg(ellP(cc, 92, 42, sd))); }
   if (part === 'farArm') s.push(Pg(seg(J.shoulder, J.elbow, t => lerp(46, 35, t) + 9 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => lerp(41, 23, t) + 7 * bumpf(t, .18, .14))));
   if (part === 'body') {
     const ax = Math.atan2(J.shoulder.y - J.hip.y, J.shoulder.x - J.hip.x);
@@ -107,7 +107,7 @@ export function clayFigure(G, part) {
     s.push(Pg(ellP(v(J.shoulder.x + Math.cos(ua) * 26, J.shoulder.y + Math.sin(ua) * 26), 70, 58, ua)));
     s.push(Pg(seg(J.shoulder, J.elbow, t => lerp(46, 35, t) + 9 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => lerp(41, 23, t) + 7 * bumpf(t, .18, .14))));
   }
-  if (part === 'nearLeg') { s.push(Pg(seg(J.hip, J.knee, t => lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.knee, J.ankle, t => lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x); const cc = v(lerp(J.knee.x, J.ankle.x, .3) - Math.sin(sd) * 18, lerp(J.knee.y, J.ankle.y, .3) + Math.cos(sd) * 18); s.push(Pg(ellP(cc, 88, 34, sd))); }
+  if (part === 'nearLeg') { s.push(Pg(seg(J.hip, J.knee, t => lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.knee, J.ankle, t => lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x); const cc = v(lerp(J.knee.x, J.ankle.x, .28) - 26, lerp(J.knee.y, J.ankle.y, .28)); s.push(Pg(ellP(cc, 92, 42, sd))); }
   return s.join('');
 }
 export function clayHead(G) {
@@ -115,9 +115,7 @@ export function clayHead(G) {
   const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
   const el = (cx, cy, rx, ry) => { const o = []; for (let i = 0; i < 36; i++) { const a = i / 36 * Math.PI * 2; o.push(R(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry)); } return pts(o); };
   let s = `<g filter="url(#fres)"><polygon class="clay" points="${el(0, 0, 96, 108)}"/><polygon class="clay" points="${el(28, -60, 58, 46)}"/><polygon class="clay" points="${el(90, -4, 16, 22)}"/></g>`;
-  s += `<polygon class="lens" points="${pts([R(58, 26), R(104, 24), R(106, 4), R(96, -2), R(60, 2), R(20, 14)])}"/>`;
-  const top = [], bot = []; for (let i = 0; i <= 90; i++) { const t = i / 90, a = helmetPoint(t, 0), b = helmetPoint(t, 1); top.push(R(a.x, a.y)); bot.push(R(b.x, b.y)); }
-  s += `<polygon class="helmet" points="${pts([...top, ...bot.reverse()])}"/>`;
-  for (const [s0, s1, pc] of VENTS) if (pc > .3) { const o = []; for (let i = 0; i <= 20; i++) { const q = helmetPoint(lerp(s0, s1, i / 20), pc); o.push(R(q.x, q.y)); } s += `<polyline class="vent" points="${pts(o)}"/>`; }
+  const shl = (k, off) => { const o = []; for (let i = 0; i <= 80; i++) { const th = -Math.PI * .62 + i / 80 * Math.PI * 1.24; let x = Math.sin(th), y = Math.cos(th); y *= .78; if (x < 0) { x *= 1.28; y -= .18 * x * x; } else x *= 1.06; o.push(R(x * 116 * k - 10, y * 122 * k + 16 - off)); } return o; };
+  s += `<polygon class="helmet" points="${pts(shl(1, 0).concat(shl(.88, 4).reverse()))}"/>`;
   return s;
 }
