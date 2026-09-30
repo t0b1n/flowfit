@@ -1,3 +1,4 @@
+import { headDeform, HELMET } from './rider3.js';
 // 2D side view (SVG, mm, y inverted) built from the SAME primitives as 3D: body SDF raster + bike + head/helmet.
 import { profiles, helmetPoint, VENTS, lerp, bump } from './kit.js';
 const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
@@ -113,15 +114,17 @@ export function clayFigure(G, part) {
 export function clayHead(G) {
   const { J } = G; const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - 78 * Math.PI / 180;
   const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
-  const el = (cx, cy, rx, ry) => { const o = []; for (let i = 0; i < 36; i++) { const a = i / 36 * Math.PI * 2; o.push(R(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry)); } return pts(o); };
-  let s = `<g filter="url(#fres)"><polygon class="clay" points="${el(-8, 18, 98, 94)}"/><polygon class="clay" points="${el(30, -30, 60, 74)}"/><polygon class="clay" points="${el(58, -88, 26, 22)}"/><polygon class="clay" points="${el(92, -12, 12, 22)}"/><polygon class="clay" points="${el(-12, -8, 14, 26)}"/></g>`;
-  // helmet side silhouette: same shell as 3D (cranium + offset, rim line, long tail)
-  const cx = -8, cy = 18, A = 98 + 18, B = 94 + 10;
-  const rimY = x => { const u = (x - cx) / A; return u > 0 ? -4 + 28 * u : -4 - 48 * (-u) ** 1.2; };
-  const top = [], bot = [];
-  for (let i = 0; i <= 80; i++) { const x = cx - A * 1.3 + 2 + i / 80 * (A * 2.3 - 4), u = (x - cx) / (x < cx ? A * 1.3 : A), kk = Math.sqrt(Math.max(0, 1 - u * u)), tail = x < cx ? 10 * Math.max(0, -u - .6) / .4 : 0;
-    const yt = cy + B * kk + tail, yb = Math.min(yt - 2, Math.max(rimY(x), cy - B * kk * 0.2)); top.push(R(x, yt)); bot.push(R(x, yb)); }
-  s += `<polygon class="helmet" points="${pts([...top, ...bot.reverse()])}"/><polyline class="liner" points="${pts(bot)}"/>`;
-  s += `<polygon class="lens" points="${pts([R(50, 20), R(106, 20), R(108, -12), R(94, -16), R(62, -14), R(46, -2)])}"/>`;
+  const prof = []; for (let i = 0; i < 120; i++) { const a = i / 120 * Math.PI * 2; const [X, Y] = headDeform(Math.cos(a), Math.sin(a), 0); prof.push(R(X, Y)); }
+  let s = `<g filter="url(#fres)"><polygon class="clay" points="${pts(prof)}"/></g>`;
+  const { sect, ventMask, x0, x1 } = HELMET, top = [], rim = [];
+  for (let i = 0; i <= 120; i++) { const x = x0 + (x1 - x0) * i / 120, a = sect(x, 0), b = sect(x, 1); top.push(R(a.x, a.y)); rim.push(R(b.x, b.y)); }
+  s += `<polygon class="helmet" points="${pts([...top, ...rim.slice().reverse()])}"/><polyline class="liner" points="${pts(rim)}"/>`;
+  // visible side vents: sample the near half (v∈[.35,1]); draw dark where the vent mask is on
+  let vd = ''; const NS = 90, NV = 30;
+  for (let i = 0; i < NS; i++) for (let j = 0; j < NV; j++) { const s0 = i / NS, v = .3 + .7 * j / NV, m = ventMask(s0 + .5 / NS, v + .35 / NV); if (m < .5) continue;
+    const q = (ss, vv) => { const p = sect(x0 + (x1 - x0) * ss, vv); return R(p.x, p.y); };
+    vd += `<polygon class="ventf" points="${pts([q(s0, v), q(s0 + 1 / NS, v), q(s0 + 1 / NS, v + .7 / NV), q(s0, v + .7 / NV)])}"/>`; }
+  s += vd;
+  s += `<polygon class="lens" points="${pts([R(48, 18), R(100, 18), R(102, -12), R(90, -16), R(60, -14), R(44, -2)])}"/>`;
   return s;
 }

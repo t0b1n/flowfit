@@ -292,17 +292,23 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
 - **2D:** the same profiles drawn as clay polygons, with an SVG filter that erodes the alpha and flood-fills the ring to give an
   inner rim (tonal), plus an accent ring on the focused limb (`draw2d.js#clayDefs`, `clayFigure`).
 - **Head + helmet** (`rider3.js`, head-local frame: +x gaze, +y up; gaze = neck angle − 78°):
-  - **Head:** cranium ellipsoid (98, 94, 77) centred at (−8, 18). Face mass (60, 74, 62) at (30, −30), chin (26, 22, 34),
-    nose (12, 22, 9), ears.
-  - **Helmet fitted to the cranium:** the shell is the cranium ellipsoid offset by +18 mm (+10 mm vertically, so it sits
-    low), with superellipse cross-sections (q = 2.5, so the sides are flatter). The rear half is stretched ×1.3 into a
-    long, slightly raised tail.
-  - The shell is cut along a rim line: brow +24, dropping to −52 at the occiput (low at the back, high over the eyes).
-    A dark 5 mm liner band runs along the rim. No vents.
-  - **Glasses:** a wrap shield lens (−22…+24 mm tall, wrap radius 112 → 86) sitting in front of the nose.
-  - **2D:** the same cranium, face, rim line and shell top line, drawn as polygons (helmet in `--kit-light` with a dark
-    liner stroke).
-  - **Reference:** `mockups/09-head-helmet.png` (side, front, ¾).
+  - **Head:** one deformed ellipsoid (`headDeform`) rather than separate nose and chin blobs: a skull of 96×118×76, a
+    flattened face plane, a squarer jaw that narrows gently below the equator, and a subtle nose ridge and chin built
+    into the surface. Small ears.
+  - **Helmet, modelled on the Specialized S-Works Evade 4** (`HELMET`): compact and rounded, sitting close to the head.
+    - Shell: the cranium offset by +16 mm, superellipse sections (q 2.3), and a short, squared-off tail (rear stretch 1.1).
+    - Rim line: high at the brow, low at the back.
+    - Vents: painted as dark, slightly recessed regions from a mask in shell (s, v) space:
+      - a mouth-port brow intake;
+      - 7 front vents that curve outward towards the rear;
+      - 4 rear top channels;
+      - a diagonal flank vent on each side;
+      - a wide rear exhaust.
+    - A liner band along the rim, and straps in front of and behind the ear to a buckle under the jaw.
+  - **Glasses:** a wrap shield lens.
+  - **2D:** the head profile is the z=0 slice of `headDeform`. The helmet is the shell's crown line and rim, with the
+    near-side vents drawn by sampling the same `ventMask`. So 2D and 3D share one model.
+  - **Reference:** `mockups/09-head-helmet.png`.
 - **Build:** all limb profiles and muscle amplitudes are ×1.1, the torso ×1.08, glutes (64, 58, 58); a little fuller than a
   climber. **Calves:** gastrocnemius medial amp 36 (t 0.30) and lateral amp 28 (t 0.24), both spread 4 and angled 0.75
   towards medial/lateral so the diamond split shows. Soleus amp 12 plus a medial flare, and an ankle pinch at t 0.85.

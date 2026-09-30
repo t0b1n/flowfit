@@ -26,7 +26,45 @@ function muscleLimb(a, b, prof0, bulges, mat, sxz = [1, 1]) {
 }
 const ell = (p, r, mat, rotZ = 0) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 24), mat); m.scale.set(...r); m.position.copy(p); m.rotation.z = rotZ; return m; };
 
+export function _dummy(){}
+export function headDeform(x, y, z) {
+      
+      // base skull 100 x 116 x 78 centred slightly low; face plane flattened, jaw tapers toward chin
+      let X = x * 96, Y = y * 118 - 6, Z = z * 76;
+      const low = ss(0, -1, y);                                   // 0 at equator → 1 at chin
+      Z *= 1 - .18 * low;                                         // jaw narrows
+      X = X > 0 ? X * (1 - .06 * low) + 4 * low : X * (1 - .4 * low); Y += 10 * low * low; // squarer jaw   // jaw forward, back of neck in
+      if (X > 0) { const face = Math.max(0, x) ** 6; X -= 6 * face; }   // flatter face
+      const nose = Math.exp(-((y + .1) ** 2) / .02) * Math.exp(-(z * z) / .008) * Math.max(0, x) ** 4; X += 24 * nose * (1 - ss(-.05, -.3, y) * 0);
+      const chin = Math.exp(-((y + .86) ** 2) / .01) * Math.exp(-(z * z) / .05) * Math.max(0, x) ** 2; X += 8 * chin;
+      const brow = Math.exp(-((y - .16) ** 2) / .004) * Math.max(0, x) ** 6 * (1 - z * z); X += 5 * brow;
+      return [X, Y, Z];
+}
+export const HELMET = (() => {
+  const off = 16, A = 98 + off, B = 94 + 8, Cz = 77 + off + 4, cx = -8, cy = 18, RA = 1.1;
+  const rimY = x => { const u = (x - cx) / A; return u > 0 ? lerp(-6, 20, u) : lerp(-6, -44, (-u) ** 1.3); };
+  const q = 2.3;
+  const sect = (x, v, k = 1) => { // v ∈ [-1,1] across the section (0 = crown)
+    const u = (x - cx) / (x < cx ? A * RA : A), kk = Math.pow(Math.max(0, 1 - Math.abs(u) ** (x < cx ? 3 : 2.2)), 1 / (x < cx ? 3 : 2.2));
+    const vv = Math.max(-1, Math.min(1, (rimY(x) - cy) / (B * Math.max(kk, 1e-3)))), am = Math.acos(Math.sign(vv) * Math.abs(vv) ** (q / 2));
+    const a = v * am, ca = Math.cos(a), sa = Math.sin(a);
+    return V(x, cy + B * kk * Math.sign(ca) * Math.abs(ca) ** (2 / q) * k, Cz * kk * Math.sign(sa) * Math.abs(sa) ** (2 / q) * k);
+  };
+  const band = (d, w) => ss(w, w * .55, Math.abs(d));
+  const ventMask = (s, v) => {                 // s: 0 tail → 1 brow
+    let m = 0;
+    if (s > .86 && s < .97) m = Math.max(m, band(v, .3) * band(s - .915, .045));                 // mouth port
+    for (const c of [0, .2, -.2, .4, -.4, .6, -.6]) {                                               // 7 front vents, curving outward to the rear
+      const cv = c * (1 + .35 * (.92 - s)); m = Math.max(m, band(v - cv, .045) * band(s - .72, .13)); }
+    for (const c of [.14, -.14, .36, -.36]) m = Math.max(m, band(v - c, .05) * band(s - .38, .1)); // rear top channels
+    for (const sg of [1, -1]) { const cv = sg * (.9 - .35 * (s - .3)); m = Math.max(m, band(v - cv, .045) * band(s - .45, .13)); } // diagonal flank vent
+    if (s < .16) m = Math.max(m, band(v - .0, .34) * band(s - .09, .06));                                  // rear exhaust
+    return m;
+  };
+  return { A, cx, cy, RA, sect, ventMask, x0: cx - A * RA + 1, x1: cx + A - 1 };
+})();
 export function buildRider(G, MAT) {
+  const T3 = MAT.T || { helmet: 0xEDEAE4 };
   const { J, C, R } = G, g = new THREE.Group();
   const CL = MAT.clay, FO = MAT.focus || CL;
   const hs = R.shoulderW / 2 + 34, hh = R.hipW / 2, st = R.stance / 2, hw = C.hoodW / 2;
@@ -93,40 +131,33 @@ export function buildRider(G, MAT) {
   g.add(tube(sh.clone().add(V(-12, -22)), headC.clone().add(V(-26, -44)), 54, 49, CL));
   const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gaze = na - d2r(78);
   const H = new THREE.Group(); H.position.copy(headC); H.rotation.z = gaze; g.add(H);
-  // head (head-local: +x gaze, +y up, +z left): cranium, face, jaw/chin, nose, ears
+  // head (head-local: +x gaze, +y up, +z left): one deformed ellipsoid — cranium, tapered jaw, subtle nose ridge
   const CR = { c: V(-8, 18, 0), r: V(98, 94, 77) };
-  H.add(ell(CR.c, [CR.r.x, CR.r.y, CR.r.z], CL));
-  H.add(ell(V(30, -30, 0), [60, 74, 62], CL));
-  H.add(ell(V(58, -88, 0), [26, 22, 34], CL));
-  H.add(ell(V(92, -12, 0), [12, 22, 9], CL));
-  for (const s of [-1, 1]) H.add(ell(V(-12, -8, s * 76), [14, 26, 8], CL));
-  // helmet: shell = cranium ellipsoid offset outward, cut along a rim line (brow → above ear → occiput), short tail
-  const off = 18, A = CR.r.x + off, B = CR.r.y + 10, Cz = CR.r.z + off, cx = CR.c.x, cy = CR.c.y;
-  const rimY = x => { const u = (x - cx) / A; return u > 0 ? lerp(-4, 24, u) : lerp(-4, -52, (-u) ** 1.2); }; // front brow high, rear low
-  const shellPt = (x, a, k = 1) => {
-    const u = (x - cx) / (x < cx ? A * 1.3 : A), kk = Math.sqrt(Math.max(0, 1 - u * u));
-    const tail = x < cx ? 10 * Math.max(0, -u - .6) / .4 : 0;
-    const q = 2.5, ca = Math.cos(a), sa = Math.sin(a);
-    return V(x, cy + B * kk * Math.sign(ca) * Math.abs(ca) ** (2 / q) * k + tail, Cz * kk * Math.sign(sa) * Math.abs(sa) ** (2 / q) * k);
-  };
-  const helm = (inset, NS = 80, NA = 56) => {
-    const pos = [], idx = [], x0 = cx - A * 1.3 + 2, x1 = cx + A - 2;
-    for (let i = 0; i <= NS; i++) { const x = lerp(x0, x1, i / NS), u = (x - cx) / (x < cx ? A * 1.3 : A), kk = Math.sqrt(Math.max(1e-4, 1 - u * u));
-      const vv = Math.max(-1, Math.min(1, (rimY(x) - cy) / (B * kk))), am = Math.acos(Math.sign(vv) * Math.abs(vv) ** (2.5 / 2));
-      for (let j = 0; j <= NA; j++) { const p = shellPt(x, lerp(-am, am, j / NA), inset); pos.push(p.x, p.y, p.z); } }
-    for (let i = 0; i < NS; i++) for (let j = 0; j < NA; j++) { const a0 = i * (NA + 1) + j, b0 = a0 + NA + 1; idx.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1); }
-    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setIndex(idx); gg.computeVertexNormals(); return gg;
-  };
-  H.add(new THREE.Mesh(helm(1), MAT.helmet));
-  // dark liner edge along the rim
-  const edge = []; const x0 = cx - A * 1.3 + 4, x1 = cx + A - 4;
-  for (const side of [1, -1]) for (let i = 0; i <= 60; i++) { const x = side > 0 ? lerp(x0, x1, i / 60) : lerp(x1, x0, i / 60), u = (x - cx) / (x < cx ? A * 1.3 : A), kk = Math.sqrt(Math.max(1e-4, 1 - u * u));
-    const vv = Math.max(-1, Math.min(1, (rimY(x) - cy) / (B * kk))), am = Math.acos(Math.sign(vv) * Math.abs(vv) ** (2.5 / 2)); edge.push(shellPt(x, side * am, .97)); }
-  H.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, true), 240, 5, 8, true), MAT.vent));
+  { const hg = new THREE.SphereGeometry(1, 64, 48), p = hg.attributes.position;
+    for (let i = 0; i < p.count; i++) { const [X, Y, Z] = headDeform(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, X, Y, Z); }
+    hg.computeVertexNormals(); H.add(new THREE.Mesh(hg, CL)); }
+  for (const s of [-1, 1]) H.add(ell(V(-14, -6, s * 74), [13, 24, 7], CL));
+  // helmet — modelled on the S-Works Evade 4: compact, rounded, close to the head, short squared tail,
+  // mouth-port brow intake, 7 front vents curving rearward, diagonal side vent, wide rear exhaust.
+  const { A, cx, cy, RA, sect, ventMask } = HELMET;
+  { const NS = 260, NV = 200, pos = [], col = [], idx = [], x0 = cx - A * RA + 1, x1 = cx + A - 1;
+    const W = new THREE.Color(T3.helmet), Dk = new THREE.Color(0x151617);
+    for (let i = 0; i <= NS; i++) { const s = i / NS, x = lerp(x0, x1, s);
+      for (let j = 0; j <= NV; j++) { const v = lerp(-1, 1, j / NV), m = ventMask(s, v), p = sect(x, v, 1 - .035 * m);
+        pos.push(p.x, p.y, p.z); const c = W.clone().lerp(Dk, m); col.push(c.r, c.g, c.b); } }
+    for (let i = 0; i < NS; i++) for (let j = 0; j < NV; j++) { const a0 = i * (NV + 1) + j, b0 = a0 + NV + 1; idx.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1); }
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); gg.setIndex(idx); gg.computeVertexNormals();
+    H.add(new THREE.Mesh(gg, MAT.helmetV));
+    const edge = []; for (let i = 0; i <= 80; i++) edge.push(sect(lerp(x0, x1, i / 80), 1, .98)); for (let i = 80; i >= 0; i--) edge.push(sect(lerp(x0, x1, i / 80), -1, .98));
+    H.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, true), 260, 4.5, 8, true), MAT.vent));
+    // retention straps from the rim, in front of and behind the ear, to a buckle under the jaw
+    for (const sg of [1, -1]) { const buck = V(10, -106, sg * 44);
+      g.add; H.add(tube(sect(cx + A * .12, sg, .97), buck, 2.2, 2.2, MAT.vent), tube(sect(cx - A * .42, sg, .97), buck, 2.2, 2.2, MAT.vent)); }
+  }
   // fitted wrap glasses: band hugging the face at eye level
   { const pos = [], idx = [], NA = 40, NH = 6;
     for (let i = 0; i <= NH; i++) { const y = lerp(-22, 24, i / NH); for (let j = 0; j <= NA; j++) { const a = lerp(-1.25, 1.25, j / NA);
-      const rx = 112 - 26 * (1 - Math.cos(a)), rz = 82; pos.push(Math.cos(a) * rx - 4, y - 6 * Math.abs(Math.sin(a)) + (y < 0 ? 5 * Math.cos(a * 2.4) : 0), Math.sin(a) * rz); } }
+      const rx = 106 - 22 * (1 - Math.cos(a)), rz = 82; pos.push(Math.cos(a) * rx - 4, y - 6 * Math.abs(Math.sin(a)) + (y < 0 ? 5 * Math.cos(a * 2.4) : 0), Math.sin(a) * rz); } }
     for (let i = 0; i < NH; i++) for (let j = 0; j < NA; j++) { const a0 = i * (NA + 1) + j, b0 = a0 + NA + 1; idx.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1); }
     const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setIndex(idx); gg.computeVertexNormals(); H.add(new THREE.Mesh(gg, MAT.lens)); }
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });

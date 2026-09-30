@@ -36,6 +36,8 @@ const MAT = {
   glove: withFresnel(phys(T.clay, { roughness: .82 }), { color: T.rim, strength: T.rimK, power: 2.6 }), lens: phys(0x0E0F10, { roughness: .08, metalness: .5, clearcoat: 1 }),
   clay: withFresnel(phys(T.clay, { roughness: .8 }), { color: T.rim, strength: T.rimK, power: 4 }),
   focus: Q.get('focus') === '0' ? null : withFresnel(phys(T.clay, { roughness: .8 }), { color: T.accent, strength: .6, power: 3.6 }),
+  helmetV: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .5, clearcoat: .4, clearcoatRoughness: .5, side: THREE.DoubleSide }),
+  T: T,
   hair: phys(0x3B3430, { roughness: .9, sheen: .6, sheenColor: 0x8a7a6a }),
   body: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .74, sheen: .35, sheenColor: 0xbbbbbb }),
   cols: { skin: T.skin, jersey: T.jersey, bib: T.bib, sock: T.sock },
