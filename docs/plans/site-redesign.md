@@ -50,6 +50,7 @@ of PNS, MAAP or Rapha). They care about details and exactness. They are nerdy ab
 |---|---|
 | `00-brand-directions.png` | The three brand directions, in light and dark |
 | `01-app-fit-builder-2d-light.png` | **The canonical app screen:** nav, controls column, 2D side view, readout, Metric Rail, results column with fit history |
+| `09-head-helmet.png` | Head and fitted helmet, side / front / ¾ |
 | `06/07/08-rider-*.png` | **The current rider figure** (side, rear ¾ showing the calves, front ¾) with the earlier helmet |
 | `05-fresnel-options.png` | **The rider figure and Fresnel options:** clay / tonal rim / focus rim + x-ray ghost / dark |
 | `02-view3d-light.png` | 3D view, light (default) |
@@ -290,11 +291,21 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
   - **Pending product decision:** level 2 (tonal rim only) vs level 2+3 (plus the focus rim and x-ray ghost). The recommendation is 2+3.
 - **2D:** the same profiles drawn as clay polygons, with an SVG filter that erodes the alpha and flood-fills the ring to give an
   inner rim (tonal), plus an accent ring on the focused limb (`draw2d.js#clayDefs`, `clayFigure`).
-- **Helmet: the earlier shell** (the lofted/vented version was rejected): `SphereGeometry(1, 72, 36, 0, 2π, 0, 0.62π)`,
-  with per-vertex `z *= .86; y *= .78; if (x < 0) { x *= 1.28; y -= .18·x² } else x *= 1.06`, then scaled `(116, 122, 95)`
-  and offset `(−10, 16, 0)` in head-local space. It is a plain shell in `--kit-light`, with no vents, glasses or straps.
-  The 2D side view uses the same curve as a crescent (outer shell plus a 0.88-scale inner line).
-  The head is an ellipsoid with jaw and brow masses; gaze = neck angle − 80°.
+- **Head + helmet** (`rider3.js`, head-local frame: +x gaze, +y up; gaze = neck angle − 78°):
+  - **Head:** cranium ellipsoid (98, 94, 77) centred at (−8, 18). Face mass (60, 74, 62) at (30, −30), chin (26, 22, 34),
+    nose (12, 22, 9), ears.
+  - **Helmet fitted to the cranium:** the shell is the cranium ellipsoid offset by +18 mm (+10 mm vertically, so it sits
+    low), with superellipse cross-sections (q = 2.5, so the sides are flatter). The rear half is stretched ×1.3 into a
+    long, slightly raised tail.
+  - The shell is cut along a rim line: brow +24, dropping to −52 at the occiput (low at the back, high over the eyes).
+    A dark 5 mm liner band runs along the rim. No vents.
+  - **Glasses:** a wrap shield lens (−22…+24 mm tall, wrap radius 112 → 86) sitting in front of the nose.
+  - **2D:** the same cranium, face, rim line and shell top line, drawn as polygons (helmet in `--kit-light` with a dark
+    liner stroke).
+  - **Reference:** `mockups/09-head-helmet.png` (side, front, ¾).
+- **Build:** all limb profiles and muscle amplitudes are ×1.1, the torso ×1.08, glutes (64, 58, 58); a little fuller than a
+  climber. **Calves:** gastrocnemius medial amp 36 (t 0.30) and lateral amp 28 (t 0.24), both spread 4 and angled 0.75
+  towards medial/lateral so the diamond split shows. Soleus amp 12 plus a medial flare, and an ankle pinch at t 0.85.
 
 ### 5.6 3D view (tracks C and E)
 

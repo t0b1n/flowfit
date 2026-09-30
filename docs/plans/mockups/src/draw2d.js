@@ -95,27 +95,33 @@ export function clayDefs(tok) {
 export function clayFigure(G, part) {
   const { J } = G; const s = [];
   const Pg = p => `<polygon class="clay" points="${p}"/>`;
-  if (part === 'farLeg') { s.push(Pg(seg(J.hip, J.kneeR, t => lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.kneeR, J.ankleR, t => lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankleR.y - J.kneeR.y, J.ankleR.x - J.kneeR.x); const cc = v(lerp(J.kneeR.x, J.ankleR.x, .28) - 26, lerp(J.kneeR.y, J.ankleR.y, .28)); s.push(Pg(ellP(cc, 92, 42, sd))); }
-  if (part === 'farArm') s.push(Pg(seg(J.shoulder, J.elbow, t => lerp(46, 35, t) + 9 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => lerp(41, 23, t) + 7 * bumpf(t, .18, .14))));
+  if (part === 'farLeg') { s.push(Pg(seg(J.hip, J.kneeR, t => 1.1 * lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.kneeR, J.ankleR, t => 1.1 * lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankleR.y - J.kneeR.y, J.ankleR.x - J.kneeR.x); const cc = v(lerp(J.kneeR.x, J.ankleR.x, .28) - 26, lerp(J.kneeR.y, J.ankleR.y, .28)); s.push(Pg(ellP(cc, 96, 48, sd))); }
+  if (part === 'farArm') s.push(Pg(seg(J.shoulder, J.elbow, t => 1.1 * lerp(46, 35, t) + 9 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => 1.1 * lerp(41, 23, t) + 7 * bumpf(t, .18, .14))));
   if (part === 'body') {
     const ax = Math.atan2(J.shoulder.y - J.hip.y, J.shoulder.x - J.hip.x);
-    s.push(Pg(seg(v(J.hip.x - Math.cos(ax) * 10, J.hip.y - Math.sin(ax) * 10), v(J.shoulder.x - Math.cos(ax) * 18, J.shoulder.y - Math.sin(ax) * 18), t => (100 - 14 * bumpf(t, .36, .14) + 16 * bumpf(t, .78, .16)) * lerp(.9, 1.02, Math.min(1, Math.max(0, (t - .3) / .55))))));
-    s.push(Pg(ellP(v(J.hip.x - 16, J.hip.y - 4), 80, 78)), Pg(ellP(v(J.hip.x - 52, J.hip.y - 20), 62, 56, ax * .3)));
-    s.push(Pg(seg(v(J.neckBase.x - 20, J.neckBase.y - 6), J.shoulder, t => lerp(50, 42, t))));
-    s.push(Pg(seg(v(J.shoulder.x - 12, J.shoulder.y - 22), v(J.head.x - 26, J.head.y - 44), t => lerp(58, 52, t))));
+    s.push(Pg(seg(v(J.hip.x - Math.cos(ax) * 10, J.hip.y - Math.sin(ax) * 10), v(J.shoulder.x - Math.cos(ax) * 18, J.shoulder.y - Math.sin(ax) * 18), t => 1.08 * (98 - 18 * bumpf(t, .36, .13) + 18 * bumpf(t, .78, .16)) * lerp(.9, 1.02, Math.min(1, Math.max(0, (t - .3) / .55))))));
+    s.push(Pg(ellP(v(J.hip.x - 16, J.hip.y - 4), 80, 78)), Pg(ellP(v(J.hip.x - 52, J.hip.y - 20), 68, 62, ax * .3)));
+    s.push(Pg(seg(v(J.neckBase.x - 20, J.neckBase.y - 6), J.shoulder, t => 1.1 * lerp(50, 42, t))));
+    s.push(Pg(seg(v(J.shoulder.x - 12, J.shoulder.y - 22), v(J.head.x - 26, J.head.y - 44), t => 1.1 * lerp(58, 52, t))));
     const ua = Math.atan2(J.elbow.y - J.shoulder.y, J.elbow.x - J.shoulder.x);
     s.push(Pg(ellP(v(J.shoulder.x + Math.cos(ua) * 26, J.shoulder.y + Math.sin(ua) * 26), 70, 58, ua)));
-    s.push(Pg(seg(J.shoulder, J.elbow, t => lerp(46, 35, t) + 9 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => lerp(41, 23, t) + 7 * bumpf(t, .18, .14))));
+    s.push(Pg(seg(J.shoulder, J.elbow, t => 1.1 * lerp(46, 35, t) + 9 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => 1.1 * lerp(41, 23, t) + 7 * bumpf(t, .18, .14))));
   }
-  if (part === 'nearLeg') { s.push(Pg(seg(J.hip, J.knee, t => lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.knee, J.ankle, t => lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x); const cc = v(lerp(J.knee.x, J.ankle.x, .28) - 26, lerp(J.knee.y, J.ankle.y, .28)); s.push(Pg(ellP(cc, 92, 42, sd))); }
+  if (part === 'nearLeg') { s.push(Pg(seg(J.hip, J.knee, t => 1.1 * lerp(84, 51, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.knee, J.ankle, t => 1.1 * lerp(45, 27, t) + 8 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x); const cc = v(lerp(J.knee.x, J.ankle.x, .28) - 26, lerp(J.knee.y, J.ankle.y, .28)); s.push(Pg(ellP(cc, 96, 48, sd))); }
   return s.join('');
 }
 export function clayHead(G) {
-  const { J } = G; const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - 80 * Math.PI / 180;
+  const { J } = G; const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - 78 * Math.PI / 180;
   const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
   const el = (cx, cy, rx, ry) => { const o = []; for (let i = 0; i < 36; i++) { const a = i / 36 * Math.PI * 2; o.push(R(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry)); } return pts(o); };
-  let s = `<g filter="url(#fres)"><polygon class="clay" points="${el(0, 0, 96, 108)}"/><polygon class="clay" points="${el(28, -60, 58, 46)}"/><polygon class="clay" points="${el(90, -4, 16, 22)}"/></g>`;
-  const shl = (k, off) => { const o = []; for (let i = 0; i <= 80; i++) { const th = -Math.PI * .62 + i / 80 * Math.PI * 1.24; let x = Math.sin(th), y = Math.cos(th); y *= .78; if (x < 0) { x *= 1.28; y -= .18 * x * x; } else x *= 1.06; o.push(R(x * 116 * k - 10, y * 122 * k + 16 - off)); } return o; };
-  s += `<polygon class="helmet" points="${pts(shl(1, 0).concat(shl(.88, 4).reverse()))}"/>`;
+  let s = `<g filter="url(#fres)"><polygon class="clay" points="${el(-8, 18, 98, 94)}"/><polygon class="clay" points="${el(30, -30, 60, 74)}"/><polygon class="clay" points="${el(58, -88, 26, 22)}"/><polygon class="clay" points="${el(92, -12, 12, 22)}"/><polygon class="clay" points="${el(-12, -8, 14, 26)}"/></g>`;
+  // helmet side silhouette: same shell as 3D (cranium + offset, rim line, long tail)
+  const cx = -8, cy = 18, A = 98 + 18, B = 94 + 10;
+  const rimY = x => { const u = (x - cx) / A; return u > 0 ? -4 + 28 * u : -4 - 48 * (-u) ** 1.2; };
+  const top = [], bot = [];
+  for (let i = 0; i <= 80; i++) { const x = cx - A * 1.3 + 2 + i / 80 * (A * 2.3 - 4), u = (x - cx) / (x < cx ? A * 1.3 : A), kk = Math.sqrt(Math.max(0, 1 - u * u)), tail = x < cx ? 10 * Math.max(0, -u - .6) / .4 : 0;
+    const yt = cy + B * kk + tail, yb = Math.min(yt - 2, Math.max(rimY(x), cy - B * kk * 0.2)); top.push(R(x, yt)); bot.push(R(x, yb)); }
+  s += `<polygon class="helmet" points="${pts([...top, ...bot.reverse()])}"/><polyline class="liner" points="${pts(bot)}"/>`;
+  s += `<polygon class="lens" points="${pts([R(50, 20), R(106, 20), R(108, -12), R(94, -16), R(62, -14), R(46, -2)])}"/>`;
   return s;
 }
