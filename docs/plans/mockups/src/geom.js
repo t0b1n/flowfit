@@ -10,11 +10,15 @@ function cc(a, b, ra, rb) {
   const u = norm(sub(b, a)), n = v(-u.y, u.x), m = add(a, mul(u, x));
   return [add(m, mul(n, h)), add(m, mul(n, -h))];
 }
-export function build(saddleDelta = 0) {
-  const H = 1800;
-  const R = { thigh: 465, shank: 455, torso: 560, upper: 320, fore: 300, hipOff: 95, foot: 270, shoulderW: 400, hipW: 200, stance: 155 };
-  const F = { stack: 560, reach: 385, ha: 73, sa: 73.5, bbDrop: 70, cs: 410, wr: 340 };
-  const C = { crank: 172.5, stem: 100, stemAng: -6, spacers: 20, barReach: 78, hoodW: 400, cleatSetback: 12 };
+export function build(saddleDelta = 0, sex = 'm', trunkDeg = 38) {
+  const male = sex === 'm';
+  const H = male ? 1800 : 1680;
+  // Optimal road-racer bases: male 1800 mm / 70 kg, female 1680 mm / 58 kg
+  const R = male
+    ? { thigh: 465, shank: 455, torso: 560, upper: 320, fore: 300, hipOff: 95, foot: 270, shoulderW: 380, hipW: 190, stance: 155, weight: 70 }
+    : { thigh: 440, shank: 425, torso: 480, upper: 292, fore: 275, hipOff: 90, foot: 245, shoulderW: 345, hipW: 200, stance: 150, weight: 58 };
+  const F = male ? { stack: 560, reach: 385, ha: 73, sa: 73.5, bbDrop: 70, cs: 410, wr: 340 } : { stack: 530, reach: 376, ha: 72, sa: 74, bbDrop: 72, cs: 408, wr: 340 };
+  const C = male ? { crank: 172.5, stem: 100, stemAng: -6, spacers: 20, barReach: 78, hoodW: 400, cleatSetback: 12 } : { crank: 165, stem: 80, stemAng: -6, spacers: 15, barReach: 70, hoodW: 370, cleatSetback: 10 };
   const P = {};
   P.bb = v(0, 0);
   P.rear = v(-Math.sqrt(F.cs ** 2 - F.bbDrop ** 2), F.bbDrop);
@@ -23,7 +27,7 @@ export function build(saddleDelta = 0) {
   P.htBot = add(P.htTop, mul(htDown, 150));
   P.front = v(P.htBot.x + (P.htBot.y - F.bbDrop) / Math.tan(d2r(F.ha)) + 47, F.bbDrop);
   const stUp = v(-Math.cos(d2r(F.sa)), Math.sin(d2r(F.sa)));
-  P.cluster = mul(stUp, 520);
+  P.cluster = mul(stUp, male ? 470 : 440); // sloping top tube, low seat cluster
   P.steerTop = add(P.htTop, mul(htDown, -(C.spacers + 15)));
   const stemDir = v(Math.cos(d2r(C.stemAng + (90 - F.ha) * 0 )), Math.sin(d2r(C.stemAng)));
   P.clamp = add(P.steerTop, mul(stemDir, C.stem));
@@ -41,7 +45,7 @@ export function build(saddleDelta = 0) {
   const knee = cc(hip, ankL0, R.thigh, R.shank).sort((a, b) => b.x - a.x)[0];
   const kneeR = cc(hip, ankR0, R.thigh, R.shank).sort((a, b) => b.x - a.x)[0];
   // Trunk: closed-chain like the app but with a slight elbow bend: shoulder from trunk angle
-  const trunk = d2r(38);
+  const trunk = d2r(trunkDeg);
   const shoulder = add(hip, mul(v(Math.cos(trunk), Math.sin(trunk)), R.torso));
   // hands at hoods; project arm lengths laterally like the app
   const lat = (C.hoodW / 2 - R.shoulderW / 2);
@@ -67,7 +71,7 @@ export function build(saddleDelta = 0) {
     elbow_flex: 180 - angleAt(shoulder, elbow, hands), saddle_height: P.saddle.y, setback: -P.saddle.x,
     drop: P.saddle.y - P.hood.y, reach: P.hood.x - P.saddle.x, kops: k3.x - c3.x,
   };
-  return { H, R, F, C, P, htDown, stUp, J: { hip, knee, kneeR, ankle, ankleR, cleatL, cleatR, shoulder, elbow, wrist, hands, head, neckBase, spine }, M, saddleLen: s };
+  return { sex, H, R, F, C, P, htDown, stUp, J: { hip, knee, kneeR, ankle, ankleR, cleatL, cleatR, shoulder, elbow, wrist, hands, head, neckBase, spine }, M, saddleLen: s };
 }
 export const METRICS = [
   ['trunk', 'J1', 'TRUNK', '°', [35, 45]], ['hip', 'J2', 'HIP', '°', [95, 110]], ['knee_ext_bdc', 'J3', 'KNEE EXT', '°', [140, 150]],

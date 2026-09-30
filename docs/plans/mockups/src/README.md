@@ -8,6 +8,10 @@ each image.
 |---|---|
 | `ff.css` | Light/dark token values + 3D overlay styles (readout, gauge, callouts, spec panel, Metric Rail) |
 | `app.css`, `app.html` | Full-app screen: nav, 272/1fr/292 layout, controls column, 2D side view (SVG), results column |
+| `kit.js`, `rider3.js`, `fresnel.js` | Lathe limb builder, toned clay mannequin, helmet recipe, tonal Fresnel material patch |
+| `bike3d.js` | Disc road bike (2× groupset, rotors/calipers, STI levers, dropped stays, bottle) |
+| `draw2d.js` | 2D side view: bike layers, clay figure polygons + rim SVG filter, head/helmet |
+| `fres.html`, `rider.html` | Fresnel comparison sheet and bare rider renders |
 | `geom.js` | Simplified pose maths **mirroring the app's rules**, including the elbow side rule. The app's `geometry.ts` remains the source of truth. |
 | `scene3.js` | three.js scene: limb lathe builder, anatomical profiles, head ellipsoid + helmet recipe, bike shapes, stage lighting |
 | `overlay.js`, `view3d.html` | DOM overlay for the 3D view |

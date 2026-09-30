@@ -1,13 +1,16 @@
 <!doctype html><html><head><meta charset="utf-8">
 <link rel="stylesheet" href="fonts/all.css"><link rel="stylesheet" href="fonts/more.css"><link rel="stylesheet" href="ff.css"><link rel="stylesheet" href="app.css">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
 </head><body><div id="root"></div>
 <script type="module">
 import { build, METRICS, band } from './geom.js';
 import { mark } from './overlay.js';
+import { bikeLayers, headSVG, extremitiesSVG, clayDefs, clayFigure, clayHead } from './draw2d.js';
+const SEX = new URLSearchParams(location.search).get('sex') || 'm';
 const theme = new URLSearchParams(location.search).get('theme') || 'light';
 document.documentElement.dataset.theme = theme;
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const G = build(0), G0 = build(-6), { P, J, C, F, M } = G, M0 = G0.M;
+const G = build(0, SEX), G0 = build(-6, SEX), { P, J, C, F, M } = G, M0 = G0.M;
 const d2r = d => d * Math.PI / 180, lerp = (a, b, t) => a + (b - a) * t, bump = (t, c, w) => Math.exp(-((t - c) ** 2) / (2 * w * w));
 const def = Object.fromEntries(METRICS.map(m => [m[0], m]));
 const slider = (lab, val, unit, p, ticks = []) => `<div class="sl"><div class="t"><span>${lab}</span><b>${val}<small>${unit}</small></b></div><div class="tr"><i style="width:${p}%"></i>${ticks.map(t => `<s style="left:${t}%"></s>`).join('')}<u style="left:${p}%"></u></div></div>`;
@@ -30,58 +33,25 @@ const v = (x, y) => ({ x, y });
 const htDown = G.htDown, stUp = G.stUp;
 let s = '';
 const groundY = F.bbDrop - F.wr;
+const TK = theme === 'light' ? { skin: '#A69888', jersey: '#2E3033', bib: '#161718', sock: '#EDEAE4', edge: '#161616' } : { skin: '#8A8D91', jersey: '#3A3D42', bib: '#131415', sock: '#D9D5CD', edge: '#000000' };
 // ruler
 s += `<line class="hair" x1="${P.rear.x - 60}" y1="${-groundY}" x2="${P.front.x + 60}" y2="${-groundY}"/>`;
 for (let x = Math.floor(P.rear.x / 25) * 25; x <= P.front.x + 50; x += 25) s += `<line class="${x % 100 ? 'faintl' : 'hair'}" x1="${x}" y1="${-groundY}" x2="${x}" y2="${-groundY + (x % 100 ? 14 : 30)}"/>`;
 for (const a of [P.rear, P.bb, P.front]) s += `<line class="accl" x1="${a.x}" y1="${-groundY - 10}" x2="${a.x}" y2="${-groundY + 50}"/>`;
-// far leg (TDC) behind bike
-const far = (a, b, prof) => poly(seg(a, b, prof), 'riderFar');
-s += far(J.hip, J.kneeR, t => lerp(80, 52, t) + 10 * bump(t, .3, .2)) + far(J.kneeR, J.ankleR, t => lerp(46, 30, t) + 14 * bump(t, .28, .13)) + far(v(J.ankleR.x - 30, J.ankleR.y + 8), v(J.cleatR.x + 80, J.cleatR.y - 8), t => lerp(40, 26, t));
-s += far(J.shoulder, J.elbow, t => lerp(44, 36, t)) + far(J.elbow, J.wrist, t => lerp(38, 24, t));
-// wheels
-for (const c of [P.rear, P.front]) {
-  s += `<circle class="tyre" cx="${c.x}" cy="${-c.y}" r="${F.wr - 14}"/><circle class="tan" cx="${c.x}" cy="${-c.y}" r="${F.wr - 27}"/>`;
-  s += `<circle class="rimd" cx="${c.x}" cy="${-c.y}" r="${F.wr - 57}"/>`;
-  for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; s += `<line class="spoke" x1="${c.x}" y1="${-c.y}" x2="${c.x + Math.cos(a) * (F.wr - 84)}" y2="${-c.y - Math.sin(a) * (F.wr - 84)}"/>`; }
-  s += `<circle class="ink" cx="${c.x}" cy="${-c.y}" r="18"/>`;
-}
-// frame (petrol) — tapered tubes
-const cl = P.cluster, ht = P.htTop, hb = P.htBot, add = (a, b, k = 1) => v(a.x + b.x * k, a.y + b.y * k);
-s += tube(P.bb, P.rear, 13, 8, 'frame') + tube(add(cl, stUp, -35), P.rear, 9, 6, 'frame');
-s += tube(P.bb, cl, 17, 15, 'frame') + tube(cl, add(ht, htDown, 18), 15, 17, 'frame') + tube(P.bb, add(hb, htDown, -20), 24, 20, 'frame');
-s += tube(add(hb, htDown, 14), add(ht, htDown, -6), 23, 19, 'frame');
-s += `<path class="fork" d="M${hb.x} ${-hb.y} Q ${hb.x + htDown.x * 200 + 8} ${-(hb.y + htDown.y * 200)} ${P.front.x} ${-P.front.y}"/>`;
-s += `<circle class="frameC" cx="0" cy="0" r="30"/>`;
-// cockpit + seatpost (ink)
-s += tube(cl, add(P.saddle, stUp, -30), 13, 13, 'inkp') + tube(ht, P.steerTop, 16, 16, 'inkp') + tube(P.steerTop, P.clamp, 17, 15, 'inkp');
-s += `<path class="bar" d="M${P.clamp.x} ${-P.clamp.y} C ${P.clamp.x + 60} ${-P.clamp.y} ${P.hood.x + 10} ${-P.hood.y + 20} ${P.hood.x + 10} ${-P.hood.y + 60} S ${P.clamp.x + 40} ${-P.clamp.y + 128} ${P.clamp.x - 6} ${-P.clamp.y + 128}"/>`;
-s += tube(v(P.hood.x - 22, P.hood.y - 22), v(P.hood.x + 40, P.hood.y + 18), 20, 24, 'inkp');
-// saddle
-s += `<path class="inkf" d="M${P.saddle.x - 140} ${-P.saddle.y - 6} Q ${P.saddle.x - 120} ${-P.saddle.y - 26} ${P.saddle.x - 30} ${-P.saddle.y - 22} L ${P.saddle.x + 120} ${-P.saddle.y - 14} Q ${P.saddle.x + 130} ${-P.saddle.y - 8} ${P.saddle.x + 110} ${-P.saddle.y} L ${P.saddle.x - 130} ${-P.saddle.y + 4} Z"/>`;
-// drivetrain
-{ let g = ''; for (let i = 0; i < 100; i++) { const a = i / 100 * Math.PI * 2, r = i % 2 ? 102 : 108; g += `${(Math.cos(a) * r).toFixed(1)},${(-Math.sin(a) * r).toFixed(1)} `; } s += `<polygon class="ring" points="${g}"/>`; }
-s += `<line class="chain" x1="0" y1="-106" x2="${P.rear.x}" y2="${-P.rear.y - 46}"/><line class="chain" x1="0" y1="106" x2="${P.rear.x}" y2="${-P.rear.y + 46}"/><circle class="inkf" cx="${P.rear.x}" cy="${-P.rear.y}" r="48"/>`;
-for (const c of [J.cleatL, J.cleatR]) { const sp = v(c.x + C.cleatSetback, c.y); s += tube(P.bb, sp, 13, 9, 'inkp') + `<rect class="inkf" x="${sp.x - 42}" y="${-sp.y - 2}" width="84" height="12"/>`; }
-// near rider (left leg BDC, torso, near arm, head)
-const rp = (a, b, prof) => poly(seg(a, b, prof), 'rider');
-s += rp(v(J.hip.x - 6, J.hip.y - 10), v(J.shoulder.x - 4, J.shoulder.y - 12), t => (108 - 20 * bump(t, .45, .16) + 16 * bump(t, .85, .12)) * .72);
-s += `<ellipse class="rider" cx="${J.hip.x - 20}" cy="${-(J.hip.y - 8)}" rx="96" ry="84"/>`;
-s += rp(J.hip, J.knee, t => lerp(80, 52, t) + 10 * bump(t, .3, .2)) + rp(J.knee, J.ankle, t => lerp(46, 30, t) + 14 * bump(t, .28, .13));
-s += poly(seg(v(J.ankle.x - 30, J.ankle.y + 8), v(J.cleatL.x + 80, J.cleatL.y - 8), t => lerp(40, 26, t)), 'shoe');
-s += rp(v(J.shoulder.x - 10, J.shoulder.y - 20), v(J.head.x - 30, J.head.y - 40), () => 50);
-s += `<circle class="rider" cx="${J.shoulder.x}" cy="${-J.shoulder.y}" r="54"/>`;
-s += rp(J.shoulder, J.elbow, t => lerp(44, 36, t) + 5 * bump(t, .4, .2)) + rp(J.elbow, J.wrist, t => lerp(38, 24, t) + 6 * bump(t, .22, .15));
-s += poly(seg(J.wrist, v(J.hands.x + 22, J.hands.y + 4), t => lerp(26, 22, t)), 'inkp');
-// head + helmet (same recipe as 3D, side silhouette)
-const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - d2r(80);
-const rot = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
-s += `<ellipse class="rider" cx="${J.head.x}" cy="${-J.head.y}" rx="100" ry="112" transform="rotate(${(-gz * 180 / Math.PI).toFixed(1)} ${J.head.x} ${-J.head.y})"/>`;
-{ const sh = (k, off) => { const o = []; for (let i = 0; i <= 80; i++) { const th = -Math.PI * .62 + i / 80 * Math.PI * 1.24; let x = Math.sin(th), y = Math.cos(th); y *= .78; if (x < 0) { x *= 1.28; y -= .18 * x * x; } else x *= 1.06; const [X1, Y1] = rot(x * 116 * k - 10, y * 122 * k + 16 - off); o.push(`${X1.toFixed(1)},${(-Y1).toFixed(1)}`); } return o; };
-  const outer = sh(1, 0), inner = sh(.88, 4).reverse(); s += `<polygon class="helmet" points="${outer.concat(inner).join(' ')}"/>`; }
+const BL = bikeLayers(G);
+const box = { x0: Math.min(J.hip.x, J.ankle.x, J.ankleR.x) - 200, x1: Math.max(J.hands.x, J.kneeR.x, J.head.x) + 160, y0: Math.min(J.ankle.y, J.ankleR.y) - 80, y1: J.head.y + 60 };
+s += BL.wheels;
+const CT = theme === 'light' ? { rim: '#FFFBF3', rimOp: .75, accent: '#FF4F00' } : { rim: '#D6DDE6', rimOp: .6, accent: '#FF5A1F' };
+s += clayDefs(CT);
+s += `<g opacity=".55" filter="url(#fres)">${clayFigure(G, 'farLeg')}${clayFigure(G, 'farArm')}</g>${extremitiesSVG(G, 'far')}`;
+s += BL.drive + BL.frame + BL.near;
+s += `<g filter="url(#fres)">${clayFigure(G, 'body')}</g><g filter="url(#fresA)">${clayFigure(G, 'nearLeg')}</g>` + extremitiesSVG(G, 'near') + clayHead(G) + BL.bars;
+// re-draw the near glove over the bar
+s += extremitiesSVG(G, 'near').replace(/<polygon class="shoe[^/]*\/>|<polygon class="sole[^/]*\/>/g, '');
 // skeleton hairlines + joints
-const sk = [[J.hip, J.knee], [J.knee, J.ankle], [J.hip, J.shoulder], [J.shoulder, J.elbow], [J.elbow, J.hands], [J.shoulder, J.head]];
+const sk = [[J.hip, J.shoulder]];
 for (const [a, b] of sk) s += ln(a, b, 'bone');
-for (const p of [J.hip, J.knee, J.ankle, J.shoulder, J.elbow, J.hands, J.head]) s += `<circle class="jd" cx="${p.x}" cy="${-p.y}" r="7"/>`;
+for (const p of [J.hip, J.knee, J.ankle, J.shoulder]) s += `<circle class="jd" cx="${p.x}" cy="${-p.y}" r="7"/>`;
 // ghost FIT 02 (accent hairline, dashed)
 s += `<polyline class="ghost" points="${G0.J.hip.x},${-G0.J.hip.y} ${G0.J.knee.x},${-G0.J.knee.y} ${G0.J.ankle.x},${-G0.J.ankle.y}"/>`;
 // knee arc (focused) accent
@@ -140,12 +110,12 @@ const nav = `<div class="nav"><div class="brand">${mark('var(--ink)', 'var(--acc
 const stage = `<div class="stage"><div class="stagebar"><div class="seg" style="width:180px"><span class="on">SIDE</span><span>FRONT</span><span>3D</span></div><span class="pill">LAYERS ▾</span><span class="pill on">ANGLES</span><span class="pill on">DIMENSIONS</span><span class="pill">KOPS</span><span class="ttl sp">COMPARE <b style="color:var(--accentTxt)">FIT 02</b> ▾</span><span class="pill">⛶</span></div>${stageSvg}<div class="ov ov2">${lab}</div></div>`;
 document.getElementById('root').innerHTML = `<div class="app">${nav}<div class="main">${left}${stage}${right}</div></div>`;
 const st = document.createElement('style'); st.textContent = `
- svg.s2d .frame{fill:var(--frame)} svg.s2d .frameC{fill:var(--frame)} svg.s2d .fork{fill:none;stroke:var(--frame);stroke-width:22;stroke-linecap:round}
- svg.s2d .inkp,svg.s2d .inkf{fill:var(--ink)} svg.s2d .bar{fill:none;stroke:var(--ink);stroke-width:24;stroke-linecap:round}
- svg.s2d .tyre{fill:none;stroke:var(--ink);stroke-width:28} svg.s2d .tan{fill:none;stroke:#B89468;stroke-width:9;opacity:.9}
- svg.s2d .rimd{fill:none;stroke:var(--ink);stroke-width:55;opacity:.07} svg.s2d .spoke{stroke:var(--ink);stroke-width:2;opacity:.45}
+ svg.s2d .frame,svg.s2d .frameF{fill:var(--frame)} svg.s2d .fork{fill:none;stroke:var(--frame);stroke-width:24;stroke-linecap:round} svg.s2d .carbon,svg.s2d .blk,svg.s2d .sad{fill:#141516} svg.s2d .rim{fill:none;stroke:#141516;stroke-width:44} svg.s2d .hub{fill:#2A2C2F} svg.s2d .ringB,svg.s2d .ringS{fill:none;stroke:#2A2C2F;stroke-width:7} svg.s2d .cas{fill:none;stroke:#2A2C2F;stroke-width:3} svg.s2d .pul{fill:#2A2C2F} svg.s2d .rotor{fill:none;stroke:#8E939A;stroke-width:15} svg.s2d .rotorS{stroke:#6F747B;stroke-width:6} svg.s2d .cal{fill:#2A2C2F} svg.s2d .hose{fill:none;stroke:#1C1C1D;stroke-width:6} svg.s2d .bottle{fill:var(--bottle)} svg.s2d .cage{stroke:#141516;stroke-width:5} svg.s2d .hood{fill:#202022} svg.s2d .lever{fill:none;stroke:#2A2C2F;stroke-width:12;stroke-linecap:round} svg.s2d .skin{fill:var(--skin)} svg.s2d .clay{fill:var(--clay)} svg.s2d .hair{fill:#3B3430} svg.s2d .lens{fill:#0E0F10} svg.s2d .helmet{fill:var(--helmet);stroke:var(--ink);stroke-width:2.5;stroke-opacity:.5} svg.s2d .vent{fill:none;stroke:#141516;stroke-width:9;stroke-linecap:round} svg.s2d .strap{stroke:#141516;stroke-width:4} svg.s2d .shoe{fill:#1A1B1C} svg.s2d .sole{fill:#141516} svg.s2d .glove{fill:var(--clay)}
+ svg.s2d .bar{fill:none;stroke:#1C1C1D;stroke-width:25;stroke-linecap:round}
+ svg.s2d .tyre{fill:none;stroke:#1A1A1A;stroke-width:28}
+ svg.s2d .rimd{fill:none;stroke:var(--ink);stroke-width:55;opacity:.07} svg.s2d .spoke{stroke:#303236;stroke-width:2.2;opacity:.8}
  svg.s2d .ring{fill:none;stroke:var(--ink);stroke-width:8} svg.s2d .chain{stroke:var(--ink);stroke-width:7;opacity:.8}
- svg.s2d .rider{fill:var(--rider)} svg.s2d .riderFar{fill:var(--rider);opacity:.45} svg.s2d .shoe{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+ svg.s2d .rider{fill:var(--rider)} svg.s2d .riderFar{fill:var(--rider);opacity:.45} svg.s2d .shoe{fill:#1A1B1C}
  svg.s2d .helmet{fill:var(--surface);stroke:var(--ink);stroke-width:3} svg.s2d .bone{stroke:var(--ink);stroke-width:2.2;opacity:.55} svg.s2d .jd{fill:var(--surface);stroke:var(--ink);stroke-width:2.5}
  svg.s2d .ghost{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-dasharray:14 10;opacity:.9}
  svg.s2d .arcA{fill:none;stroke:var(--accent);stroke-width:2.5} svg.s2d .accl{stroke:var(--accent);stroke-width:2.5} svg.s2d .accD{fill:var(--accent)}
