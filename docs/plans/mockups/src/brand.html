@@ -1,0 +1,92 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts/all.css"><link rel="stylesheet" href="fonts/more.css">
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:1600px;height:1000px;background:#E6E1D8;font-family:'Geist',sans-serif}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);height:100%}
+.col{display:grid;grid-template-rows:auto 1fr 1fr;border-right:1px solid #16161622}
+.col:last-child{border-right:0}
+.hd{padding:22px 32px 14px;font:500 11px 'Geist Mono';letter-spacing:.18em;color:#6B655D;background:#E6E1D8;display:flex;justify-content:space-between}
+.hd b{color:#161616;font-weight:500}.rec{color:var(--a)}
+.pane{padding:28px 32px;display:flex;flex-direction:column;gap:22px;position:relative}
+.light{background:#E6E1D8;color:#161616;--ink:#161616;--mut:#6B655D;--faint:rgba(22,22,22,.18);--bg:#E6E1D8}
+.dark{background:#111213;color:#E8E6E1;--ink:#E8E6E1;--mut:#8B8984;--faint:rgba(232,230,225,.16);--bg:#111213}
+.brand{display:flex;align-items:center;gap:14px;height:60px}
+.wm{font-size:34px;line-height:1}
+.chipRow{display:flex;gap:10px;align-items:center;font:500 12px 'Geist Mono';letter-spacing:.08em}
+.code{background:var(--ink);color:var(--bg);padding:2px 6px}.code.hot{background:var(--a);color:var(--onA)}
+.lbl{font:400 11px 'Geist Mono';letter-spacing:.16em;color:var(--mut)}
+.big{font:800 88px 'Doto';line-height:.9;letter-spacing:-.01em}.big sup{font-size:.4em;color:var(--mut);vertical-align:top}
+.delta{font:500 13px 'Geist Mono';color:var(--aTxt)}.delta span{color:var(--mut)}
+.gauge{position:relative;height:8px;background:var(--faint);width:300px}.gauge i{position:absolute;left:33%;width:34%;top:0;bottom:0;background:var(--ink)}
+.gauge u{position:absolute;top:-6px;width:3px;height:20px;background:var(--a);left:58%}.gauge s{position:absolute;top:-6px;width:2px;height:20px;background:var(--a);opacity:.4;left:47%}
+.sw{display:flex;gap:6px;margin-top:auto}.sw div{width:44px;height:22px;border:1px solid var(--faint)}
+.btn{align-self:flex-start;font:500 11px 'Geist Mono';letter-spacing:.14em;padding:8px 14px;background:var(--a);color:var(--onA)}
+.note{position:absolute;right:32px;bottom:26px;font:400 11px 'Geist Mono';color:var(--mut);letter-spacing:.06em;max-width:230px;text-align:right;line-height:1.5}
+</style></head><body><div class="grid">
+
+<!-- 1 CONTACT -->
+<div class="col" style="--a:#FF4F00;--onA:#fff;--aTxt:#E24600">
+ <div class="hd"><span><b>01 — CONTACT</b></span><span class="rec">RECOMMENDED</span></div>
+ <div class="pane light">
+  <div class="brand"><svg width="46" height="46" viewBox="0 0 46 46"><g stroke="#161616" stroke-width="1.4" fill="none"><path d="M6 12 L40 8 L20 40 Z"/></g><circle cx="6" cy="12" r="4.5" fill="#161616"/><circle cx="40" cy="8" r="4.5" fill="#161616"/><circle cx="20" cy="40" r="4.5" fill="#FF4F00"/></svg>
+   <div class="wm" style="font-weight:700;letter-spacing:-.035em">FLOWFIT</div></div>
+  <div class="chipRow"><span class="code hot">J3</span>KNEE EXT 148°<span class="code">C1</span>SADDLE 731</div>
+  <div><div class="lbl">KNEE EXTENSION · BDC</div><div class="big">148<sup>°</sup></div><div class="delta">▲ 3° <span>vs FIT 02 (145°)</span></div></div>
+  <div class="gauge"><i></i><s></s><u></u></div>
+  <div class="btn">SAVE FIT</div>
+  <div class="note">Mark = the three contact points (saddle, hoods, pedal). The product's idea, drawn.</div>
+ </div>
+ <div class="pane dark">
+  <div class="brand"><svg width="46" height="46" viewBox="0 0 46 46"><g stroke="#E8E6E1" stroke-width="1.4" fill="none"><path d="M6 12 L40 8 L20 40 Z"/></g><circle cx="6" cy="12" r="4.5" fill="#E8E6E1"/><circle cx="40" cy="8" r="4.5" fill="#E8E6E1"/><circle cx="20" cy="40" r="4.5" fill="#FF4F00"/></svg>
+   <div class="wm" style="font-weight:700;letter-spacing:-.035em">FLOWFIT</div></div>
+  <div class="chipRow"><span class="code hot">J3</span>KNEE EXT 148°<span class="code">C1</span>SADDLE 731</div>
+  <div><div class="big">148<sup>°</sup></div><div class="delta">▲ 3° <span>vs FIT 02</span></div></div>
+  <div class="gauge"><i></i><s></s><u></u></div>
+  <div class="sw"><div style="background:#FF4F00"></div><div style="background:#E6E1D8"></div><div style="background:#161616"></div><div style="background:#2D4A53"></div></div>
+ </div>
+</div>
+
+<!-- 2 ULTRAMARINE -->
+<div class="col" style="--a:#2B3AE8;--onA:#fff;--aTxt:#2B3AE8">
+ <div class="hd"><span><b>02 — ULTRAMARINE</b></span><span>PRECISE / QUIET</span></div>
+ <div class="pane light">
+  <div class="brand"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="13" fill="none" stroke="#161616" stroke-width="1.4"/><path d="M22 2V42M2 22H42" stroke="#161616" stroke-width="1.4"/><circle cx="22" cy="22" r="4" fill="#2B3AE8"/></svg>
+   <div class="wm" style="font:500 32px 'Geist Mono';letter-spacing:-.02em">flowfit</div></div>
+  <div class="chipRow"><span class="code hot">J3</span>KNEE EXT 148°<span class="code">C1</span>SADDLE 731</div>
+  <div><div class="lbl">KNEE EXTENSION · BDC</div><div class="big">148<sup>°</sup></div><div class="delta">▲ 3° <span>vs FIT 02 (145°)</span></div></div>
+  <div class="gauge"><i></i><s></s><u></u></div>
+  <div class="btn">SAVE FIT</div>
+  <div class="note">Registration-mark crosshair. Reads as measurement tool, not sports brand.</div>
+ </div>
+ <div class="pane dark" style="--aTxt:#7C86FF">
+  <div class="brand"><svg width="44" height="44" viewBox="0 0 44 44"><circle cx="22" cy="22" r="13" fill="none" stroke="#E8E6E1" stroke-width="1.4"/><path d="M22 2V42M2 22H42" stroke="#E8E6E1" stroke-width="1.4"/><circle cx="22" cy="22" r="4" fill="#5664FF"/></svg>
+   <div class="wm" style="font:500 32px 'Geist Mono';letter-spacing:-.02em">flowfit</div></div>
+  <div class="chipRow" style="--a:#5664FF"><span class="code hot">J3</span>KNEE EXT 148°<span class="code">C1</span>SADDLE 731</div>
+  <div style="--a:#5664FF"><div class="big">148<sup>°</sup></div><div class="delta">▲ 3° <span>vs FIT 02</span></div></div>
+  <div class="gauge" style="--a:#5664FF"><i></i><s></s><u></u></div>
+  <div class="sw"><div style="background:#2B3AE8"></div><div style="background:#E6E1D8"></div><div style="background:#161616"></div><div style="background:#8F857A"></div></div>
+ </div>
+</div>
+
+<!-- 3 SIGNAL -->
+<div class="col" style="--a:#C6F432;--onA:#161616;--aTxt:#161616">
+ <div class="hd"><span><b>03 — SIGNAL</b></span><span>LOUD / RISKY</span></div>
+ <div class="pane light">
+  <div class="brand"><div style="font:800 52px 'Doto';line-height:1;background:#C6F432;padding:0 6px 4px">F</div>
+   <div class="wm" style="font-weight:700;letter-spacing:-.03em">FLOW<span style="font-weight:400;color:#6B655D">/</span>FIT</div></div>
+  <div class="chipRow"><span class="code hot">J3</span>KNEE EXT 148°<span class="code">C1</span>SADDLE 731</div>
+  <div><div class="lbl">KNEE EXTENSION · BDC</div><div class="big">148<sup>°</sup></div><div class="delta"><span style="background:#C6F432;color:#161616;padding:0 4px">▲ 3°</span> <span>vs FIT 02 (145°)</span></div></div>
+  <div class="gauge" style="--a:#161616"><i style="background:#C6F432"></i><s></s><u></u></div>
+  <div class="btn">SAVE FIT</div>
+  <div class="note">Chartreuse only works as a fill with ink on top in light mode — limits where it can go.</div>
+ </div>
+ <div class="pane dark" style="--aTxt:#C6F432">
+  <div class="brand"><div style="font:800 52px 'Doto';line-height:1;color:#C6F432">F</div>
+   <div class="wm" style="font-weight:700;letter-spacing:-.03em">FLOW<span style="font-weight:400;color:#8B8984">/</span>FIT</div></div>
+  <div class="chipRow"><span class="code hot">J3</span>KNEE EXT 148°<span class="code">C1</span>SADDLE 731</div>
+  <div><div class="big">148<sup>°</sup></div><div class="delta">▲ 3° <span>vs FIT 02</span></div></div>
+  <div class="gauge"><i></i><s></s><u></u></div>
+  <div class="sw"><div style="background:#C6F432"></div><div style="background:#E6E1D8"></div><div style="background:#161616"></div><div style="background:#3A3F47"></div></div>
+ </div>
+</div>
+</div><script>document.fonts.ready.then(()=>window.__done=true)</script></body></html>

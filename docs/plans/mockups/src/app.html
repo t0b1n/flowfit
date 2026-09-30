@@ -1,0 +1,156 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts/all.css"><link rel="stylesheet" href="fonts/more.css"><link rel="stylesheet" href="ff.css"><link rel="stylesheet" href="app.css">
+</head><body><div id="root"></div>
+<script type="module">
+import { build, METRICS, band } from './geom.js';
+import { mark } from './overlay.js';
+const theme = new URLSearchParams(location.search).get('theme') || 'light';
+document.documentElement.dataset.theme = theme;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const G = build(0), G0 = build(-6), { P, J, C, F, M } = G, M0 = G0.M;
+const d2r = d => d * Math.PI / 180, lerp = (a, b, t) => a + (b - a) * t, bump = (t, c, w) => Math.exp(-((t - c) ** 2) / (2 * w * w));
+const def = Object.fromEntries(METRICS.map(m => [m[0], m]));
+const slider = (lab, val, unit, p, ticks = []) => `<div class="sl"><div class="t"><span>${lab}</span><b>${val}<small>${unit}</small></b></div><div class="tr"><i style="width:${p}%"></i>${ticks.map(t => `<s style="left:${t}%"></s>`).join('')}<u style="left:${p}%"></u></div></div>`;
+// ── stage geometry → SVG (mm; y inverted)
+const SW = 1036, SH = 896 - 48, vb = { x: -1020, y: -1500, w: 2450, h: 2450 * SH / SW };
+const X = x => x, Y = y => -y;
+const px = (x, y) => [((x - vb.x) / vb.w) * SW, ((-y - vb.y) / vb.h) * SH + 48];
+function seg(a, b, prof, n = 24) { // outline polygon of a lathe profile in side view
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux, left = [], right = [];
+  for (let i = 0; i <= n; i++) { const t = i / n, r = prof(t), cx = a.x + dx * t, cy = a.y + dy * t; left.push([cx + nx * r, cy + ny * r]); right.push([cx - nx * r, cy - ny * r]); }
+  const cap = (c, r, a0) => { const o = []; for (let i = 0; i <= 10; i++) { const a = a0 + i / 10 * Math.PI; o.push([c.x + Math.cos(a) * r, c.y + Math.sin(a) * r]); } return o; };
+  const ang = Math.atan2(uy, ux);
+  const pts = [...left, ...cap(b, prof(1), ang + Math.PI / 2 - Math.PI), ...right.reverse(), ...cap(a, prof(0), ang + Math.PI / 2)];
+  return pts.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(' ');
+}
+const poly = (pts, cls, extra = '') => `<polygon class="${cls}" points="${pts}" ${extra}/>`;
+const ln = (a, b, cls, extra = '') => `<line class="${cls}" x1="${X(a.x)}" y1="${Y(a.y)}" x2="${X(b.x)}" y2="${Y(b.y)}" ${extra}/>`;
+const tube = (a, b, r0, r1, cls) => poly(seg(a, b, t => lerp(r0, r1, t), 6), cls);
+const v = (x, y) => ({ x, y });
+const htDown = G.htDown, stUp = G.stUp;
+let s = '';
+const groundY = F.bbDrop - F.wr;
+// ruler
+s += `<line class="hair" x1="${P.rear.x - 60}" y1="${-groundY}" x2="${P.front.x + 60}" y2="${-groundY}"/>`;
+for (let x = Math.floor(P.rear.x / 25) * 25; x <= P.front.x + 50; x += 25) s += `<line class="${x % 100 ? 'faintl' : 'hair'}" x1="${x}" y1="${-groundY}" x2="${x}" y2="${-groundY + (x % 100 ? 14 : 30)}"/>`;
+for (const a of [P.rear, P.bb, P.front]) s += `<line class="accl" x1="${a.x}" y1="${-groundY - 10}" x2="${a.x}" y2="${-groundY + 50}"/>`;
+// far leg (TDC) behind bike
+const far = (a, b, prof) => poly(seg(a, b, prof), 'riderFar');
+s += far(J.hip, J.kneeR, t => lerp(80, 52, t) + 10 * bump(t, .3, .2)) + far(J.kneeR, J.ankleR, t => lerp(46, 30, t) + 14 * bump(t, .28, .13)) + far(v(J.ankleR.x - 30, J.ankleR.y + 8), v(J.cleatR.x + 80, J.cleatR.y - 8), t => lerp(40, 26, t));
+s += far(J.shoulder, J.elbow, t => lerp(44, 36, t)) + far(J.elbow, J.wrist, t => lerp(38, 24, t));
+// wheels
+for (const c of [P.rear, P.front]) {
+  s += `<circle class="tyre" cx="${c.x}" cy="${-c.y}" r="${F.wr - 14}"/><circle class="tan" cx="${c.x}" cy="${-c.y}" r="${F.wr - 27}"/>`;
+  s += `<circle class="rimd" cx="${c.x}" cy="${-c.y}" r="${F.wr - 57}"/>`;
+  for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2; s += `<line class="spoke" x1="${c.x}" y1="${-c.y}" x2="${c.x + Math.cos(a) * (F.wr - 84)}" y2="${-c.y - Math.sin(a) * (F.wr - 84)}"/>`; }
+  s += `<circle class="ink" cx="${c.x}" cy="${-c.y}" r="18"/>`;
+}
+// frame (petrol) — tapered tubes
+const cl = P.cluster, ht = P.htTop, hb = P.htBot, add = (a, b, k = 1) => v(a.x + b.x * k, a.y + b.y * k);
+s += tube(P.bb, P.rear, 13, 8, 'frame') + tube(add(cl, stUp, -35), P.rear, 9, 6, 'frame');
+s += tube(P.bb, cl, 17, 15, 'frame') + tube(cl, add(ht, htDown, 18), 15, 17, 'frame') + tube(P.bb, add(hb, htDown, -20), 24, 20, 'frame');
+s += tube(add(hb, htDown, 14), add(ht, htDown, -6), 23, 19, 'frame');
+s += `<path class="fork" d="M${hb.x} ${-hb.y} Q ${hb.x + htDown.x * 200 + 8} ${-(hb.y + htDown.y * 200)} ${P.front.x} ${-P.front.y}"/>`;
+s += `<circle class="frameC" cx="0" cy="0" r="30"/>`;
+// cockpit + seatpost (ink)
+s += tube(cl, add(P.saddle, stUp, -30), 13, 13, 'inkp') + tube(ht, P.steerTop, 16, 16, 'inkp') + tube(P.steerTop, P.clamp, 17, 15, 'inkp');
+s += `<path class="bar" d="M${P.clamp.x} ${-P.clamp.y} C ${P.clamp.x + 60} ${-P.clamp.y} ${P.hood.x + 10} ${-P.hood.y + 20} ${P.hood.x + 10} ${-P.hood.y + 60} S ${P.clamp.x + 40} ${-P.clamp.y + 128} ${P.clamp.x - 6} ${-P.clamp.y + 128}"/>`;
+s += tube(v(P.hood.x - 22, P.hood.y - 22), v(P.hood.x + 40, P.hood.y + 18), 20, 24, 'inkp');
+// saddle
+s += `<path class="inkf" d="M${P.saddle.x - 140} ${-P.saddle.y - 6} Q ${P.saddle.x - 120} ${-P.saddle.y - 26} ${P.saddle.x - 30} ${-P.saddle.y - 22} L ${P.saddle.x + 120} ${-P.saddle.y - 14} Q ${P.saddle.x + 130} ${-P.saddle.y - 8} ${P.saddle.x + 110} ${-P.saddle.y} L ${P.saddle.x - 130} ${-P.saddle.y + 4} Z"/>`;
+// drivetrain
+{ let g = ''; for (let i = 0; i < 100; i++) { const a = i / 100 * Math.PI * 2, r = i % 2 ? 102 : 108; g += `${(Math.cos(a) * r).toFixed(1)},${(-Math.sin(a) * r).toFixed(1)} `; } s += `<polygon class="ring" points="${g}"/>`; }
+s += `<line class="chain" x1="0" y1="-106" x2="${P.rear.x}" y2="${-P.rear.y - 46}"/><line class="chain" x1="0" y1="106" x2="${P.rear.x}" y2="${-P.rear.y + 46}"/><circle class="inkf" cx="${P.rear.x}" cy="${-P.rear.y}" r="48"/>`;
+for (const c of [J.cleatL, J.cleatR]) { const sp = v(c.x + C.cleatSetback, c.y); s += tube(P.bb, sp, 13, 9, 'inkp') + `<rect class="inkf" x="${sp.x - 42}" y="${-sp.y - 2}" width="84" height="12"/>`; }
+// near rider (left leg BDC, torso, near arm, head)
+const rp = (a, b, prof) => poly(seg(a, b, prof), 'rider');
+s += rp(v(J.hip.x - 6, J.hip.y - 10), v(J.shoulder.x - 4, J.shoulder.y - 12), t => (108 - 20 * bump(t, .45, .16) + 16 * bump(t, .85, .12)) * .72);
+s += `<ellipse class="rider" cx="${J.hip.x - 20}" cy="${-(J.hip.y - 8)}" rx="96" ry="84"/>`;
+s += rp(J.hip, J.knee, t => lerp(80, 52, t) + 10 * bump(t, .3, .2)) + rp(J.knee, J.ankle, t => lerp(46, 30, t) + 14 * bump(t, .28, .13));
+s += poly(seg(v(J.ankle.x - 30, J.ankle.y + 8), v(J.cleatL.x + 80, J.cleatL.y - 8), t => lerp(40, 26, t)), 'shoe');
+s += rp(v(J.shoulder.x - 10, J.shoulder.y - 20), v(J.head.x - 30, J.head.y - 40), () => 50);
+s += `<circle class="rider" cx="${J.shoulder.x}" cy="${-J.shoulder.y}" r="54"/>`;
+s += rp(J.shoulder, J.elbow, t => lerp(44, 36, t) + 5 * bump(t, .4, .2)) + rp(J.elbow, J.wrist, t => lerp(38, 24, t) + 6 * bump(t, .22, .15));
+s += poly(seg(J.wrist, v(J.hands.x + 22, J.hands.y + 4), t => lerp(26, 22, t)), 'inkp');
+// head + helmet (same recipe as 3D, side silhouette)
+const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - d2r(80);
+const rot = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
+s += `<ellipse class="rider" cx="${J.head.x}" cy="${-J.head.y}" rx="100" ry="112" transform="rotate(${(-gz * 180 / Math.PI).toFixed(1)} ${J.head.x} ${-J.head.y})"/>`;
+{ const sh = (k, off) => { const o = []; for (let i = 0; i <= 80; i++) { const th = -Math.PI * .62 + i / 80 * Math.PI * 1.24; let x = Math.sin(th), y = Math.cos(th); y *= .78; if (x < 0) { x *= 1.28; y -= .18 * x * x; } else x *= 1.06; const [X1, Y1] = rot(x * 116 * k - 10, y * 122 * k + 16 - off); o.push(`${X1.toFixed(1)},${(-Y1).toFixed(1)}`); } return o; };
+  const outer = sh(1, 0), inner = sh(.88, 4).reverse(); s += `<polygon class="helmet" points="${outer.concat(inner).join(' ')}"/>`; }
+// skeleton hairlines + joints
+const sk = [[J.hip, J.knee], [J.knee, J.ankle], [J.hip, J.shoulder], [J.shoulder, J.elbow], [J.elbow, J.hands], [J.shoulder, J.head]];
+for (const [a, b] of sk) s += ln(a, b, 'bone');
+for (const p of [J.hip, J.knee, J.ankle, J.shoulder, J.elbow, J.hands, J.head]) s += `<circle class="jd" cx="${p.x}" cy="${-p.y}" r="7"/>`;
+// ghost FIT 02 (accent hairline, dashed)
+s += `<polyline class="ghost" points="${G0.J.hip.x},${-G0.J.hip.y} ${G0.J.knee.x},${-G0.J.knee.y} ${G0.J.ankle.x},${-G0.J.ankle.y}"/>`;
+// knee arc (focused) accent
+{ const a0 = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x), a1 = Math.atan2(J.hip.y - J.knee.y, J.hip.x - J.knee.x); let p = ''; for (let i = 0; i <= 40; i++) { const a = lerp(a0, a1 + (a1 < a0 ? 2 * Math.PI : 0), i / 40); p += `${J.knee.x + Math.cos(a) * 120},${-(J.knee.y + Math.sin(a) * 120)} `; } s += `<polyline class="arcA" points="${p}"/>`;
+  s += ln(J.knee, J.hip, 'accl') + ln(J.knee, J.ankle, 'accl'); s += `<circle class="accD" cx="${J.knee.x}" cy="${-J.knee.y}" r="9"/>`; }
+// trunk arc (pinned) ink
+{ let p = ''; for (let i = 0; i <= 30; i++) { const a = i / 30 * d2r(M.trunk); p += `${J.hip.x + Math.cos(a) * 230},${-(J.hip.y + Math.sin(a) * 230)} `; } s += `<polyline class="arcI" points="${p}"/>` + ln(J.hip, v(J.hip.x + 320, J.hip.y), 'hair'); }
+// dimension lines: saddle height (pinned), drop, reach
+const dimV = (x, y0, y1) => `<line class="dim" x1="${x}" y1="${-y0}" x2="${x}" y2="${-y1}"/><line class="dim" x1="${x - 16}" y1="${-y0}" x2="${x + 16}" y2="${-y0}"/><line class="dim" x1="${x - 16}" y1="${-y1}" x2="${x + 16}" y2="${-y1}"/>`;
+const dimH = (y, x0, x1) => `<line class="dim" x1="${x0}" y1="${-y}" x2="${x1}" y2="${-y}"/><line class="dim" x1="${x0}" y1="${-y - 16}" x2="${x0}" y2="${-y + 16}"/><line class="dim" x1="${x1}" y1="${-y - 16}" x2="${x1}" y2="${-y + 16}"/>`;
+s += dimV(P.saddle.x - 250, 0, P.saddle.y) + `<line class="faintl" x1="${P.saddle.x - 266}" y1="0" x2="0" y2="0"/><line class="faintl" x1="${P.saddle.x - 266}" y1="${-P.saddle.y}" x2="${P.saddle.x - 130}" y2="${-P.saddle.y}"/>`;
+s += dimV(P.hood.x + 150, P.hood.y, P.saddle.y) + `<line class="faintl" x1="${P.saddle.x + 120}" y1="${-P.saddle.y}" x2="${P.hood.x + 166}" y2="${-P.saddle.y}"/><line class="faintl" x1="${P.hood.x + 50}" y1="${-P.hood.y}" x2="${P.hood.x + 166}" y2="${-P.hood.y}"/>`;
+
+const stageSvg = `<svg class="s2d" width="${SW}" height="${SH}" viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}">${s}</svg>`;
+// overlay labels
+const P2 = (p, dx = 0, dy = 0) => { const [x, y] = px(p.x, p.y); return `left:${x + dx}px;top:${y + dy}px`; };
+let lab = '';
+const L = (p, dx, dy, hot) => { const [x, y] = px(p.x, p.y); const ex = x + dx, ey = y + dy, dir = dx > 0 ? 1 : -1; return { svg: `<polyline class="${hot ? 'hot' : ''}" points="${x},${y} ${ex},${ey} ${ex + dir * 140},${ey}"/><circle class="${hot ? 'hot' : ''}" cx="${x}" cy="${y}" r="3.5"/>`, pos: `left:${dir > 0 ? ex + 4 : ex - 140}px;top:${ey - 22}px` }; };
+const tm = v(J.hip.x + (J.shoulder.x - J.hip.x) * .55, J.hip.y + (J.shoulder.y - J.hip.y) * .55);
+const lk = L(J.knee, -250, -30, true), lt = L(tm, -230, -150, false), ls = L(P.saddle, -200, -110, false);
+lab += `<svg class="ld" width="1036" height="944" style="position:absolute;left:0;top:0">${lk.svg}${lt.svg}${ls.svg}</svg>`;
+lab += `<div class="rul" style="${P2(v(P.rear.x - 30, groundY), 0, 20)}">R.AXLE</div><div class="rul" style="${P2(v(-14, groundY), 0, 20)}">BB 0</div><div class="rul" style="${P2(v(P.front.x - 60, groundY), 0, 20)}">F.AXLE · WB ${Math.round(P.front.x - P.rear.x)}</div>`;
+lab += `<div class="call hot" style="${lk.pos}"><i>J3</i>KNEE EXT <b>${Math.round(M.knee_ext_bdc)}</b>°</div>`;
+lab += `<div class="call" style="${lt.pos}"><i>J1</i>TRUNK <b>${Math.round(M.trunk)}</b>°</div>`;
+lab += `<div class="call" style="${ls.pos}"><i>C1</i>SADDLE <b>${Math.round(M.saddle_height)}</b></div>`;
+lab += `<div class="rul" style="${P2(v(P.hood.x + 170, (P.hood.y + P.saddle.y) / 2), 8, -8)}">DROP ${Math.round(M.drop)}</div>`;
+
+lab += `<div class="rul" style="${P2(v(G0.J.knee.x, G0.J.knee.y), -110, 8)};color:var(--accentTxt)">FIT 02 ┄</div>`;
+// readout + rail (compact)
+const f = def.knee_ext_bdc, b = f[4], lo = b[0] - 15, hi = b[1] + 15, pc = x => ((x - lo) / (hi - lo) * 100).toFixed(1) + '%';
+lab += `<div class="ro"><div class="lbl">J3 · KNEE EXTENSION · BDC</div><div class="big">${Math.round(M.knee_ext_bdc)}<sup>°</sup></div><div class="delta">▲ ${Math.round(M.knee_ext_bdc - M0.knee_ext_bdc)}° <span>vs FIT 02</span></div>
+ <div class="gauge"><div class="rng" style="left:${pc(b[0])};width:calc(${pc(b[1])} - ${pc(b[0])})"></div><div class="old" style="left:${pc(M0.knee_ext_bdc)}"></div><div class="now" style="left:${pc(M.knee_ext_bdc)}"></div></div></div>`;
+const fmt = id => id === 'kops' ? (M[id] >= 0 ? '+' : '−') + Math.abs(Math.round(M[id])) : Math.round(M[id]);
+lab += `<div class="mrail">${METRICS.map(m => { const st = band(M[m[0]], m[4]), dd = Math.round(M[m[0]] - M0[m[0]]); const cls = m[0] === 'knee_ext_bdc' ? 'on' : ['saddle_height', 'trunk'].includes(m[0]) ? 'pin' : ''; return `<div class="chip ${cls}"><i>${m[1]}</i><span>${m[2]}</span><b>${fmt(m[0])}${m[3] === '°' ? '°' : ''}</b>${dd ? `<u>${dd > 0 ? '+' : '−'}${Math.abs(dd)}</u>` : ''}${st ? `<s class="${st}"></s>` : ''}</div>`; }).join('')}</div>`;
+// columns
+const left = `<div class="col">
+ <div class="tier"><b>01</b>RIDER</div>
+ <div class="sec" style="border-top:0;padding-top:0"><h4>Body <span>MEASURED</span></h4>${slider('HEIGHT', 1800, 'mm', 55)}${slider('INSEAM', 852, 'mm', 52)}${slider('WEIGHT', 74, 'kg', 40)}
+  <div class="seg"><span class="on">CONTACT</span><span>SADDLE HEIGHT</span></div></div>
+ <div class="tier"><b>02</b>POSTURE</div>
+ <div class="sec" style="border-top:0;padding-top:0"><div class="seg" style="margin-bottom:12px"><span class="on">ENDURANCE</span><span>FAST</span><span>RACE</span></div>${slider('TRUNK ANGLE', 38, '°', 38, [30, 55])}${slider('BACK BEND', 5, '°', 25)}</div>
+ <div class="tier"><b>03</b>BIKE</div>
+ <div class="sec" style="border-top:0;padding-top:0"><div class="sel" style="margin-bottom:12px"><span>Endurance Road · 56</span><em>▾</em></div>
+  ${slider('STEM', 100, 'mm', 50)}${slider('STEM ANGLE', '−6', '°', 40)}${slider('SPACERS', 20, 'mm', 33)}${slider('SADDLE HEIGHT', Math.round(M.saddle_height), 'mm', 62)}</div>
+</div>`;
+const rows = [['trunk'], ['hip'], ['knee_ext_bdc'], ['knee_flex_tdc'], ['shoulder'], ['elbow_flex']];
+const right = `<div class="col right"><div class="sum"><div class="sub">FIT SUMMARY</div><h3>5 of 6 in band</h3></div>
+ <div style="margin-top:10px">${rows.map(([id]) => { const m = def[id], st = band(M[id], m[4]), dd = Math.round(M[id] - M0[id]); return `<div class="srow"><s class="${st}"></s><span>${m[2][0] + m[2].slice(1).toLowerCase()}</span><b>${Math.round(M[id])}°</b><i>${dd ? (dd > 0 ? '+' : '−') + Math.abs(dd) : ''}</i></div>`; }).join('')}</div>
+ <div class="warn"><b>● NEAR · KOPS</b>Knee sits ${Math.round(M.kops)} mm ahead of the pedal spindle at 3 o'clock. Consider 5–10 mm more setback.</div>
+ <div class="hist"><div class="sub" style="display:flex;justify-content:space-between;margin-bottom:4px"><span>FIT HISTORY</span><span class="pill acc" style="padding:4px 8px">SAVE FIT 03</span></div>
+  <div class="h cur"><span><b>Fit 03</b> · Endurance</span><em>NOW · UNSAVED</em></div>
+  <div class="h"><span>Fit 02 · Endurance <span style="color:var(--accentTxt);font:400 10px 'Geist Mono'">COMPARING</span></span><em>12.09.26</em></div>
+  <div class="h"><span>Fit 01 · Race</span><em>02.08.26</em></div></div></div>`;
+const nav = `<div class="nav"><div class="brand">${mark('var(--ink)', 'var(--accent)', 22)}FLOWFIT</div><div class="tabs"><div class="tab on">FIT BUILDER</div><div class="tab">FIT TRANSFER</div><div class="tab">ADD BIKE</div></div>
+ <div class="r"><span class="pill">◐ LIGHT</span><span>T.BRETT</span></div></div>`;
+const stage = `<div class="stage"><div class="stagebar"><div class="seg" style="width:180px"><span class="on">SIDE</span><span>FRONT</span><span>3D</span></div><span class="pill">LAYERS ▾</span><span class="pill on">ANGLES</span><span class="pill on">DIMENSIONS</span><span class="pill">KOPS</span><span class="ttl sp">COMPARE <b style="color:var(--accentTxt)">FIT 02</b> ▾</span><span class="pill">⛶</span></div>${stageSvg}<div class="ov ov2">${lab}</div></div>`;
+document.getElementById('root').innerHTML = `<div class="app">${nav}<div class="main">${left}${stage}${right}</div></div>`;
+const st = document.createElement('style'); st.textContent = `
+ svg.s2d .frame{fill:var(--frame)} svg.s2d .frameC{fill:var(--frame)} svg.s2d .fork{fill:none;stroke:var(--frame);stroke-width:22;stroke-linecap:round}
+ svg.s2d .inkp,svg.s2d .inkf{fill:var(--ink)} svg.s2d .bar{fill:none;stroke:var(--ink);stroke-width:24;stroke-linecap:round}
+ svg.s2d .tyre{fill:none;stroke:var(--ink);stroke-width:28} svg.s2d .tan{fill:none;stroke:#B89468;stroke-width:9;opacity:.9}
+ svg.s2d .rimd{fill:none;stroke:var(--ink);stroke-width:55;opacity:.07} svg.s2d .spoke{stroke:var(--ink);stroke-width:2;opacity:.45}
+ svg.s2d .ring{fill:none;stroke:var(--ink);stroke-width:8} svg.s2d .chain{stroke:var(--ink);stroke-width:7;opacity:.8}
+ svg.s2d .rider{fill:var(--rider)} svg.s2d .riderFar{fill:var(--rider);opacity:.45} svg.s2d .shoe{fill:var(--surface);stroke:var(--ink);stroke-width:3}
+ svg.s2d .helmet{fill:var(--surface);stroke:var(--ink);stroke-width:3} svg.s2d .bone{stroke:var(--ink);stroke-width:2.2;opacity:.55} svg.s2d .jd{fill:var(--surface);stroke:var(--ink);stroke-width:2.5}
+ svg.s2d .ghost{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-dasharray:14 10;opacity:.9}
+ svg.s2d .arcA{fill:none;stroke:var(--accent);stroke-width:2.5} svg.s2d .accl{stroke:var(--accent);stroke-width:2.5} svg.s2d .accD{fill:var(--accent)}
+ svg.s2d .arcI{fill:none;stroke:var(--ink);stroke-width:2;opacity:.6} svg.s2d .hair{stroke:var(--ink);stroke-width:2;opacity:.6}
+ svg.s2d .faintl{stroke:var(--ink);stroke-width:1.6;opacity:.22} svg.s2d .dim{stroke:var(--ink);stroke-width:2;opacity:.55}`;
+document.head.appendChild(st);
+document.fonts.ready.then(() => requestAnimationFrame(() => window.__done = true));
+</script></body></html>

@@ -1,5 +1,14 @@
 # 3D view redesign: "Instrument" (implementation plan)
 
+> **This is a sub-plan of `docs/plans/site-redesign.md` (the master plan).** Where they disagree, the master plan
+> wins. In particular:
+> - Theme, tokens, fonts, `fitMetrics`, the Metric Rail, `CalloutLayer`, `Readout` and `BandGauge` are built once by
+>   the Design System track and consumed here. Do not build the local `theme3d.ts` / `useTheme3D` described below;
+>   use `useTheme()` + `TOKENS` from `web/src/design/`.
+> - The accent is `#FF4F00` (brand direction 01), via tokens.
+> - The phases below map to tracks: Phases 1–3 → track C; Phase 4 → D-api (§4.1–4.4) + D-ui (§4.5–4.7) + C (§4.8);
+>   Phases 0, 5 and 6 → track E.
+
 > **Audience:** an implementing agent. Follow the phases **in order**. Each phase ends with a
 > checklist and a verification step; do not start the next phase until the current one passes.
 > When this plan says "do not", treat it as a hard rule.
@@ -37,20 +46,20 @@ The chosen design direction is **"Instrument"**: precision as the cool factor.
 
 ### Reference images
 
-- `docs/plans/mockups/light-spec-sheet.png`: the **default light** look (layout, type, spec panel).
-- `docs/plans/mockups/dark-instrument.png`: the **dark** alternative. It also shows the ghost, delta and dot-matrix readout ideas.
+- `docs/plans/mockups/02-view3d-light.png`: the **default light** 3D view (readout, pinned readouts, spec panel,
+  callouts, ruler, Metric Rail, FIT 02 hairline ghost).
+- `docs/plans/mockups/03-view3d-dark.png`: the same scene in dark.
+- `docs/plans/mockups/01-app-fit-builder-2d-light.png`: the whole app around the stage (shows how the 3D view sits in the page).
+- `docs/plans/mockups/src/scene3.js`: the exact recipes used for the images (limb lathe, profiles, head, helmet, bike shapes, lights).
 
-**Known flaws in the mock-ups. Do NOT copy these:**
-1. **The elbows bend the wrong way (up and forward).** The mock-up used its own throwaway IK.
-   The real app is already correct: `buildMannequin()` in `web/src/geometry.ts` (around
-   lines 260–275) picks the elbow on the same side of the shoulder→hands line as the BB, so the
-   elbow points down and back. **Do not change the IK.** Phase 0 adds a regression test to keep
-   it correct.
-2. The rider's figure is crude: the head is too big and spherical, the shoulders float, and
-   the limbs are sausages. Phase 5 fixes this.
-3. The helmet is bad (a squashed hemisphere). Phase 5 has a new helmet spec.
-4. The mock-up's +25 mm delta is exaggerated for the picture. Real deltas are small, so the UI
-   must stay legible at 1–5 mm and 1–3°.
+**Notes on the mock-ups:**
+1. The elbow follows the app's rule: it lies on the BB side of the shoulder→hands line, so it bends down and back.
+   The real app is already correct (`buildMannequin()` in `web/src/geometry.ts`, around lines 260–275).
+   **Do not change the IK.** Phase 0 adds a regression test to keep it that way.
+2. The mock-up numbers come from simplified geometry (`src/geom.js`). The app's `geometry.ts` is the source of truth.
+3. The mock-ups show a 6 mm saddle change: the UI must stay legible at 1–5 mm and 1–3°. At this size the ghost is
+   drawn as hairlines only (see §4.8).
+4. The camera is on +Z (the rider's left, the near-side leg that fit metrics are measured on), as the app does today.
 
 ---
 
@@ -192,7 +201,7 @@ tabular numbers.
 ## Phase 1: Stage, lighting, materials, theme (the "look")
 
 **Goal:** the default render matches the *lighting and material feel* of
-`light-spec-sheet.png`. This phase adds no new overlays.
+`02-view3d-light.png`. This phase adds no new overlays.
 
 ### 1.1 Dependencies
 
@@ -452,7 +461,7 @@ In `FitAnalytics3D.tsx`:
 ### 2.5 Spec panel and header (replace `MetricsHud`)
 
 New `SpecPanel` DOM overlay, top-right of the canvas wrapper, 290 px wide (see
-`light-spec-sheet.png`):
+`02-view3d-light.png`):
 - Section `COMPONENTS`: rows `Saddle height`, `Saddle setback`, `Stem` (`{len} × {angle}` with unit
   `mm·°`), `Spacers`, `Crank`. The values come from `geo.components`; look at the keys in
   `Components` in `types.ts`.
@@ -659,7 +668,7 @@ In the 3D view's top-left header area, next to `FIT n`:
   of the current rider's points (otherwise the whole body tints orange). Use the Phase 5 limb
   builder once it exists; until then the capsule is fine.
 - Also draw 1 px `accent` hairlines for the ghost's drive-side leg and torso (like
-  `dark-instrument.png`), under `ghost-root`.
+  `03-view3d-dark.png`), under `ghost-root`.
 - **Deltas:** for each metric, `delta = current − compare.metrics[id]`.
   - The readout shows `▲ 3°` or `▼ 2 mm` (`accent`), then `vs {label} ({old value})` in `muted`.
     Hide it when `|delta| < 0.5`.
@@ -749,10 +758,10 @@ for the new builder.
 
 - **Head:** an ellipsoid, *not* a sphere. `SphereGeometry(1, 48, 32)` scaled to
   `(100, 112, 78) * h` (x = length front-back, y = height, z = width). Centre = `head_center`.
-  Rotate about Z to align local +X with the gaze direction: the gaze is 25° below the direction
-  perpendicular to the neck vector, pointing forward. Compute
-  `neckDir = normalize(head_center − neck_base_center)`, then
-  `gaze = rotate(neckDir, −(90°+25°))` in the XY plane. That approximates a rider looking up the road.
+  Rotate about Z to align local +X with the gaze direction: compute
+  `neckAngle = atan2(head_center.y − neck_base_center.y, head_center.x − neck_base_center.x)`, then
+  `gaze = neckAngle − 80°`. With a typical neck at ~70°, the rider looks ~10° below horizontal, up the road
+  (this matches `mockups/src/scene3.js`).
 - **The head must be smaller than in the mock-ups.** The old joint spec used radius 88 (176 mm
   diameter sphere), which is too big. With the ellipsoid above, the width is 156 mm.
 - **Helmet** (road helmet, not a bowl). Build it in the *head's local frame* (x = gaze forward,
@@ -762,8 +771,8 @@ for the new builder.
      - `z *= 0.86`; `y *= 0.78`;
      - if `x < 0` (rear): `x *= 1.28`; `y -= 0.18 * (−x)^2` (the tail kicks down and back);
      - if `x > 0` (front): `x *= 1.06`.
-  3. Scale the result by `(112, 118, 92) * h` so it sits ~12 mm proud of the head ellipsoid. Offset
-     it by `(−8, 26, 0) * h` in head-local space.
+  3. Scale the result by `(116, 122, 95) * h` so it sits ~12 mm proud of the head ellipsoid. Offset
+     it by `(−10, 16, 0) * h` in head-local space (the values used in the mock-up).
   4. Recompute normals. Material `mats.helmet` (clearcoat).
   5. **Vents:** add 4 shallow dark slots as separate thin boxes
      (`BoxGeometry(60*h, 4, 14*h)`) using `mats.rubber`, placed on the shell top at
