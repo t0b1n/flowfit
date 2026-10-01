@@ -50,6 +50,7 @@ of PNS, MAAP or Rapha). They care about details and exactness. They are nerdy ab
 |---|---|
 | `00-brand-directions.png` | The three brand directions, in light and dark |
 | `01-app-fit-builder-2d-light.png` | **The canonical app screen:** nav, controls column, 2D side view, readout, Metric Rail, results column with fit history |
+| `10-helmet-vs-photos.png` | Helmet model vs Evade 4 product photos (side / front / rear) |
 | `09-head-helmet.png` | Head and fitted helmet, side / front / ¾ |
 | `06/07/08-rider-*.png` | **The current rider figure** (side, rear ¾ showing the calves, front ¾) with the earlier helmet |
 | `05-fresnel-options.png` | **The rider figure and Fresnel options:** clay / tonal rim / focus rim + x-ray ghost / dark |
@@ -295,11 +296,17 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
   - **Head:** one deformed ellipsoid (`headDeform`) rather than separate nose and chin blobs: a skull of 96×118×76, a
     flattened face plane, a squarer jaw that narrows gently below the equator, and a subtle nose ridge and chin built
     into the surface. Small ears.
-  - **Helmet: a clean abstract shell (decided)** (`HELMET`), matching the clay-mannequin language: a smooth, glossy
-    `--kit-light` shell with **no vents and no glasses**. The silhouette follows an aero-road helmet like the Evade 4:
-    compact, rounded and close-fitting (the cranium offset by +16 mm, superellipse sections q 2.3), with a short squared tail.
-    The rim is high at the brow and low at the back. A dark liner band runs along the rim, with straps in front of and
-    behind the ear to a buckle under the jaw. Painted-on vents were tried and rejected: they read as amateur.
+  - **Helmet: a simplified polygon model traced from Evade 4 product photos (decided)** (`mockups/src/buildloft.mjs` →
+    `helmet_geo.json`, loaded by `helmet.js`).
+    - The side profile (crown line) and the front-view arch are extracted automatically from the side and front photos.
+    - Every cross-section is the front arch, scaled to the local height from the side photo and to a rounded plan width
+      (half-width 105 mm). Vertical side walls; a clean bottom edge traced by hand (low brow, ear cutout, raised rear).
+    - Length ≈ 264 mm, crown ≈ 38 mm above the skull.
+    - **No vents, no black, no straps**: the silhouette carries the likeness. Pressing the photo vents in as recesses was
+      tried and came out noisy.
+    - Matte `--kit-light` (roughness 0.55, light clearcoat), with the tonal Fresnel rim.
+    - **2D:** the same traced outline.
+    - **For the app:** ship the generated geometry as a static asset (GLB or JSON), placed in the head frame. Don't regenerate it at runtime.
   - **Future upgrade:** a professionally modelled (CC0 or licensed) generic aero-road helmet and athletic body as GLB assets,
     fitted to the IK joints. This is the route to a fully detailed, photoreal look. It must not be a replica of a branded
     product.

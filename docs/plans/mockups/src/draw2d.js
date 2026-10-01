@@ -1,4 +1,5 @@
 import { headDeform, HELMET } from './rider3.js';
+import { helmetSide2D } from './helmet.js';
 // 2D side view (SVG, mm, y inverted) built from the SAME primitives as 3D: body SDF raster + bike + head/helmet.
 import { profiles, helmetPoint, VENTS, lerp, bump } from './kit.js';
 const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
@@ -116,13 +117,8 @@ export function clayHead(G) {
   const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
   const prof = []; for (let i = 0; i < 120; i++) { const a = i / 120 * Math.PI * 2; const [X, Y] = headDeform(Math.cos(a), Math.sin(a), 0); prof.push(R(X, Y)); }
   let s = `<g filter="url(#fres)"><polygon class="clay" points="${pts(prof)}"/></g>`;
-  const { sect, ventMask, x0, x1 } = HELMET, top = [], rim = [];
-  for (let i = 0; i <= 120; i++) { const x = x0 + (x1 - x0) * i / 120, a = sect(x, 0), b = sect(x, 1); top.push(R(a.x, a.y)); rim.push(R(b.x, b.y)); }
-  s += `<polygon class="helmet" points="${pts([...top, ...rim.slice().reverse()])}"/><polyline class="liner" points="${pts(rim)}"/>`;
-  // visible side vents: sample the near half (v∈[.35,1]); draw dark where the vent mask is on
-  let vd = ''; const NS = 90, NV = 30;
-  for (let i = 0; i < NS; i++) for (let j = 0; j < NV; j++) { const s0 = i / NS, v = .3 + .7 * j / NV, m = ventMask(s0 + .5 / NS, v + .35 / NV); if (m < .5) continue;
-    const q = (ss, vv) => { const p = sect(x0 + (x1 - x0) * ss, vv); return R(p.x, p.y); };
-    vd += `<polygon class="ventf" points="${pts([q(s0, v), q(s0 + 1 / NS, v), q(s0 + 1 / NS, v + .7 / NV), q(s0, v + .7 / NV)])}"/>`; }
+  const HS = helmetSide2D();
+  s += `<polygon class="helmet" points="${pts(HS.outline.map(([x, y]) => R(x, y)))}"/>`;
+  s += `<g class="hvent">${HS.vents.map(([x, y]) => { const [a, b] = R(x, y); return `<rect x="${(a - 2.2).toFixed(1)}" y="${(-b - 2.2).toFixed(1)}" width="4.4" height="4.4"/>`; }).join('')}</g>`;
   return s;
 }

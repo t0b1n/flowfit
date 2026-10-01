@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script></head>
+<body style="margin:0"><script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { buildHelmet } from './helmet.js';
+import { headDeform } from './rider3.js';
+const Q = new URLSearchParams(location.search), view = Q.get('view') || 'side', W = 500, H = 500;
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
+r.toneMapping = THREE.AgXToneMapping; r.shadowMap.enabled = true;
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0xF6F1EA);
+sc.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), .04).texture; sc.environmentIntensity = .5;
+sc.add(new THREE.HemisphereLight(0xffffff, 0xbbb2a5, .8)); const k = new THREE.DirectionalLight(0xfff4e6, 2.4); k.position.set(300, 800, 500); sc.add(k);
+const mat = new THREE.MeshPhysicalMaterial({ color: 0xEDEAE4, roughness: .45, clearcoat: .3, clearcoatRoughness: .5, side: THREE.DoubleSide });
+sc.add(buildHelmet(mat));
+if (Q.get('head')) { const hg = new THREE.SphereGeometry(1, 64, 48), p = hg.attributes.position; for (let i = 0; i < p.count; i++) { const [X, Y, Z] = headDeform(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, X, Y, Z); } hg.computeVertexNormals(); sc.add(new THREE.Mesh(hg, new THREE.MeshStandardMaterial({ color: 0x8C8276 }))); }
+const s = 190, cam = new THREE.OrthographicCamera(-s, s, s, -s, 1, 5000);
+const P = { side: [0, 40, -1000], front: [1000, 40, 0], rear: [-1000, 60, 0], top: [0, 1000, 1], q: [700, 500, -700] }[view];
+cam.position.set(...P); cam.lookAt(-25, 40, 0); r.render(sc, cam); window.__done = true;
+</script></body></html>

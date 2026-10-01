@@ -1,0 +1,20 @@
+<!doctype html><body><script>
+const load = s => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = s; });
+(async () => {
+  const out = {};
+  for (const [k, f] of [['side', '3.webp'], ['front', '1.webp'], ['rear', '2.webp']]) {
+    const im = await load(f), c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+    const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data;
+    const isH = (i, j) => { const o = (j * c.width + i) * 4, r = d[o], g = d[o + 1], b = d[o + 2]; return (b - r > 4) || (r + g + b < 300); };
+    const cols = [];
+    for (let i = 0; i < c.width; i += 4) { let top = -1, bot = -1;
+      for (let j = 0; j < c.height; j++) if (isH(i, j)) { top = j; break; }
+      if (top >= 0) { // bottom of the shell: first long run of non-helmet below top
+        let j = top, miss = 0; for (; j < c.height; j++) { if (isH(i, j)) { miss = 0; bot = j; } else if (++miss > 25) break; } }
+      cols.push([i, top, bot]); }
+    const dark = []; for (let j = 0; j < c.height; j += 4) { let row = ''; for (let i = 0; i < c.width; i += 4) { const o = (j * c.width + i) * 4; row += (d[o] + d[o + 1] + d[o + 2] < 330) ? '1' : '0'; } dark.push(row); }
+    out[k] = { w: c.width, h: c.height, cols, dark };
+  }
+  window.__sil = out; window.__done = true;
+})();
+</script></body>

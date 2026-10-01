@@ -1,5 +1,6 @@
 // Clay mannequin, lathe-based (the earlier representation), refined to a toned male build.
 import * as THREE from 'three';
+import { buildHelmet } from './helmet.js';
 import { V, V2, lerp, bump, d2r, limb, tube, sphere, limbGeometry, between, helmetGeometry, helmetPoint, VENTS } from './kit.js';
 
 const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
@@ -131,21 +132,7 @@ export function buildRider(G, MAT) {
   // helmet — modelled on the S-Works Evade 4: compact, rounded, close to the head, short squared tail,
   // mouth-port brow intake, 7 front vents curving rearward, diagonal side vent, wide rear exhaust.
   const { A, cx, cy, RA, sect, ventMask } = HELMET;
-  { const NS = 260, NV = 200, pos = [], col = [], idx = [], x0 = cx - A * RA + 1, x1 = cx + A - 1;
-    const W = new THREE.Color(T3.helmet), Dk = new THREE.Color(0x151617);
-    for (let i = 0; i <= NS; i++) { const s = i / NS, x = lerp(x0, x1, s);
-      for (let j = 0; j <= NV; j++) { const v = lerp(-1, 1, j / NV), m = ventMask(s, v), p = sect(x, v, 1 - .035 * m);
-        pos.push(p.x, p.y, p.z); const c = W.clone().lerp(Dk, m); col.push(c.r, c.g, c.b); } }
-    for (let i = 0; i < NS; i++) for (let j = 0; j < NV; j++) { const a0 = i * (NV + 1) + j, b0 = a0 + NV + 1; idx.push(a0, b0, a0 + 1, b0, b0 + 1, a0 + 1); }
-    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); gg.setIndex(idx); gg.computeVertexNormals();
-    H.add(new THREE.Mesh(gg, MAT.helmet));
-    const edge = []; for (let i = 0; i <= 80; i++) edge.push(sect(lerp(x0, x1, i / 80), 1, .98)); for (let i = 80; i >= 0; i--) edge.push(sect(lerp(x0, x1, i / 80), -1, .98));
-    H.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edge, true), 260, 4.5, 8, true), MAT.vent));
-    // retention straps from the rim, in front of and behind the ear, to a buckle under the jaw
-    for (const sg of [1, -1]) { const buck = V(10, -106, sg * 44);
-      g.add; H.add(tube(sect(cx + A * .12, sg, .97), buck, 2.2, 2.2, MAT.vent), tube(sect(cx - A * .42, sg, .97), buck, 2.2, 2.2, MAT.vent)); }
-  }
-
+  H.add(buildHelmet(MAT.helmet));
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }
