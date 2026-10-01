@@ -1227,7 +1227,14 @@ const SceneContent = React.memo(function SceneContent({
       </group>
 
       {/* Ghost position comparison */}
-      {ghost && <GhostMannequin snapshot={ghost} weightKg={weightKg} />}
+      {ghost && (
+        <GhostMannequin
+          snapshot={ghost}
+          weightKg={weightKg}
+          current={effPtMap as Map<string, [number, number, number]>}
+          theme={theme}
+        />
+      )}
 
       {/* Frontal-area probe (registers its measure fn with the host) */}
       <FrontalAreaProbe onReady={onMeasureReady} />
@@ -1318,7 +1325,16 @@ function readQuality(): Quality {
 
 // ── Public component ──────────────────────────────────────────────────────────
 
+/** Fit to compare against (the D-ui `CompareTarget` shape): ghost + deltas. */
+export interface Compare3D {
+  label: string;
+  metrics: Partial<Record<MetricId, number>>;
+  points: Geometry3DPoint[];
+}
+
 interface BikeScene3DProps {
+  /** Comparison fit; takes precedence over the in-session snapshot ghost. */
+  compare?: Compare3D | null;
   geo: Geometry3DResponse;
   mannequin2D?: MannequinSketch;
   weightKg?: number;
@@ -1353,7 +1369,7 @@ function exportCsv(geo: Geometry3DResponse) {
 
 export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   geo, mannequin2D, weightKg = 75,
-  strokeLUT, stanceWidth, postureBands,
+  strokeLUT, stanceWidth, postureBands, compare,
 }) => {
   const [theme] = useTheme();
   const [quality, setQualityState] = useState<Quality>(readQuality);
@@ -1433,6 +1449,23 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
     () => (metricCtx ? computeAll(metricCtx) : {}),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [geo, mannequin2D, strokeLUT],
+  );
+  const compareGhost = useMemo<GhostSnapshot | null>(
+    () =>
+      compare
+        ? {
+            points: compare.points,
+            edges: geo.edges.filter((e) => e.group.startsWith("mannequin")),
+            trunkAngleDeg: compare.metrics.trunk ?? 0,
+            dropMm: compare.metrics.drop ?? 0,
+            frontalAreaM2: null,
+          }
+        : null,
+    [compare, geo],
+  );
+  const was = useMemo<Partial<Record<MetricId, number>> | undefined>(
+    () => compare?.metrics ?? (ghost ? { trunk: ghost.trunkAngleDeg, drop: ghost.dropMm } : undefined),
+    [compare, ghost],
   );
   const shownIds = useMemo(() => Array.from(new Set<MetricId>([focused, ...pinned])), [focused, pinned]);
   const hoverOnly = hovered && !shownIds.includes(hovered) ? hovered : null;
@@ -1805,7 +1838,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             showKops={showKops}
             discWheels={discWheels}
             onMeasureReady={handleMeasureReady}
-            ghost={ghost}
+            ghost={compareGhost ?? ghost}
             theme={theme}
             quality={quality}
             span={span}
@@ -1849,6 +1882,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           geo={geo}
           bands={postureBands}
           values={values}
+          was={was}
+          fitLabel={compare ? `VS ${compare.label.toUpperCase()}` : undefined}
           focused={focused}
           pinned={pinned}
           onFocus={focus}
