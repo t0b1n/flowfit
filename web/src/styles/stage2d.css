@@ -303,3 +303,201 @@
   stroke: color-mix(in srgb, var(--surface) 85%, transparent);
   stroke-width: 5px;
 }
+
+/* ── Builder side view ("Instrument"): clay rider, filled tapered frame, mm ruler ───────────────── */
+
+/* Black parts lift slightly towards ink so they stay legible on the dark surface. */
+.s2d {
+  --s2d-tyre: color-mix(in srgb, var(--ink) 16%, var(--tyre));
+  --s2d-carbon: color-mix(in srgb, var(--ink) 16%, var(--carbon));
+  --s2d-alloy: color-mix(in srgb, var(--ink) 12%, var(--alloy));
+}
+
+.s2d .s2d-ground {
+  stroke: var(--ink);
+  stroke-opacity: 0.6;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d-tick {
+  stroke: var(--ink);
+  stroke-opacity: 0.22;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d-tick--major {
+  stroke-opacity: 0.4;
+}
+
+.s2d-tick--hot {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+}
+
+.s2d-ruler-label {
+  fill: var(--muted);
+  font: 400 15px var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.s2d-tyre {
+  fill: none;
+  stroke: var(--s2d-tyre);
+  stroke-width: 28;
+}
+
+.s2d-rim {
+  fill: none;
+  stroke: var(--s2d-carbon);
+  stroke-width: 44;
+}
+
+.s2d-spoke {
+  stroke: var(--s2d-alloy);
+  stroke-width: 2.2;
+}
+
+.s2d-hub,
+.s2d-pulley,
+.s2d-caliper {
+  fill: var(--s2d-alloy);
+}
+
+.s2d-rotor {
+  fill: none;
+  stroke: var(--rotor);
+  stroke-width: 14;
+}
+
+.s2d-rotor-spoke {
+  stroke: var(--rotor);
+  stroke-width: 6;
+}
+
+.s2d-ring,
+.s2d-carbon,
+.s2d-hood {
+  fill: var(--s2d-carbon);
+}
+
+.s2d-ring {
+  fill: var(--s2d-alloy);
+}
+
+.s2d-cog {
+  fill: none;
+  stroke: var(--s2d-alloy);
+  stroke-width: 2.4;
+}
+
+.s2d-chain {
+  fill: none;
+  stroke: var(--s2d-alloy);
+  stroke-width: 4;
+}
+
+.s2d-frame {
+  fill: var(--frame);
+}
+
+.s2d-fork {
+  fill: none;
+  stroke: var(--frame);
+  stroke-linecap: round;
+}
+
+.s2d-bottle {
+  fill: var(--bottle);
+}
+
+.s2d-cage,
+.s2d-hose {
+  fill: none;
+  stroke: var(--s2d-alloy);
+  stroke-width: 3;
+}
+
+.s2d-bar {
+  fill: none;
+  stroke: var(--s2d-tyre);
+  stroke-width: 22;
+  stroke-linecap: round;
+}
+
+.s2d-lever {
+  fill: none;
+  stroke: var(--s2d-carbon);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.s2d-saddle .geometry-saddle-body {
+  fill: var(--ink);
+  stroke: none;
+}
+
+.s2d-saddle .geometry-saddle-rail {
+  stroke: var(--s2d-carbon);
+  stroke-width: 5;
+}
+
+.s2d-saddle .geometry-saddle-clamp {
+  fill: var(--s2d-carbon);
+  stroke: none;
+}
+
+.s2d-clay {
+  fill: var(--clay);
+}
+
+.s2d-far {
+  opacity: 0.55;
+}
+
+.s2d-shoe,
+.s2d-glove {
+  fill: var(--s2d-carbon);
+}
+
+.s2d-bone {
+  stroke: var(--ink);
+  stroke-opacity: 0.55;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.s2d-joint {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d-gap {
+  stroke: var(--ink);
+  stroke-opacity: 0.6;
+  stroke-width: 1;
+  stroke-dasharray: 5 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d .geometry-target {
+  stroke: var(--ink);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d .geometry-label {
+  fill: var(--muted);
+  stroke: none;
+  font: 400 15px var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.s2d .joint-angle path {
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.35;
+}

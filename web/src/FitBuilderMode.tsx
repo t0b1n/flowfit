@@ -233,9 +233,6 @@ export const FitBuilderMode: React.FC = () => {
     [FRAME_CATALOG, currentBrand]
   );
 
-  // Brighter variants for strokes/labels on the dark visualization canvas
-  const severitySvgColor = (s: "ok" | "warning" | "bad") =>
-    s === "ok" ? "#4cbf7e" : s === "warning" ? "#e8a33c" : "#e05252";
   const severityTone = (s: "ok" | "warning" | "bad"): SummaryTone =>
     s === "ok" ? "ok" : s === "warning" ? "warn" : "bad";
 
@@ -375,7 +372,7 @@ export const FitBuilderMode: React.FC = () => {
               postureBands={POSTURE_PRESET}
             />
           ) : view === "side" ? (
-            <Stage2DSide viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} tyreSize={tyreSize} riderVisibility={riderVisibility} rider={rider} mannequin={mannequin} showJointAngles={showJointAngles} kneeFlex={kneeFlex} kneeTone={kneeTone} targetTrunkAngleDeg={targetTrunkAngleDeg} idealContacts={idealContacts} warnings={warnings} severitySvgColor={severitySvgColor} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
+            <Stage2DSide viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
           ) : <Stage2DFront frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
         </div>
       </section>
