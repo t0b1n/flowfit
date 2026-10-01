@@ -304,13 +304,27 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
     product.
   - **2D:** the head profile is the z=0 slice of `headDeform`, so 2D and 3D share one model.
   - **Reference:** `mockups/09-head.png`.
-- **Build: calibrated against a reference photo of a lean pro rider** (proportions measured using the 700c wheel,
-  ~680 mm, as the scale). No global "fat" factor.
-  - Thigh r 86→50 plus quad bulges; calf base 40→20, with gastrocnemius amps 30 / 22.
-  - Lean arms: upper r 36→28, forearm r 31→18. Shoulders 18 mm outboard of the joints, deltoids 48×58×46.
-  - Torso r 98 (waist pinch 16, chest +20), with a deeper chest: depth scale 1.0→1.15, width 1.08→1.5.
-  - Neck r 44→40; neck length 160 mm (was 185).
-  - The mock-up pose uses trunk 36°, so the elbows bend (~27°) like the reference. Real poses still come from the app's IK.
+- **Build: calibrated to measured widths from a reference photo of a pro rider.**
+  - **Method:** the product owner measured the photo in the Rider Proportion Gauge (a click-to-measure page).
+    - The scale comes from the wheel diameter (680 mm).
+    - Each width is taken square to its bone, at 25%, 50% and 75% along it (torso at 30%, 50% and 70%), so the
+      different poses don't matter.
+    - Our model was measured the same way: the silhouette width of each limb's own mesh, square to the same bone.
+  - **Fit:** `CAL` in `mockups/src/rider3.js` holds a multiplier per station: linear between stations, flat beyond.
+    It scales both the base profile and the muscle bulges (torso: front-to-back depth only). Every station is within
+    1.3% of the reference.
+  - **Reference widths (mm, side view):**
+
+    | Part | 25% / 30% | 50% | 75% / 70% |
+    |---|---|---|---|
+    | Thigh | 193 | 178 | 141 |
+    | Calf | 132 | 128 | 96 |
+    | Upper arm | 110 | 94 | 79 |
+    | Forearm | 87 | 76 | 55 |
+    | Torso (stomach / lower chest / chest) | 242 | 258 | 275 |
+    | Neck | — | 114 | — |
+  - **2D:** the side view applies the same `calAt(segment, t)` to its silhouette profiles.
+  - The mock-up pose uses trunk 36°, so the elbows bend (~27°). Real poses come from the app's IK.
 
 ### 5.6 3D view (tracks C and E)
 

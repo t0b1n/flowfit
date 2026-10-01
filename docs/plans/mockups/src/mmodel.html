@@ -1,0 +1,21 @@
+<!doctype html><body><script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { build } from './geom.js';
+import { buildRider } from './rider3.js';
+const G = build(0, 'm'), { J, R, C } = G;
+const mat = new THREE.MeshBasicMaterial(); const MAT = new Proxy({ T: { helmet: 0xffffff } }, { get: (o, k) => o[k] ?? mat });
+const g = buildRider(G, MAT); g.updateMatrixWorld(true);
+const hh = R.hipW / 2, st = R.stance / 2, hs = R.shoulderW / 2 + 18;
+const bones = { thigh: [J.hip, J.knee], calf: [J.knee, J.ankle], upperArm: [J.shoulder, J.elbow], forearm: [J.elbow, J.wrist], torso: [J.hip, J.shoulder],
+  neck: [{ x: J.shoulder.x - 12, y: J.shoulder.y - 22 }, { x: J.head.x - 26, y: J.head.y - 44 }] };
+const ST = { thigh: [.25, .5, .75], calf: [.25, .5, .75], upperArm: [.25, .5, .75], forearm: [.25, .5, .75], torso: [.3, .5, .7], neck: [.5] };
+const verts = {}; g.traverse(o => { if (o.isMesh && o.userData.seg) { const p = o.geometry.attributes.position, v = new THREE.Vector3(); (verts[o.userData.seg] ??= []); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); verts[o.userData.seg].push([v.x, v.y]); } } });
+const res = {};
+for (const [k, [a, b]] of Object.entries(bones)) {
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+  res[k] = ST[k].map(t => { const u0 = t * L; let lo = 1e9, hi = -1e9; for (const [x, y] of verts[k] || []) { const u = (x - a.x) * ux + (y - a.y) * uy; if (Math.abs(u - u0) > 4) continue; const n = (x - a.x) * nx + (y - a.y) * ny; lo = Math.min(lo, n); hi = Math.max(hi, n); } return hi > lo ? Math.round(hi - lo) : null; });
+  res[k + '_bone'] = Math.round(L);
+}
+window.__res = res; window.__done = true;
+</script></body>

@@ -13,14 +13,14 @@ function taperLimb(a, b, prof, sx, sz, mat) {
 // Lathe limb with directional muscle bulges built into the surface.
 // bulges: [{ dir: world Vector3 (unit, ⟂ bone), t, w, amp, spread }] — radius += amp·gauss(t)·max(0,cos θ)^spread
 const FAT = 1.0;   // calibrated against the reference photo (lean pro road/TT build)
-function muscleLimb(a, b, prof0, bulges, mat, sxz = [1, 1]) {
-  const prof = t => prof0(t) * FAT; const L = a.distanceTo(b), g = limbGeometry(L, prof, 48, 64), p = g.attributes.position;
+function muscleLimb(a, b, prof0, bulges, mat, sxz = [1, 1], cal = null) {
+  const C = t => cal ? calAt(cal, t) : 1; const prof = t => prof0(t) * FAT * C(t); const L = a.distanceTo(b), g = limbGeometry(L, prof, 48, 64), p = g.attributes.position;
   const q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize()), qi = q.clone().invert();
   const loc = bulges.map(u => { const d = u.dir.clone().applyQuaternion(qi); d.y = 0; d.normalize(); return { ...u, d }; });
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), y = p.getY(i), z = p.getZ(i), rr = Math.hypot(x, z); if (rr < 1e-3) continue;
     const t = Math.min(1, Math.max(0, y / L)); let add = 0;
-    for (const u of loc) { const c = (x * u.d.x + z * u.d.z) / rr; if (c > 0) add += FAT * u.amp * Math.exp(-((t - u.t) ** 2) / (2 * u.w * u.w)) * Math.pow(c, u.spread ?? 2); }
+    for (const u of loc) { const c = (x * u.d.x + z * u.d.z) / rr; if (c > 0) add += FAT * C(t) * u.amp * Math.exp(-((t - u.t) ** 2) / (2 * u.w * u.w)) * Math.pow(c, u.spread ?? 2); }
     const k = (rr + add) / rr; p.setX(i, x * k * sxz[0]); p.setZ(i, z * k * sxz[1]);
   }
   g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.position.copy(a); m.quaternion.copy(q); return m;
@@ -55,6 +55,10 @@ export const HELMET = (() => {
   const ventMask = () => 0; // option 2: clean shell, no vents
   return { A, cx, cy, RA, sect, ventMask, x0: cx - A * RA + 1, x1: cx + A - 1 };
 })();
+// Per-station width calibration against the reference photo (multipliers at the measured stations; linear between, flat beyond).
+export const CAL = {thigh: [[0.25,1.055],[0.5,1.082],[0.75,1.102]],calf: [[0.25,1.435],[0.5,1.806],[0.75,1.978]],upperArm: [[0.25,1.412],[0.5,1.172],[0.75,1.219]],forearm: [[0.25,1.381],[0.5,1.549],[0.75,1.288]],torso: [[0.3,1.484],[0.5,1.3],[0.7,1.044]],neck: [[0.5,1.36]]};
+export const calAt = (seg, t) => { const c = CAL[seg]; if (t <= c[0][0]) return c[0][1]; for (let i = 0; i < c.length - 1; i++) if (t <= c[i + 1][0]) return c[i][1] + (c[i + 1][1] - c[i][1]) * (t - c[i][0]) / (c[i + 1][0] - c[i][0]); return c.at(-1)[1]; };
+const TAG = (m, seg) => { m.userData.seg = seg; return m; };
 export function buildRider(G, MAT) {
   const T3 = MAT.T || { helmet: 0xEDEAE4 };
   const { J, C, R } = G, g = new THREE.Group();
@@ -64,8 +68,8 @@ export function buildRider(G, MAT) {
   const trunkA = Math.atan2(ax.y, ax.x);
   // Torso: pelvis → narrow waist → broad ribcage/lats → chest; V-taper in width, flat back
   const torsoProf = t => 98 - 16 * bump(t, .36, .13) + 20 * bump(t, .78, .16);
-  g.add(taperLimb(hip.clone().addScaledVector(ax, -10), sh.clone().addScaledVector(ax, -18), torsoProf,
-    t => lerp(1.0, 1.15, ss(.3, .85, t)), t => lerp(1.08, 1.5, ss(.28, .86, t)), CL));
+  g.add(TAG(taperLimb(hip.clone().addScaledVector(ax, -10), sh.clone().addScaledVector(ax, -18), torsoProf,
+    t => lerp(1.0, 1.15, ss(.3, .85, t)) * calAt('torso', t), t => lerp(1.08, 1.5, ss(.28, .86, t)), CL), 'torso'));
   for (const s of [-1, 1]) g.add(ell(hip.clone().lerp(sh, .66).addScaledVector(nrm, 10).setZ(s * 128), [80, 36, 26], CL, trunkA)); // lats
   // (no pec masses: they read wrongly on a leaning figure — chest width carries it)
   // trapezius slope + deltoids (capped, slightly along the upper arm)
@@ -88,7 +92,8 @@ export function buildRider(G, MAT) {
       { dir: antT.clone().add(med).normalize(), t: .84, w: .08, amp: 10, spread: 3 },  // VMO teardrop
       { dir: lat, t: .45, w: .2, amp: 9, spread: 2 },                                 // vastus lateralis sweep
       { dir: antT.clone().negate(), t: .35, w: .2, amp: 8, spread: 2 },                // hamstrings
-    ], M, [1, .92]));
+    ], M, [1, .92], 'thigh'));
+    if (s === 1) g.children.at(-1).userData.seg = 'thigh';
     g.add(sphere(k, 50, M, [1, 1, .9]));
     const sd = a.clone().sub(k).normalize(); let post = V(sd.y, -sd.x).normalize(); if (post.x > 0) post.negate();
     g.add(muscleLimb(k, a, t => lerp(40, 20, t) - 2 * bump(t, .85, .1), [
@@ -97,7 +102,8 @@ export function buildRider(G, MAT) {
       { dir: post, t: .5, w: .12, amp: 8, spread: 3 },                                                           // soleus
       { dir: med, t: .52, w: .12, amp: 8, spread: 3 },                                                            // soleus medial flare
       { dir: lat, t: .3, w: .16, amp: 5, spread: 2 },                                                            // tibialis/peroneals
-    ], M, [1, .92]));
+    ], M, [1, .92], 'calf'));
+    if (s === 1) g.children.at(-1).userData.seg = 'calf';
     g.add(sphere(a, 29, M));
     const toeDir = c.clone().sub(a).setZ(0).normalize(), heel = a.clone().add(V(-36, -18)), toe = c.clone().addScaledVector(toeDir, 70).add(V(20, -4));
     g.add(limb(heel, toe, t => lerp(38, 24, t) + 6 * bump(t, .3, .2), MAT.shoe, [1, .82]));
@@ -111,16 +117,19 @@ export function buildRider(G, MAT) {
       { dir: ant, t: .52, w: .18, amp: 8, spread: 2 },               // biceps
       { dir: ant.clone().negate(), t: .38, w: .2, amp: 9, spread: 2 }, // triceps
       { dir: V(0, 0, s), t: .2, w: .14, amp: 8, spread: 2 },            // deltoid insertion
-    ], CL));
+    ], CL, [1, 1], 'upperArm'));
+    if (s === 1) g.children.at(-1).userData.seg = 'upperArm';
     g.add(sphere(el, 30, CL));
     const fd = wr.clone().sub(el).normalize(); let up2 = V(-fd.y, fd.x).normalize(); if (up2.y < 0) up2.negate();
-    g.add(muscleLimb(el, wr, t => lerp(31, 18, t), [{ dir: up2, t: .18, w: .14, amp: 8, spread: 2 }, { dir: V(0, 0, s), t: .22, w: .15, amp: 6, spread: 2 }], CL, [1, .86]));
+    g.add(muscleLimb(el, wr, t => lerp(31, 18, t), [{ dir: up2, t: .18, w: .14, amp: 8, spread: 2 }, { dir: V(0, 0, s), t: .22, w: .15, amp: 6, spread: 2 }], CL, [1, .86], 'forearm'));
+    if (s === 1) g.children.at(-1).userData.seg = 'forearm';
     const hEnd = hd.clone().add(hd.clone().sub(wr).normalize().multiplyScalar(28));
     g.add(limb(wr, hEnd, t => lerp(24, 21, t), MAT.glove, [.78, 1.3]));
   }
   // neck (thick), head, jaw, glasses, helmet
   const headC = V2(J.head);
-  g.add(tube(sh.clone().add(V(-12, -22)), headC.clone().add(V(-26, -44)), 44, 40, CL));
+  g.add(tube(sh.clone().add(V(-12, -22)), headC.clone().add(V(-26, -44)), 44 * calAt('neck', .5), 40 * calAt('neck', .5), CL));
+    g.children.at(-1).userData.seg = 'neck';
   const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gaze = na - d2r(78);
   const H = new THREE.Group(); H.position.copy(headC); H.rotation.z = gaze; g.add(H);
   // head (head-local: +x gaze, +y up, +z left): one deformed ellipsoid — cranium, tapered jaw, subtle nose ridge

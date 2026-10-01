@@ -13,6 +13,7 @@ each image.
 | `draw2d.js` | 2D side view: bike layers, clay figure polygons + rim SVG filter, head/helmet |
 | `fres.html`, `rider.html` | Fresnel comparison sheet and bare rider renders |
 | `buildloft.mjs`, `sil.html`/`sil.mjs`, `helmet.js` | Helmet: silhouettes extracted from product photos → lofted mesh (`helmet_geo.json`, regenerate with `node sil.mjs && node buildloft.mjs`; the photos are not committed) |
+| `rider-measure/index.html`, `mmodel.html`, `calib.mjs`, `mrun.mjs` | Width calibration: the Rider Proportion Gauge page (reference measuring), the model's matching measurement, and the iteration that fits `CAL` |
 | `geom.js` | Simplified pose maths **mirroring the app's rules**, including the elbow side rule. The app's `geometry.ts` remains the source of truth. |
 | `scene3.js` | three.js scene: limb lathe builder, anatomical profiles, head ellipsoid + helmet recipe, bike shapes, stage lighting |
 | `overlay.js`, `view3d.html` | DOM overlay for the 3D view |

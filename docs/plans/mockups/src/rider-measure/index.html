@@ -1,0 +1,273 @@
+<title>Rider Proportion Gauge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working screen — photo canvas on the left, measuring checklist on the right (stacks on phones). */
+:root {
+  --bg: #E6E1D8; --surface: #EFEBE4; --ink: #161616; --muted: #6B655D; --faint: rgba(22,22,22,.16);
+  --accent: #FF4F00; --accent-text: #C93F00; --ok: #1E7D43; --canvas: #D9D3C8;
+  --sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111213; --surface: #18191B; --ink: #E8E6E1; --muted: #8B8984; --faint: rgba(232,230,225,.16);
+  --accent: #FF5A1F; --accent-text: #FF7A45; --ok: #3FB67A; --canvas: #1E1F21; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111213; --surface: #18191B; --ink: #E8E6E1; --muted: #8B8984; --faint: rgba(232,230,225,.16);
+  --accent: #FF5A1F; --accent-text: #FF7A45; --ok: #3FB67A; --canvas: #1E1F21; color-scheme: dark }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); padding-inline: 16px; padding-block: 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; }
+header h1 { font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.meta { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 500; }
+#saveState { margin-left: auto; }
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } .stage { height: 62vh; } body { height: auto; } }
+.stage { position: relative; background: var(--canvas); border: 1px solid var(--faint); min-height: 320px; overflow: hidden; }
+canvas#cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.drop { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.drop label { display: grid; gap: 10px; justify-items: center; text-align: center; max-width: 34ch; border: 1px dashed var(--muted); padding: 28px 24px; cursor: pointer; background: var(--surface); }
+.drop strong { font-size: 15px; }
+.drop span { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.tools { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
+button, .btn { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: var(--surface); border: 1px solid var(--faint); padding: 7px 10px; cursor: pointer; }
+button:hover { border-color: var(--ink); }
+button:focus-visible, .drop label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+aside { min-width: 0; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.prompt { background: var(--ink); color: var(--bg); padding: 12px 14px; display: grid; gap: 4px; }
+.prompt .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; opacity: .7; }
+.prompt .t { font-size: 15px; font-weight: 600; line-height: 1.35; }
+.prompt .h { font-size: 12.5px; opacity: .8; line-height: 1.45; }
+.prompt .row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.prompt button { background: transparent; color: var(--bg); border-color: rgba(127,127,127,.5); }
+.list { overflow: auto; min-height: 0; border-top: 1px solid var(--faint); }
+.seg { border-bottom: 1px solid var(--faint); padding-block: 8px; }
+.seg h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.seg h3 .meta { font-size: 10px; }
+.st { display: grid; grid-template-columns: 1fr 64px 64px 52px; gap: 6px; align-items: baseline; padding: 4px 6px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.st:hover { background: var(--surface); }
+.st.on { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); }
+.st .n { font-size: 12.5px; }
+.st .v, .st .m, .st .d { font-family: var(--mono); font-size: 12px; text-align: right; }
+.st .m { color: var(--muted); }
+.st .d { color: var(--accent-text); }
+.cols { display: grid; grid-template-columns: 1fr 64px 64px 52px; gap: 6px; padding: 6px 6px 2px; }
+.cols span { font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); text-align: right; }
+.cols span:first-child { text-align: left; }
+.foot { font-size: 12px; color: var(--muted); line-height: 1.5; }
+input[type=number] { font-family: var(--mono); font-size: 12px; width: 70px; background: var(--surface); color: var(--ink); border: 1px solid var(--faint); padding: 4px 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header>
+  <h1>Rider Proportion Gauge</h1>
+  <span class="meta">Scale <b id="scaleOut">not set</b></span>
+  <span class="meta"><label for="wheelMm">Wheel Ø</label> <input id="wheelMm" type="number" value="680" min="500" max="800"> mm</span>
+  <span class="meta" id="saveState">Not saved yet</span>
+</header>
+
+<main>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="drop" id="drop">
+      <label for="file">
+        <strong>Load the reference photo</strong>
+        <span>Choose the side-on cyclist photo, or drop it here. It stays in your browser; only the measurements are saved.</span>
+        <span class="btn">Choose photo</span>
+        <input id="file" type="file" accept="image/*" hidden>
+      </label>
+    </div>
+    <div class="tools" id="tools" hidden>
+      <button id="zoomOut" title="Zoom out">−</button>
+      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="fit">Fit</button>
+      <label class="btn" for="file2">Change photo</label><input id="file2" type="file" accept="image/*" hidden>
+    </div>
+  </div>
+
+  <aside>
+    <div class="prompt">
+      <span class="k" id="pk">Step</span>
+      <span class="t" id="pt">Load the photo to start</span>
+      <span class="h" id="ph">Scroll to zoom, drag to move the photo, click to place a point. Clicks on a width snap to the guide line, so every width is measured square to the bone.</span>
+      <div class="row">
+        <button id="undo">Undo click</button>
+        <button id="skip">Can't see it — skip</button>
+      </div>
+    </div>
+    <div class="cols"><span>Measurement</span><span>Photo</span><span>FlowFit</span><span>Diff</span></div>
+    <div class="list" id="list"></div>
+    <p class="foot">Mark the bone first (joint centre to joint centre), then click both outer edges where the orange guide crosses the limb. Values are in mm, scaled from the wheel.</p>
+  </aside>
+</main>
+
+<script>
+const SEGS = [
+  { id: 'thigh', name: 'Thigh', a: 'hip joint (centre of the hip)', b: 'knee joint (centre of the knee)', st: [.25, .5, .75], lab: ['Upper thigh', 'Mid thigh', 'Lower thigh'] },
+  { id: 'calf', name: 'Calf', a: 'knee joint', b: 'ankle joint', st: [.25, .5, .75], lab: ['Upper calf', 'Mid calf', 'Lower calf'] },
+  { id: 'upperArm', name: 'Upper arm', a: 'shoulder joint', b: 'elbow joint', st: [.25, .5, .75], lab: ['Upper arm, top', 'Upper arm, mid', 'Upper arm, low'] },
+  { id: 'forearm', name: 'Forearm', a: 'elbow joint', b: 'wrist joint', st: [.25, .5, .75], lab: ['Forearm, top', 'Forearm, mid', 'Forearm, low'] },
+  { id: 'torso', name: 'Torso (front to back)', a: 'hip joint', b: 'shoulder joint', st: [.3, .5, .7], lab: ['Stomach', 'Lower chest', 'Chest'] },
+  { id: 'neck', name: 'Neck', a: 'base of the neck (between the shoulders)', b: 'base of the skull', st: [.5], lab: ['Neck'] },
+];
+// state.points: { scale: [[x,y],[x,y]], bones: {seg: [p,p]}, widths: {seg: [[p,p]|'skip'|null,...]} } — image px
+const state = { scale: [], bones: {}, widths: {}, img: null };
+let model = null, task = null, img = null, view = { s: 1, tx: 0, ty: 0 }, hover = null;
+const $ = id => document.getElementById(id);
+const cv = $('cv'), cx = cv.getContext('2d');
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+function tasks() { // ordered list of all steps
+  const out = [{ k: 'scale' }];
+  for (const s of SEGS) { out.push({ k: 'bone', seg: s.id }); s.st.forEach((_, i) => out.push({ k: 'w', seg: s.id, i })); }
+  return out;
+}
+const segOf = id => SEGS.find(s => s.id === id);
+function done(t) {
+  if (t.k === 'scale') return state.scale.length === 2;
+  if (t.k === 'bone') return (state.bones[t.seg] || []).length === 2;
+  const w = (state.widths[t.seg] || [])[t.i]; return w === 'skip' || (Array.isArray(w) && w.length === 2);
+}
+function nextTask() { return tasks().find(t => !done(t)) || null; }
+const pxPerMm = () => state.scale.length === 2 ? Math.hypot(state.scale[1][0] - state.scale[0][0], state.scale[1][1] - state.scale[0][1]) / (+$('wheelMm').value || 680) : null;
+function station(seg, i) {
+  const b = state.bones[seg]; if (!b || b.length < 2) return null;
+  const t = segOf(seg).st[i], [a, c] = b, dx = c[0] - a[0], dy = c[1] - a[1], L = Math.hypot(dx, dy);
+  return { p: [a[0] + dx * t, a[1] + dy * t], n: [-dy / L, dx / L], L };
+}
+function snap(seg, i, q) { const s = station(seg, i); const k = (q[0] - s.p[0]) * s.n[0] + (q[1] - s.p[1]) * s.n[1]; return [s.p[0] + s.n[0] * k, s.p[1] + s.n[1] * k]; }
+function widthMm(seg, i) {
+  const w = (state.widths[seg] || [])[i], ppm = pxPerMm(); if (w === 'skip') return 'skip';
+  if (!Array.isArray(w) || w.length < 2 || !ppm) return null; return Math.hypot(w[1][0] - w[0][0], w[1][1] - w[0][1]) / ppm;
+}
+
+// ── canvas ──
+function resize() { const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; cv.width = r.width * d; cv.height = r.height * d; cx.setTransform(d, 0, 0, d, 0, 0); draw(); }
+function fit() { if (!img) return; const r = cv.getBoundingClientRect(); const s = Math.min(r.width / img.width, r.height / img.height) * .96; view = { s, tx: (r.width - img.width * s) / 2, ty: (r.height - img.height * s) / 2 }; draw(); }
+const toS = p => [p[0] * view.s + view.tx, p[1] * view.s + view.ty];
+const toI = (x, y) => [(x - view.tx) / view.s, (y - view.ty) / view.s];
+function line(a, b, col, w = 1.5, dash) { cx.save(); cx.strokeStyle = col; cx.lineWidth = w; if (dash) cx.setLineDash(dash); cx.beginPath(); cx.moveTo(...toS(a)); cx.lineTo(...toS(b)); cx.stroke(); cx.restore(); }
+function dot(p, col, r = 4) { cx.fillStyle = col; cx.beginPath(); cx.arc(...toS(p), r, 0, Math.PI * 2); cx.fill(); }
+function draw() {
+  const r = cv.getBoundingClientRect(); cx.clearRect(0, 0, r.width, r.height); if (!img) return;
+  cx.imageSmoothingQuality = 'high'; cx.drawImage(img, view.tx, view.ty, img.width * view.s, img.height * view.s);
+  const acc = css('--accent'), blue = '#1E6BFF', ok = css('--ok');
+  if (state.scale.length) { state.scale.forEach(p => dot(p, ok)); if (state.scale.length === 2) line(state.scale[0], state.scale[1], ok, 2); }
+  for (const s of SEGS) {
+    const b = state.bones[s.id] || []; b.forEach(p => dot(p, blue, 3.5)); if (b.length === 2) line(b[0], b[1], blue, 1.5);
+    (state.widths[s.id] || []).forEach((w, i) => { if (Array.isArray(w)) { w.forEach(p => dot(p, acc, 3)); if (w.length === 2) line(w[0], w[1], acc, 2.5); } });
+  }
+  if (task && task.k === 'w') { const s = station(task.seg, task.i); if (s) { const e = s.L * .7; line([s.p[0] - s.n[0] * e, s.p[1] - s.n[1] * e], [s.p[0] + s.n[0] * e, s.p[1] + s.n[1] * e], acc, 1, [6, 5]); } }
+  if (hover && task) { const q = task.k === 'w' && station(task.seg, task.i) ? snap(task.seg, task.i, hover) : hover; cx.strokeStyle = acc; cx.lineWidth = 1.5; cx.beginPath(); cx.arc(...toS(q), 7, 0, Math.PI * 2); cx.stroke(); drawLoupe(q); }
+}
+function drawLoupe(q) { // 4× magnifier in the top-left corner for precise edges
+  const R = 70, z = 4, S = R * 2; cx.save(); cx.beginPath(); cx.rect(10, 10, S, S); cx.clip();
+  cx.drawImage(img, q[0] - R / (view.s * z) * view.s, q[1] - R / (view.s * z) * view.s, S / (view.s * z) * view.s, S / (view.s * z) * view.s, 10, 10, S, S);
+  cx.strokeStyle = css('--accent'); cx.lineWidth = 1; cx.beginPath(); cx.moveTo(10 + R, 10); cx.lineTo(10 + R, 10 + S); cx.moveTo(10, 10 + R); cx.lineTo(10 + S, 10 + R); cx.stroke();
+  cx.restore(); cx.strokeStyle = css('--ink'); cx.strokeRect(10, 10, S, S);
+}
+let down = null;
+cv.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty, moved: false }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  const r = cv.getBoundingClientRect(); hover = img ? toI(e.clientX - r.left, e.clientY - r.top) : null;
+  if (down) { const dx = e.clientX - down.x, dy = e.clientY - down.y; if (Math.hypot(dx, dy) > 4) down.moved = true; if (down.moved) { view.tx = down.tx + dx; view.ty = down.ty + dy; } }
+  draw();
+});
+cv.addEventListener('pointerleave', () => { hover = null; draw(); });
+cv.addEventListener('pointerup', e => { const d = down; down = null; if (!d || d.moved || !img || !task) return; const r = cv.getBoundingClientRect(); place(toI(e.clientX - r.left, e.clientY - r.top)); });
+cv.addEventListener('wheel', e => { if (!img) return; e.preventDefault(); const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, k = Math.exp(-e.deltaY * .0015); zoomAt(x, y, k); }, { passive: false });
+function zoomAt(x, y, k) { const s2 = Math.min(30, Math.max(.05, view.s * k)); const f = s2 / view.s; view.tx = x - (x - view.tx) * f; view.ty = y - (y - view.ty) * f; view.s = s2; draw(); }
+$('zoomIn').onclick = () => { const r = cv.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1.4); };
+$('zoomOut').onclick = () => { const r = cv.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1 / 1.4); };
+$('fit').onclick = fit;
+
+// ── placing points ──
+function place(q) {
+  if (task.k === 'scale') { if (state.scale.length >= 2) state.scale = []; state.scale.push(q); }
+  else if (task.k === 'bone') { const b = state.bones[task.seg] = state.bones[task.seg] || []; if (b.length >= 2) b.length = 0; b.push(q); }
+  else { const w = state.widths[task.seg] = state.widths[task.seg] || []; let cur = w[task.i]; if (!Array.isArray(cur) || cur.length >= 2) cur = w[task.i] = []; cur.push(snap(task.seg, task.i, q)); }
+  if (done(task)) { queueSave(); task = nextTask(); }
+  render();
+}
+$('undo').onclick = () => {
+  if (!task) { task = tasks().at(-1); }
+  const arr = task.k === 'scale' ? state.scale : task.k === 'bone' ? (state.bones[task.seg] || []) : (Array.isArray((state.widths[task.seg] || [])[task.i]) ? state.widths[task.seg][task.i] : []);
+  if (arr.length) arr.pop(); else { const all = tasks(), i = all.findIndex(t => t.k === task.k && t.seg === task.seg && t.i === task.i); if (i > 0) { task = all[i - 1]; clear(task); } }
+  queueSave(); render();
+};
+$('skip').onclick = () => { if (!task || task.k !== 'w') return; (state.widths[task.seg] = state.widths[task.seg] || [])[task.i] = 'skip'; queueSave(); task = nextTask(); render(); };
+function clear(t) { if (t.k === 'scale') state.scale = []; else if (t.k === 'bone') state.bones[t.seg] = []; else if (state.widths[t.seg]) state.widths[t.seg][t.i] = null; }
+$('wheelMm').addEventListener('change', () => { queueSave(); render(); });
+
+// ── panel ──
+function render() {
+  const ppm = pxPerMm(); $('scaleOut').textContent = ppm ? (1 / ppm).toFixed(2) + ' mm / px' : 'not set';
+  $('skip').hidden = !(task && task.k === 'w');
+  if (!img) { $('pk').textContent = 'Step'; $('pt').textContent = 'Load the photo to start'; }
+  else if (!task) { $('pk').textContent = 'Done'; $('pt').textContent = 'All measurements are in'; $('ph').textContent = 'Click any row to redo it. Your measurements are saved for FlowFit.'; }
+  else if (task.k === 'scale') { $('pk').textContent = 'Scale'; $('pt').textContent = 'Click the outer edge of one wheel, then the opposite edge'; $('ph').textContent = 'Go straight through the hub, tyre edge to tyre edge. This sets mm per pixel from the wheel diameter.'; }
+  else if (task.k === 'bone') { const s = segOf(task.seg), n = (state.bones[task.seg] || []).length; $('pk').textContent = s.name + ' · bone line'; $('pt').textContent = 'Click the ' + (n ? s.b : s.a); $('ph').textContent = 'Click joint centres, not the outline. The widths are measured square to this line.'; }
+  else { const s = segOf(task.seg), w = (state.widths[task.seg] || [])[task.i], n = Array.isArray(w) ? w.length : 0; $('pk').textContent = s.name + ' · ' + s.lab[task.i]; $('pt').textContent = n ? 'Click the other edge' : 'Click one edge where the orange guide crosses it'; $('ph').textContent = 'Zoom in for accuracy. If another limb or the bike hides the edge, skip this one.'; }
+  const L = $('list'); L.textContent = '';
+  for (const s of SEGS) {
+    const sec = document.createElement('div'); sec.className = 'seg';
+    const h = document.createElement('h3'); h.textContent = s.name; const bm = document.createElement('span'); bm.className = 'meta'; const b = state.bones[s.id];
+    bm.textContent = b && b.length === 2 && ppm ? 'bone ' + Math.round(Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1]) / ppm) + ' mm' : 'bone not marked'; h.append(bm); sec.append(h);
+    s.st.forEach((_, i) => {
+      const row = document.createElement('div'); row.className = 'st' + (task && task.k === 'w' && task.seg === s.id && task.i === i ? ' on' : ''); row.tabIndex = 0;
+      const v = widthMm(s.id, i), m = model && model[s.id] ? model[s.id][i] : null;
+      const cell = (c, t) => { const e = document.createElement('span'); e.className = c; e.textContent = t; return e; };
+      const diff = typeof v === 'number' && typeof m === 'number' ? Math.round((m - v) / v * 100) : null;
+      row.append(cell('n', s.lab[i]), cell('v', v === 'skip' ? 'skipped' : v == null ? '—' : Math.round(v)), cell('m', m == null ? '—' : Math.round(m)), cell('d', diff == null ? '' : (diff > 0 ? '+' : '') + diff + '%'));
+      const go = () => { if (!img) return; task = (state.bones[s.id] || []).length === 2 ? { k: 'w', seg: s.id, i } : { k: 'bone', seg: s.id }; clear(task); render(); };
+      row.onclick = go; row.onkeydown = e => { if (e.key === 'Enter') go(); };
+      sec.append(row);
+    });
+    L.append(sec);
+  }
+  draw();
+}
+
+// ── image ──
+function loadFile(f) {
+  if (!f) return; const url = URL.createObjectURL(f), im = new Image();
+  im.onload = () => { img = im; $('drop').hidden = true; $('tools').hidden = false;
+    if (state.img && (state.img.w !== im.width || state.img.h !== im.height)) { state.scale = []; state.bones = {}; state.widths = {}; }
+    state.img = { w: im.width, h: im.height, name: f.name }; task = nextTask(); resize(); fit(); render(); };
+  im.src = url;
+}
+$('file').onchange = e => loadFile(e.target.files[0]); $('file2').onchange = e => loadFile(e.target.files[0]);
+$('stage').addEventListener('dragover', e => e.preventDefault());
+$('stage').addEventListener('drop', e => { e.preventDefault(); loadFile(e.dataTransfer.files[0]); });
+addEventListener('resize', resize);
+addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); $('undo').click(); } });
+
+// ── saving (shared db so FlowFit can read the numbers) ──
+let db = null, saveTimer = null, saving = Promise.resolve();
+function payload() {
+  const ppm = pxPerMm(), segments = {};
+  for (const s of SEGS) segments[s.id] = { stations: s.st, labels: s.lab, widthsMm: s.st.map((_, i) => { const v = widthMm(s.id, i); return typeof v === 'number' ? Math.round(v * 10) / 10 : null; }),
+    boneMm: state.bones[s.id] && state.bones[s.id].length === 2 && ppm ? Math.round(Math.hypot(state.bones[s.id][1][0] - state.bones[s.id][0][0], state.bones[s.id][1][1] - state.bones[s.id][0][1]) / ppm) : null };
+  return { wheelMm: +$('wheelMm').value || 680, mmPerPx: ppm ? 1 / ppm : null, image: state.img, points: { scale: state.scale, bones: state.bones, widths: state.widths }, segments, updatedAt: new Date().toISOString() };
+}
+function queueSave() {
+  try { localStorage.setItem('rpg.points', JSON.stringify({ img: state.img, scale: state.scale, bones: state.bones, widths: state.widths, wheel: $('wheelMm').value })); } catch (e) {}
+  clearTimeout(saveTimer); saveTimer = setTimeout(() => {
+    if (!db) { $('saveState').textContent = 'Saved in this browser only'; return; }
+    $('saveState').textContent = 'Saving…';
+    saving = saving.then(() => db.doc('measurements/reference').set(payload())).then(() => { $('saveState').textContent = 'Saved for FlowFit'; }, err => { $('saveState').textContent = 'Not saved: ' + (err && err.code || 'error'); });
+  }, 700);
+}
+function restore(p) { if (!p) return; state.img = p.image || p.img || null; const pts = p.points || p; state.scale = pts.scale || []; state.bones = pts.bones || {}; state.widths = pts.widths || {}; if (p.wheelMm || p.wheel) $('wheelMm').value = p.wheelMm || p.wheel; }
+try { restore(JSON.parse(localStorage.getItem('rpg.points') || 'null')); } catch (e) {}
+render();
+(async () => {
+  db = await window.claude?.use?.('db');
+  if (!db) { $('saveState').textContent = 'Saved in this browser only'; return; }
+  try { const s = await db.doc('measurements/reference').get(); if (s.exists) { restore(s.data()); task = img ? nextTask() : null; render(); $('saveState').textContent = 'Saved for FlowFit'; } } catch (e) {}
+  db.doc('measurements/model').onSnapshot(s => { model = s.exists ? (s.data().segments || null) : null; render(); }, () => {});
+})();
+</script>

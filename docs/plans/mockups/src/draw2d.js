@@ -1,4 +1,4 @@
-import { headDeform, HELMET } from './rider3.js';
+import { headDeform, HELMET, calAt } from './rider3.js';
 import { helmetSide2D } from './helmet.js';
 // 2D side view (SVG, mm, y inverted) built from the SAME primitives as 3D: body SDF raster + bike + head/helmet.
 import { profiles, helmetPoint, VENTS, lerp, bump } from './kit.js';
@@ -97,19 +97,19 @@ export function clayDefs(tok) {
 export function clayFigure(G, part) {
   const { J } = G; const s = [];
   const Pg = p => `<polygon class="clay" points="${p}"/>`;
-  if (part === 'farLeg') { s.push(Pg(seg(J.hip, J.kneeR, t => lerp(86, 50, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.kneeR, J.ankleR, t => lerp(40, 20, t) + 6 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankleR.y - J.kneeR.y, J.ankleR.x - J.kneeR.x); const cc = v(lerp(J.kneeR.x, J.ankleR.x, .28) - 26, lerp(J.kneeR.y, J.ankleR.y, .28)); s.push(Pg(ellP(cc, 90, 44, sd))); }
-  if (part === 'farArm') s.push(Pg(seg(J.shoulder, J.elbow, t => lerp(36, 28, t) + 7 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => lerp(31, 18, t) + 6 * bumpf(t, .18, .14))));
+  if (part === 'farLeg') { s.push(Pg(seg(J.hip, J.kneeR, t => calAt('thigh', t) * (lerp(86, 50, t) + 12 * bumpf(t, .3, .2)))), Pg(seg(J.kneeR, J.ankleR, t => calAt('calf', t) * (lerp(40, 20, t) + 6 * bumpf(t, .3, .14))))); const sd = Math.atan2(J.ankleR.y - J.kneeR.y, J.ankleR.x - J.kneeR.x); const cc = v(lerp(J.kneeR.x, J.ankleR.x, .28) - 26, lerp(J.kneeR.y, J.ankleR.y, .28)); s.push(Pg(ellP(cc, 90, 44 * calAt('calf', .3), sd))); }
+  if (part === 'farArm') s.push(Pg(seg(J.shoulder, J.elbow, t => calAt('upperArm', t) * (lerp(36, 28, t) + 7 * bumpf(t, .45, .2)))), Pg(seg(J.elbow, J.wrist, t => calAt('forearm', t) * (lerp(31, 18, t) + 6 * bumpf(t, .18, .14)))));
   if (part === 'body') {
     const ax = Math.atan2(J.shoulder.y - J.hip.y, J.shoulder.x - J.hip.x);
-    s.push(Pg(seg(v(J.hip.x - Math.cos(ax) * 10, J.hip.y - Math.sin(ax) * 10), v(J.shoulder.x - Math.cos(ax) * 18, J.shoulder.y - Math.sin(ax) * 18), t => (98 - 16 * bumpf(t, .36, .13) + 20 * bumpf(t, .78, .16)) * lerp(.9, 1.02, Math.min(1, Math.max(0, (t - .3) / .55))))));
+    s.push(Pg(seg(v(J.hip.x - Math.cos(ax) * 10, J.hip.y - Math.sin(ax) * 10), v(J.shoulder.x - Math.cos(ax) * 18, J.shoulder.y - Math.sin(ax) * 18), t => calAt('torso', t) * (98 - 16 * bumpf(t, .36, .13) + 20 * bumpf(t, .78, .16)) * lerp(.9, 1.02, Math.min(1, Math.max(0, (t - .3) / .55))))));
     s.push(Pg(ellP(v(J.hip.x - 16, J.hip.y - 4), 80, 78)), Pg(ellP(v(J.hip.x - 52, J.hip.y - 20), 62, 56, ax * .3)));
     s.push(Pg(seg(v(J.neckBase.x - 20, J.neckBase.y - 6), J.shoulder, t => lerp(42, 36, t))));
-    s.push(Pg(seg(v(J.shoulder.x - 12, J.shoulder.y - 22), v(J.head.x - 26, J.head.y - 44), t => lerp(44, 40, t))));
+    s.push(Pg(seg(v(J.shoulder.x - 12, J.shoulder.y - 22), v(J.head.x - 26, J.head.y - 44), t => calAt('neck', .5) * lerp(44, 40, t))));
     const ua = Math.atan2(J.elbow.y - J.shoulder.y, J.elbow.x - J.shoulder.x);
     s.push(Pg(ellP(v(J.shoulder.x + Math.cos(ua) * 24, J.shoulder.y + Math.sin(ua) * 24), 58, 48, ua)));
-    s.push(Pg(seg(J.shoulder, J.elbow, t => lerp(36, 28, t) + 7 * bumpf(t, .45, .2))), Pg(seg(J.elbow, J.wrist, t => lerp(31, 18, t) + 6 * bumpf(t, .18, .14))));
+    s.push(Pg(seg(J.shoulder, J.elbow, t => calAt('upperArm', t) * (lerp(36, 28, t) + 7 * bumpf(t, .45, .2)))), Pg(seg(J.elbow, J.wrist, t => calAt('forearm', t) * (lerp(31, 18, t) + 6 * bumpf(t, .18, .14)))));
   }
-  if (part === 'nearLeg') { s.push(Pg(seg(J.hip, J.knee, t => lerp(86, 50, t) + 12 * bumpf(t, .3, .2))), Pg(seg(J.knee, J.ankle, t => lerp(40, 20, t) + 6 * bumpf(t, .3, .14)))); const sd = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x); const cc = v(lerp(J.knee.x, J.ankle.x, .28) - 26, lerp(J.knee.y, J.ankle.y, .28)); s.push(Pg(ellP(cc, 90, 44, sd))); }
+  if (part === 'nearLeg') { s.push(Pg(seg(J.hip, J.knee, t => calAt('thigh', t) * (lerp(86, 50, t) + 12 * bumpf(t, .3, .2)))), Pg(seg(J.knee, J.ankle, t => calAt('calf', t) * (lerp(40, 20, t) + 6 * bumpf(t, .3, .14))))); const sd = Math.atan2(J.ankle.y - J.knee.y, J.ankle.x - J.knee.x); const cc = v(lerp(J.knee.x, J.ankle.x, .28) - 26, lerp(J.knee.y, J.ankle.y, .28)); s.push(Pg(ellP(cc, 90, 44 * calAt('calf', .3), sd))); }
   return s.join('');
 }
 export function clayHead(G) {
