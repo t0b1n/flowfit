@@ -326,3 +326,473 @@
   font: 400 11px var(--font-mono);
   color: var(--accent-text);
 }
+
+/* ── Pill / Button ─────────────────────────────────────────────────────────── */
+
+.ff-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: 6px 10px;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ff-pill:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.ff-pill:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.ff-pill:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ff-pill--active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.ff-pill--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.ff-pill--primary:hover:not(:disabled) {
+  border-color: var(--accent);
+  filter: brightness(0.94);
+}
+
+/* ── Segmented ─────────────────────────────────────────────────────────────── */
+
+.ff-seg {
+  display: inline-flex;
+  border: 1px solid var(--faint);
+}
+
+.ff-seg__cell {
+  flex: 1;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.ff-seg__cell:hover {
+  color: var(--ink);
+}
+
+.ff-seg__cell--on,
+.ff-seg__cell--on:hover {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.ff-seg__cell:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: -2px;
+}
+
+/* ── StatusDot / PartCode ──────────────────────────────────────────────────── */
+
+.ff-dot {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.ff-dot--in {
+  background: var(--band-in);
+}
+
+.ff-dot--near {
+  background: var(--band-near);
+}
+
+.ff-dot--out {
+  background: var(--band-out);
+}
+
+.ff-code {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 500 11px var(--font-mono);
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.ff-code--hot {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ── Readout / BandGauge ───────────────────────────────────────────────────── */
+
+.ff-eyebrow {
+  font: 400 10.5px var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ff-readout__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.ff-readout__value sup {
+  margin-left: 2px;
+  color: var(--muted);
+  vertical-align: top;
+}
+
+.ff-readout--big .ff-readout__value {
+  margin: var(--s-2) 0 0 -6px;
+  font: 800 var(--readout-big-size, 104px) / 1 var(--font-dot);
+}
+
+.ff-readout--big .ff-readout__value sup {
+  font-size: 0.36em;
+}
+
+.ff-readout--medium .ff-readout__value {
+  font: 500 38px / 1.1 var(--font-sans);
+  letter-spacing: -0.02em;
+}
+
+.ff-readout--medium .ff-readout__value sup {
+  margin-left: 4px;
+  font: 400 13px var(--font-mono);
+  letter-spacing: 0;
+}
+
+.ff-readout__delta {
+  margin-top: var(--s-1);
+  font: 400 13px var(--font-mono);
+  color: var(--accent-text);
+}
+
+.ff-readout__delta span {
+  color: var(--muted);
+}
+
+.ff-gauge__track {
+  position: relative;
+  height: 8px;
+  margin-top: 18px;
+  background: var(--faint-2);
+}
+
+.ff-gauge--mini .ff-gauge__track {
+  height: 4px;
+  margin-top: var(--s-2);
+}
+
+.ff-gauge__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--ink);
+}
+
+.ff-gauge__now,
+.ff-gauge__was {
+  position: absolute;
+  top: -6px;
+  width: 3px;
+  height: 20px;
+  background: var(--accent);
+  transform: translateX(-1px);
+}
+
+.ff-gauge--mini .ff-gauge__now,
+.ff-gauge--mini .ff-gauge__was {
+  top: -4px;
+  width: 2px;
+  height: 12px;
+}
+
+.ff-gauge__was {
+  width: 2px;
+  opacity: 0.4;
+}
+
+.ff-gauge__scale {
+  position: relative;
+  height: 14px;
+  margin-top: 6px;
+  font: 400 10px var(--font-mono);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ff-gauge__scale span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.ff-gauge__scale span:first-child {
+  left: 0;
+  transform: none;
+}
+
+.ff-gauge__scale span:last-child {
+  right: 0;
+  transform: none;
+}
+
+/* ── MetricChip / MetricRail ───────────────────────────────────────────────── */
+
+.ff-rail {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.ff-chip {
+  position: relative;
+  flex: 1 0 84px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 8px 7px;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ff-chip__code {
+  font: 400 9.5px var(--font-mono);
+  font-style: normal;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.ff-chip__label {
+  font: 400 10px var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.ff-chip__value {
+  font: 500 17px var(--font-sans);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ff-chip__value small {
+  margin-left: 2px;
+  font: 400 10px var(--font-mono);
+  color: var(--muted);
+}
+
+.ff-chip__delta {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  text-decoration: none;
+  font: 400 10.5px var(--font-mono);
+  color: var(--accent-text);
+}
+
+.ff-chip__hint {
+  position: absolute;
+  right: 8px;
+  top: 24px;
+  font: 400 9px var(--font-mono);
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.ff-chip__status {
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
+}
+
+.ff-chip--focused {
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.ff-chip--focused .ff-chip__code {
+  color: var(--accent-text);
+}
+
+.ff-chip--pinned {
+  border-color: var(--ink);
+}
+
+.ff-chip--pinned::after {
+  content: "PINNED";
+  position: absolute;
+  left: 8px;
+  top: -8px;
+  padding: 0 3px;
+  background: var(--bg);
+  font: 400 8.5px var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.ff-chip:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* ── SpecTable ─────────────────────────────────────────────────────────────── */
+
+.ff-spec {
+  font-size: 12px;
+}
+
+.ff-spec__head {
+  padding: 14px 0 6px;
+  border-bottom: 1px solid var(--faint);
+  font: 400 10px var(--font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ff-spec__row {
+  display: grid;
+  grid-template-columns: 1fr auto 38px 30px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--faint-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ff-spec__row span {
+  font: 500 12.5px var(--font-sans);
+  color: var(--ink);
+  opacity: 0.8;
+}
+
+.ff-spec__row b {
+  font: 500 12.5px var(--font-mono);
+}
+
+.ff-spec__row em {
+  font: 400 10.5px var(--font-mono);
+  font-style: normal;
+  text-align: right;
+  color: var(--muted);
+}
+
+.ff-spec__row i {
+  font: 400 11px var(--font-mono);
+  font-style: normal;
+  text-align: right;
+  color: var(--accent-text);
+}
+
+.ff-spec__bar {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--s-4);
+  padding: 9px 12px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ff-spec__bar b {
+  font-weight: 500;
+}
+
+/* ── CalloutLayer ──────────────────────────────────────────────────────────── */
+
+.ff-callouts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font: 400 11.5px var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.ff-callouts__svg {
+  position: absolute;
+  inset: 0;
+}
+
+.ff-callouts__svg polyline {
+  fill: none;
+  stroke: var(--ink);
+  stroke-opacity: 0.7;
+  stroke-width: 1;
+}
+
+.ff-callouts__svg circle {
+  fill: var(--ink);
+}
+
+.ff-callouts__hot polyline {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+}
+
+.ff-callouts__hot circle {
+  fill: var(--accent);
+}
+
+.ff-callout {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ff-callout--left {
+  justify-content: flex-start;
+}
+
+/* ── BrandMark ─────────────────────────────────────────────────────────────── */
+
+.ff-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.ff-brand__word {
+  font: 700 18px var(--font-sans);
+  letter-spacing: -0.03em;
+}
