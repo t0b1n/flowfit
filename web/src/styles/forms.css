@@ -1,67 +1,67 @@
-/* ── Forms, auth, add bike, profile (light design system) ─────────────────── */
+/* ── Forms, auth, add bike, profile ───────────────────────────────────────── */
 
 .auth-layout {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: var(--s-8);
   background: var(--bg);
-  border-top: 4px solid var(--accent);
+}
+
+.auth-layout__theme {
+  position: absolute;
+  top: var(--s-4);
+  right: var(--s-4);
 }
 
 .auth-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 32px;
   width: 100%;
-  max-width: 420px;
-}
-
-.auth-card__brand .eyebrow {
-  text-decoration: none;
-  display: block;
-  margin-bottom: 4px;
+  max-width: 380px;
 }
 
 .auth-card__brand h1 {
-  margin: 0;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--accent);
-  font-size: 1.8rem;
-  line-height: 1.05;
+  margin: var(--s-6) 0 0;
+  font: 600 24px var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
 }
 
 .auth-card__subtitle {
-  color: var(--muted);
   margin: 6px 0 0;
-  font-size: 0.92rem;
-  line-height: 1.45;
+  font: 400 11px/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--muted);
 }
 
 .auth-card__footer {
-  margin-top: 16px;
-  font-size: 0.88rem;
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--faint);
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.06em;
   color: var(--muted);
+}
+
+.auth-card__footer a {
+  color: var(--ink);
 }
 
 .auth-form {
   display: grid;
-  gap: 14px;
-  margin-top: 20px;
+  gap: var(--s-4);
+  margin-top: var(--s-5);
 }
 
 .auth-form label,
 .add-bike-form label {
   display: grid;
-  gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 700;
+  gap: 6px;
+  font: 400 10.5px var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--muted);
 }
 
@@ -70,16 +70,14 @@
 .add-bike-form textarea,
 .add-bike-json textarea,
 .modal textarea {
-  background: var(--panel-strong);
-  color: var(--text);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.7rem 0.8rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.4;
-  font-family: inherit;
-  letter-spacing: 0.01em;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  padding: 9px 10px;
+  font: 500 13px/1.4 var(--font-sans);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .auth-form input:focus,
@@ -88,8 +86,8 @@
 .add-bike-json textarea:focus,
 .modal textarea:focus {
   outline: none;
-  border-color: var(--border-strong);
-  background: var(--surface-2);
+  border-color: var(--ink);
+  background: var(--surface);
 }
 
 .auth-form input::placeholder,
@@ -108,15 +106,23 @@
   font-size: 0.78rem;
 }
 
-.auth-error {
-  background: var(--bad-soft);
-  border: 1.5px solid color-mix(in srgb, var(--band-out) 35%, transparent);
-  color: var(--bad);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
+.auth-error,
+.auth-success {
   margin: 0;
+  padding: 10px;
+  border: 1px solid var(--faint);
+  font: 400 11.5px/1.45 var(--font-sans);
+}
+
+.auth-error {
+  border-left: 2px solid var(--band-out);
+  color: var(--ink);
+}
+
+.auth-success {
+  margin-bottom: var(--s-3);
+  border-left: 2px solid var(--band-in);
+  color: var(--ink);
 }
 
 ul.auth-error {
@@ -125,75 +131,56 @@ ul.auth-error {
   gap: 4px;
 }
 
-.auth-success {
-  background: var(--ok-soft);
-  border: 1.5px solid color-mix(in srgb, var(--band-in) 35%, transparent);
-  color: var(--ok);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
 .auth-loading {
-  padding: 32px;
+  padding: var(--s-8);
   text-align: center;
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
+/* Primary action: accent fill, mono uppercase (same look as the DS primary Pill) */
 .primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: var(--accent);
   color: var(--on-accent);
-  border: 1.5px solid var(--accent);
-  border-radius: var(--radius-md);
-  padding: 0.7rem 1.1rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  border: 1px solid var(--accent);
+  border-radius: 0;
+  padding: 9px 14px;
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: opacity 0.1s;
 }
 
 .primary-btn:hover:not(:disabled) {
-  opacity: 0.88;
+  filter: brightness(0.94);
 }
 
 .primary-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
+/* Secondary action: ghost pill */
 .link-btn {
   background: transparent;
-  color: inherit;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
+  color: var(--ink);
+  border: 1px solid var(--faint);
+  border-radius: 0;
   padding: 6px 10px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  text-decoration: none;
   cursor: pointer;
-  transition: border-color 0.1s, color 0.1s, background 0.1s;
 }
 
 .link-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.mode-nav__auth {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-left: auto;
-}
-
-.mode-nav__auth a.link-btn,
-.mode-nav__auth button.link-btn {
-  text-decoration: none;
+  border-color: var(--ink);
 }
 
 /* Add bike */
