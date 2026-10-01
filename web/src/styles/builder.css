@@ -399,3 +399,18 @@
     box-shadow: var(--shadow-pop);
   }
 }
+
+@media (max-width: 760px) {
+  .stage-bar {
+    overflow-x: auto;
+    padding: 0 var(--s-3);
+  }
+
+  .stage-bar__title {
+    display: none;
+  }
+
+  .stage-bar .viz-toolbar {
+    flex: 0 0 auto;
+  }
+}

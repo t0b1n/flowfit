@@ -373,7 +373,7 @@ export const FitBuilderMode: React.FC = () => {
             />
           ) : view === "side" ? (
             <Stage2DSide viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
-          ) : <Stage2DFront bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
+          ) : <Stage2DFront weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
         </div>
       </section>
 

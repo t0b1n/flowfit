@@ -84,7 +84,7 @@ export const StageOverlay: React.FC<StageOverlayProps> = ({ mannequin, bike, str
   const shown: MetricId[] = useMemo(() => [focused, ...pinned.filter((p) => p !== focused)], [focused, pinned]);
 
   useLayoutEffect(() => {
-    const wrap = wrapRef.current;
+    const wrap = wrapRef.current?.parentElement; // the .s2d-wrap host (the overlay itself may be display:contents)
     if (!wrap) return;
     const measure = () => {
       const r = wrap.getBoundingClientRect();
