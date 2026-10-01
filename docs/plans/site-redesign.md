@@ -293,9 +293,7 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
 - **2D:** the same profiles drawn as clay polygons, with an SVG filter that erodes the alpha and flood-fills the ring to give an
   inner rim (tonal), plus an accent ring on the focused limb (`draw2d.js#clayDefs`, `clayFigure`).
 - **Head** (`rider3.js`, head-local frame: +x gaze, +y up; gaze = neck angle − 78°):
-  - **Head:** one deformed ellipsoid (`headDeform`) rather than separate nose and chin blobs: a skull of 96×118×76, a
-    flattened face plane, a squarer jaw that narrows gently below the equator, and a subtle nose ridge and chin built
-    into the surface. Small ears.
+  - **Head:** a plain clay ellipsoid with a gently tapered jaw. **No facial features and no ears** (decided).
   - **Helmet: none for now (decided).** The rider is shown bare-headed in both 2D and 3D, and no track builds a helmet.
     For reference only: the last explored option (a lofted shell traced from Evade 4 photos, closed nose, 18 mm thickness)
     is in `mockups/src/buildloft.mjs` and `mockups/10-helmet-vs-photos.png`, in case a helmet is revisited later.
@@ -312,7 +310,8 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
     - Our model was measured the same way: the silhouette width of each limb's own mesh, square to the same bone.
   - **Fit:** `CAL` in `mockups/src/rider3.js` holds a multiplier per station: linear between stations, flat beyond.
     It scales both the base profile and the muscle bulges (torso: front-to-back depth only). Every station is within
-    1% of the reference.
+    1% of the reference, except the stomach, which is deliberately set to 80% of the measured depth (design choice: the
+    measured value read as too heavy).
   - **Reference widths (mm, side view):**
 
     | Part | 25% / 30% | 50% | 75% / 70% |
@@ -321,7 +320,7 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
     | Calf | 122 | 119 | 89 |
     | Upper arm | 102 | 87 | 74 |
     | Forearm | 81 | 71 | 51 |
-    | Torso (stomach / lower chest / chest) | 224 | 239 | 255 |
+    | Torso (stomach / lower chest / chest) | 224 → **184 used** | 239 | 255 |
     | Neck | — | 106 | — |
   - **2D:** the side view applies the same `calAt(segment, t)` to its silhouette profiles.
   - The mock-up pose uses trunk 36°, so the elbows bend (~27°). Real poses come from the app's IK.

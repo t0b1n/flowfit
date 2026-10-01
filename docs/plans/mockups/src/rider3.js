@@ -36,9 +36,6 @@ export function headDeform(x, y, z) {
       Z *= 1 - .18 * low;                                         // jaw narrows
       X = X > 0 ? X * (1 - .06 * low) + 4 * low : X * (1 - .4 * low); Y += 10 * low * low; // squarer jaw   // jaw forward, back of neck in
       if (X > 0) { const face = Math.max(0, x) ** 6; X -= 6 * face; }   // flatter face
-      const nose = Math.exp(-((y + .1) ** 2) / .02) * Math.exp(-(z * z) / .008) * Math.max(0, x) ** 4; X += 24 * nose * (1 - ss(-.05, -.3, y) * 0);
-      const chin = Math.exp(-((y + .86) ** 2) / .01) * Math.exp(-(z * z) / .05) * Math.max(0, x) ** 2; X += 8 * chin;
-      const brow = Math.exp(-((y - .16) ** 2) / .004) * Math.max(0, x) ** 6 * (1 - z * z); X += 5 * brow;
       return [X, Y, Z];
 }
 export const HELMET = (() => {
@@ -56,7 +53,7 @@ export const HELMET = (() => {
   return { A, cx, cy, RA, sect, ventMask, x0: cx - A * RA + 1, x1: cx + A - 1 };
 })();
 // Per-station width calibration against the reference photo (multipliers at the measured stations; linear between, flat beyond).
-export const CAL = {thigh: [[0.25,0.976],[0.5,1.003],[0.75,1.018]],calf: [[0.25,1.333],[0.5,1.679],[0.75,1.842]],upperArm: [[0.25,1.317],[0.5,1.086],[0.75,1.13]],forearm: [[0.25,1.289],[0.5,1.436],[0.75,1.18]],torso: [[0.3,1.372],[0.5,1.204],[0.7,0.968]],neck: [[0.5,1.258]]};
+export const CAL = {thigh: [[0.25,0.976],[0.5,1.003],[0.75,1.018]],calf: [[0.25,1.333],[0.5,1.679],[0.75,1.842]],upperArm: [[0.25,1.317],[0.5,1.086],[0.75,1.13]],forearm: [[0.25,1.289],[0.5,1.436],[0.75,1.18]],torso: [[0.3,1.098],[0.5,1.204],[0.7,0.968]],neck: [[0.5,1.258]]};
 export const calAt = (seg, t) => { const c = CAL[seg]; if (t <= c[0][0]) return c[0][1]; for (let i = 0; i < c.length - 1; i++) if (t <= c[i + 1][0]) return c[i][1] + (c[i + 1][1] - c[i][1]) * (t - c[i][0]) / (c[i + 1][0] - c[i][0]); return c.at(-1)[1]; };
 const TAG = (m, seg) => { m.userData.seg = seg; return m; };
 export function buildRider(G, MAT) {
@@ -137,7 +134,7 @@ export function buildRider(G, MAT) {
   { const hg = new THREE.SphereGeometry(1, 64, 48), p = hg.attributes.position;
     for (let i = 0; i < p.count; i++) { const [X, Y, Z] = headDeform(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, X, Y, Z); }
     hg.computeVertexNormals(); H.add(new THREE.Mesh(hg, CL)); }
-  for (const s of [-1, 1]) H.add(ell(V(-14, -6, s * 74), [13, 24, 7], CL));
+  // no facial features or ears: plain clay head
   // helmet — modelled on the S-Works Evade 4: compact, rounded, close to the head, short squared tail,
   // mouth-port brow intake, 7 front vents curving rearward, diagonal side vent, wide rear exhaust.
   const { A, cx, cy, RA, sect, ventMask } = HELMET;
