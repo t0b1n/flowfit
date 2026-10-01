@@ -217,7 +217,8 @@
 /* The spec panel sits beside the scene only when the canvas is wide enough; otherwise a "Specs" pill opens it as a sheet. */
 .bike3d-canvas-wrapper {
   container-type: inline-size;
-  height: min(72vh, 720px);
+  /* fills the viewport under the nav, stage bar and toolbar, like the approved mock-up */
+  height: max(560px, calc(100vh - 56px - 48px - 56px));
 }
 
 .b3-specs-toggle {
