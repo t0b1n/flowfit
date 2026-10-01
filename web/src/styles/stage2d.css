@@ -650,6 +650,8 @@
   fill: var(--accent-text);
   font: 400 15px var(--font-mono);
   letter-spacing: 0.14em;
+}
+
 .s2d-kops line {
   stroke: var(--ink);
   stroke-opacity: 0.7;
