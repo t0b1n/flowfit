@@ -251,7 +251,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   const hipL = get("hip_l");
   const hipR = get("hip_r");
   if (hipL && hipR) {
-    const pr = (opts.feet ? 56 : 78) * hs; // standing: slimmer pelvis so the end caps don't read as hip balls
+    const pr = (opts.feet ? 46 : 78) * hs; // standing: slimmer pelvis so the end caps don't read as hip balls
     const pel = new THREE.Mesh(limbGeometry(Math.abs(hipL[2] - hipR[2]) + 2 * pr, () => pr, 8, 36), mat);
     pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipL[2]) + pr));
     pel.rotation.x = Math.PI / 2;
@@ -329,9 +329,10 @@ const shoulderName = (s: 1 | -1) => (s === 1 ? "shoulder_l" : "shoulder_r");
 export { bump, lerp };
 
 /**
- * Re-poses the rider's joint points into a standing T-pose (arms out along ±z, palms down, gaze along +x),
- * keeping every segment length and the shoulder/hip widths of the riding pose. The feet stand on `groundY`
- * with the pelvis centred at x = `centerX`. Output feeds `buildRiderMeshes` unchanged.
+ * Standing T-pose joint points, proportioned from an athletic-male T-pose reference (fractions of height):
+ * hip→shoulder 0.272, shoulder half-width 0.108, upper arm 0.185, forearm 0.145, hand 0.06, hip half-width 0.047,
+ * arms drooping 5° below horizontal. Leg lengths and the ankle height come from the rider's own fit (inseam).
+ * Gaze is along +x, feet stand on `groundY`, pelvis centred at x = `centerX`. Feeds `buildRiderMeshes` unchanged.
  */
 export function tPosePoints(pts: Map<string, P3>, groundY: number, centerX: number, heightMm: number): Map<string, P3> {
   const hs = heightMm / 1800;
@@ -341,15 +342,16 @@ export function tPosePoints(pts: Map<string, P3>, groundY: number, centerX: numb
     return pa && pb ? v3(pa).distanceTo(v3(pb)) : 0;
   };
   const out = new Map<string, P3>();
-  const halfHip = Math.abs(pts.get("hip_l")?.[2] ?? 90);
-  const halfSh = Math.abs(pts.get("shoulder_l")?.[2] ?? 190);
+  const halfHip = 0.047 * heightMm;
+  const halfSh = 0.108 * heightMm;
   const ankleY = groundY + 85 * hs;
-  const kneeY = ankleY + d("knee_l", "ankle_l");
-  const hipY = kneeY + d("hip_l", "knee_l");
-  const shY = hipY + d("hip_center", "shoulder_center");
-  const neckY = shY + d("shoulder_center", "neck_base_center");
-  const headLen = d("neck_base_center", "head_center");
+  const kneeY = ankleY + (d("knee_l", "ankle_l") || 440 * hs);
+  const hipY = kneeY + (d("hip_l", "knee_l") || 440 * hs);
+  const shY = hipY + 0.272 * heightMm;
+  const neckY = shY + 30 * hs;
   const gaze = (78 * Math.PI) / 180; // head gaze is horizontal when the neck→head angle is 78°
+  const headLen = (0.114 * heightMm - 30 * hs) / Math.sin(gaze);
+  const droop = (5 * Math.PI) / 180;
   out.set("hip_center", [centerX, hipY, 0]);
   out.set("spine_joint", [centerX, (hipY + shY) / 2, 0]);
   out.set("shoulder_center", [centerX, shY, 0]);
@@ -357,12 +359,13 @@ export function tPosePoints(pts: Map<string, P3>, groundY: number, centerX: numb
   out.set("head_center", [centerX + Math.cos(gaze) * headLen, neckY + Math.sin(gaze) * headLen, 0]);
   for (const [side, z] of [["l", 1], ["r", -1]] as const) {
     out.set(`hip_${side}`, [centerX, hipY, z * halfHip]);
-    out.set(`knee_${side}`, [centerX, kneeY, z * halfHip]);
-    out.set(`ankle_${side}`, [centerX, ankleY, z * halfHip]);
-    let x = halfSh;
-    for (const [name, a, b] of [["shoulder", "", ""], ["elbow", "shoulder_l", "elbow_l"], ["wrist", "elbow_l", "wrist_l"], ["hand", "wrist_l", "hand_l"]] as const) {
-      if (name !== "shoulder") x += d(a, b);
-      out.set(`${name}_${side}`, [centerX, shY, z * x]);
+    out.set(`knee_${side}`, [centerX, kneeY, z * halfHip * 0.95]);
+    out.set(`ankle_${side}`, [centerX, ankleY, z * halfHip * 0.9]);
+    let along = halfSh;
+    out.set(`shoulder_${side}`, [centerX, shY, z * along]);
+    for (const [name, len] of [["elbow", 0.185], ["wrist", 0.145], ["hand", 0.06]] as const) {
+      along += len * heightMm * Math.cos(droop);
+      out.set(`${name}_${side}`, [centerX, shY - (along - halfSh) * Math.tan(droop), z * along]);
     }
   }
   return out;

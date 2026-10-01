@@ -57,8 +57,8 @@ export const PROFILES: Record<SegmentName, SegmentProfile> = {
       { dir: "post+med", t: 0.3, w: 0.13, amp: 44, spread: 3 }, // gastrocnemius medial head
       { dir: "post+lat", t: 0.26, w: 0.11, amp: 34, spread: 3 }, // lateral head
       { dir: "post", t: 0.48, w: 0.14, amp: 12, spread: 2 }, // soleus
-      { dir: "med", t: 0.5, w: 0.13, amp: 11, spread: 2 }, // soleus medial flare
-      { dir: "lat", t: 0.3, w: 0.16, amp: 5, spread: 2 }, // tibialis / peroneals
+      { dir: "med", t: 0.45, w: 0.14, amp: 15, spread: 2 }, // soleus medial flare
+      { dir: "lat", t: 0.3, w: 0.16, amp: 12, spread: 2 }, // tibialis / peroneals
     ],
     scale: [1, 0.92],
   },
@@ -88,8 +88,13 @@ export const PROFILES: Record<SegmentName, SegmentProfile> = {
   neck: { radius: () => 36, bulges: [], scale: [1, 1] },
 };
 
+/**
+ * Torso half-width (z, mm at 1800 mm) along the trunk, from an athletic-male reference: pelvis ~125, waist ~135,
+ * ribcage ~162. `torsoWidth` is the ratio to the base radius so weight scaling stays in `PROFILES.torso`.
+ */
+const torsoHalfWidth = (t: number) => lerp(125, 162, smoothstep(0.12, 0.8, t)) - 8 * bump(t, 0.38, 0.12);
 /** Torso lateral (sz) / front-to-back (sx) multipliers along the trunk (V-taper), before CAL. */
-export const torsoWidth = (t: number) => lerp(1.04, 1.32, smoothstep(0.28, 0.86, t));
+export const torsoWidth = (t: number) => torsoHalfWidth(t) / PROFILES.torso.radius(t);
 export const torsoDepth = (t: number) => lerp(1.0, 1.15, smoothstep(0.3, 0.85, t));
 
 /** Extra world-space masses (centre offsets are relative to the joint; sizes are ellipsoid semi-axes). */
@@ -131,9 +136,9 @@ export const calAt = (segment: SegmentName, t: number): number => {
  * Head-local gaze angle = neck angle − 78°.
  */
 export function headDeform(x: number, y: number, z: number): [number, number, number] {
-  let X = x * 88;
-  let Y = y * 108 - 6;
-  let Z = z * 70;
+  let X = x * 82;
+  let Y = y * 98 - 6;
+  let Z = z * 66;
   const low = smoothstep(0, -1, y); // 0 at the equator → 1 at the chin
   Z *= 1 - 0.18 * low; // jaw narrows
   X = X > 0 ? X * (1 - 0.06 * low) + 4 * low : X * (1 - 0.4 * low);
