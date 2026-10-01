@@ -240,9 +240,6 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
 
   const trunkA = Math.atan2(shC[1] - hipC[1], shC[0] - hipC[0]);
   for (const s of [1, -1] as const) {
-    // lats
-    const lc = v3(hipC).lerp(v3(shC), 0.66);
-    g.add(ellipsoid([lc.x, lc.y + 10 * hs, s * 128 * hs], [80 * hs, 36 * hs, 26 * hs], mat, trunkA));
     // glutes over the saddle
     g.add(ellipsoid([hipC[0] - 52 * hs, hipC[1] - 20 * hs, s * 54 * hs], [MASSES.glute.semiAxes[0] * hs, MASSES.glute.semiAxes[1] * hs, MASSES.glute.semiAxes[2] * hs], mat, trunkA * 0.3));
   }

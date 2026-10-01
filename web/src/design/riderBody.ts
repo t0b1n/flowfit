@@ -81,7 +81,7 @@ export const PROFILES: Record<SegmentName, SegmentProfile> = {
   },
   /** V-taper torso: waist pinch, broad ribcage/lats, chest. Width taper and front-to-back depth below. */
   torso: {
-    radius: (t) => 90 - 14 * bump(t, 0.36, 0.13) + 14 * bump(t, 0.78, 0.16),
+    radius: (t) => 85 - 14 * bump(t, 0.36, 0.13) + 14 * bump(t, 0.78, 0.16),
     bulges: [],
     scale: [1, 1],
   },
@@ -89,14 +89,14 @@ export const PROFILES: Record<SegmentName, SegmentProfile> = {
 };
 
 /** Torso lateral (sz) / front-to-back (sx) multipliers along the trunk (V-taper), before CAL. */
-export const torsoWidth = (t: number) => lerp(1.06, 1.4, smoothstep(0.28, 0.86, t));
+export const torsoWidth = (t: number) => lerp(1.04, 1.32, smoothstep(0.28, 0.86, t));
 export const torsoDepth = (t: number) => lerp(1.0, 1.15, smoothstep(0.3, 0.85, t));
 
 /** Extra world-space masses (centre offsets are relative to the joint; sizes are ellipsoid semi-axes). */
 export const MASSES = {
-  deltoid: { semiAxes: [42, 52, 40] as [number, number, number], outboard: 16 },
+  deltoid: { semiAxes: [38, 47, 36] as [number, number, number], outboard: 14 },
   lats: { semiAxes: [74, 32, 22] as [number, number, number] },
-  glute: { semiAxes: [62, 56, 56] as [number, number, number] },
+  glute: { semiAxes: [56, 52, 52] as [number, number, number] },
   knee: { radius: 50, depthScale: 0.9 },
   elbow: { radius: 30 },
   ankle: { radius: 29 },
@@ -108,11 +108,11 @@ export const MASSES = {
  * Stomach is deliberately set to 80% of the measured depth.
  */
 export const CAL: Record<SegmentName, ReadonlyArray<readonly [number, number]>> = {
-  thigh: [[0.25, 0.976], [0.5, 1.003], [0.75, 1.018]],
-  calf: [[0.25, 1.333], [0.5, 1.679], [0.75, 1.842]],
-  upperArm: [[0.25, 1.317], [0.5, 1.086], [0.75, 1.13]],
-  forearm: [[0.25, 1.289], [0.5, 1.436], [0.75, 1.18]],
-  torso: [[0.3, 1.098], [0.5, 1.204], [0.7, 0.968]],
+  thigh: [[0.25, 0.93], [0.5, 0.955], [0.75, 0.97]],
+  calf: [[0.25, 1.27], [0.5, 1.6], [0.75, 1.75]],
+  upperArm: [[0.25, 1.22], [0.5, 1.0], [0.75, 1.04]],
+  forearm: [[0.25, 1.2], [0.5, 1.33], [0.75, 1.1]],
+  torso: [[0.3, 1.0], [0.5, 1.1], [0.7, 0.9]],
   neck: [[0.5, 1.258]],
 };
 
