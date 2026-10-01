@@ -21,7 +21,7 @@ import {
 // Scene-graph group names the probe uses to decide what a "rider" is.
 export const MANNEQUIN_GROUP_NAMES = new Set(["mannequin-root", "mannequin-legs"]);
 // Never measured: analytics overlays, contact shadows, and the ghost itself.
-export const NON_AERO_GROUP_NAMES = new Set(["analytics-root", "ghost-root"]);
+export const NON_AERO_GROUP_NAMES = new Set(["analytics-root", "ghost-root", "stage-root"]);
 
 const PROBE_RESOLUTION = 512;
 /** Assumed drag coefficient for the CdA estimate (hoods position). */
@@ -94,6 +94,7 @@ export function FrontalAreaProbe({
       });
 
       const prevBackground = scene.background;
+      const prevFog = scene.fog;
       const prevOverride = scene.overrideMaterial;
       const prevTarget = gl.getRenderTarget();
       const rt = new THREE.WebGLRenderTarget(PROBE_RESOLUTION, PROBE_RESOLUTION);
@@ -101,6 +102,7 @@ export function FrontalAreaProbe({
       let litFraction = 0;
       try {
         scene.background = new THREE.Color(0x000000);
+        scene.fog = null; // fog would darken the white silhouette and break the threshold
         scene.overrideMaterial = whiteMat;
         gl.setRenderTarget(rt);
         gl.clear();
@@ -126,6 +128,7 @@ export function FrontalAreaProbe({
       } finally {
         gl.setRenderTarget(prevTarget);
         scene.background = prevBackground;
+        scene.fog = prevFog;
         scene.overrideMaterial = prevOverride;
         for (const obj of hidden) obj.visible = true;
         rt.dispose();
