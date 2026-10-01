@@ -36,6 +36,7 @@ export const FitBuilderMode: React.FC = () => {
   const [hoodPresetId, setHoodPresetId] = useState<string>(HOOD_PRESETS[0].id);
   const [showFrameGeometry, setShowFrameGeometry] = useState(false);
   const [showFitPositions, setShowFitPositions] = useState(false);
+  const [showKops, setShowKops] = useState(false);
   const [showJointAngles, setShowJointAngles] = useState(true);
   const [riderVisibility, setRiderVisibility] = useState<RiderVisibility>(DEFAULT_RIDER_VISIBILITY);
   const [frameMeasurementVisibility, setFrameMeasurementVisibility] = useState<FrameMeasurementVisibility>(
@@ -425,7 +426,7 @@ export const FitBuilderMode: React.FC = () => {
 
       {/* ── Centre: visualization ── */}
       <section className="visual-panel builder-center">
-        <StageToolbar compareSlot={compareSlot} model={model} sizeData={sizeData} viewOptions={viewOptions} view={view} setView={setView} view3d={view3d} layersRef={layersRef} layersOpen={layersOpen} setLayersOpen={setLayersOpen} setAllRiderVisibility={setAllRiderVisibility} riderVisibility={riderVisibility} toggleRiderVisibility={toggleRiderVisibility} showJointAngles={showJointAngles} setShowJointAngles={setShowJointAngles} showFitPositions={showFitPositions} setShowFitPositions={setShowFitPositions} showFrameGeometry={showFrameGeometry} setShowFrameGeometry={setShowFrameGeometry} setAllFrameMeasurements={setAllFrameMeasurements} frameMeasurementVisibility={frameMeasurementVisibility} toggleFrameMeasurement={toggleFrameMeasurement} fullscreen={fullscreen} setFullscreen={setFullscreen} />
+        <StageToolbar showKops={showKops} setShowKops={setShowKops} compareSlot={compareSlot} model={model} sizeData={sizeData} viewOptions={viewOptions} view={view} setView={setView} view3d={view3d} layersRef={layersRef} layersOpen={layersOpen} setLayersOpen={setLayersOpen} setAllRiderVisibility={setAllRiderVisibility} riderVisibility={riderVisibility} toggleRiderVisibility={toggleRiderVisibility} showJointAngles={showJointAngles} setShowJointAngles={setShowJointAngles} showFitPositions={showFitPositions} setShowFitPositions={setShowFitPositions} showFrameGeometry={showFrameGeometry} setShowFrameGeometry={setShowFrameGeometry} setAllFrameMeasurements={setAllFrameMeasurements} frameMeasurementVisibility={frameMeasurementVisibility} toggleFrameMeasurement={toggleFrameMeasurement} fullscreen={fullscreen} setFullscreen={setFullscreen} />
 
         {!view3d && (
           <div className="legend-row">
@@ -445,7 +446,7 @@ export const FitBuilderMode: React.FC = () => {
               postureBands={POSTURE_PRESET}
             />
           ) : view === "side" ? (
-            <Stage2DSide compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
+            <Stage2DSide showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
           ) : <Stage2DFront compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
         </div>
       </section>
