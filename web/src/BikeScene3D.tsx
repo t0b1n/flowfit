@@ -28,7 +28,7 @@ import {
   LEG_EDGE_GROUPS,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
-import { buildRiderMeshes, type P3 } from "./riderMesh";
+import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
 import { MatsProvider, useMats } from "./scene3d/materials";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
@@ -479,12 +479,14 @@ function BikeStatic({
 }
 
 /** The static clay rider (legs only when no stroke LUT is available; otherwise AnimatedLegs owns them). */
-function RiderStatic({ geo, weightKg, includeLegs }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean }) {
+function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
   const M = useMats();
   const group = useMemo(() => {
     const pts = new Map(geo.points.filter((p) => p.group === "mannequin").map((p) => [p.name, p.pos as P3]));
-    return buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm: geo.rider?.height ?? 1800, includeLegs });
-  }, [geo, weightKg, includeLegs, M]);
+    const heightMm = geo.rider?.height ?? 1800;
+    if (tPose) return buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { weightKg, heightMm, includeLegs: true, feet: true });
+    return buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs });
+  }, [geo, weightKg, includeLegs, M, tPose]);
   useEffect(
     () => () => group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()),
     [group],
@@ -758,6 +760,7 @@ const SceneContent = React.memo(function SceneContent({
   onExportReady,
   target,
   showMannequin,
+  tPose,
   saddleType,
   show2dOverlay,
   mannequin2D,
@@ -802,6 +805,7 @@ const SceneContent = React.memo(function SceneContent({
   onExportReady: (fn: () => void) => void;
   target: [number, number, number];
   showMannequin: boolean;
+  tPose: boolean;
   saddleType: SaddleType;
   show2dOverlay: boolean;
   mannequin2D?: MannequinSketch;
@@ -901,17 +905,21 @@ const SceneContent = React.memo(function SceneContent({
       </group>
 
       {/* Bike: tapered frame, fork, wheels, drivetrain parts, hoods (see bike3d.ts) */}
-      <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discWheels} />
+      {!tPose && <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discWheels} />}
 
       {/* Swept handlebar */}
-      <HandlebarMesh ptMap={framePtMap} />
+      {!tPose && <HandlebarMesh ptMap={framePtMap} />}
 
-      {/* Clay rider (segmented lathe limbs; see riderMesh.ts) */}
-      {showMannequin && <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />}
+      {/* Clay rider (segmented lathe limbs; see riderMesh.ts). T-pose stands on the floor under the pelvis. */}
+      {tPose ? (
+        <RiderStatic geo={geo} weightKg={weightKg} includeLegs tPose={{ groundY, centerX: (effPtMap.get("hip_center")?.[0] ?? 0) }} />
+      ) : (
+        showMannequin && <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />
+      )}
 
       {/* Animated legs + crankset (replaces the static drivetrain while the
           stroke LUT is available) */}
-      {strokeLUT && hipL && hipR ? (
+      {tPose ? null : strokeLUT && hipL && hipR ? (
         <AnimatedLegs
           lut={strokeLUT}
           hipL={hipL}
@@ -930,15 +938,15 @@ const SceneContent = React.memo(function SceneContent({
       )}
 
       {/* Saddle */}
-      <SaddleMesh geo={geo} saddleType={saddleType} />
+      {!tPose && <SaddleMesh geo={geo} saddleType={saddleType} />}
 
       {/* Attached custom assets */}
-      {attachedAssets.map((asset, i) => (
+      {!tPose && attachedAssets.map((asset, i) => (
         <AttachedAssetMesh key={i} asset={asset} geo={geo} />
       ))}
 
       {/* Fit analytics (excluded from the frontal-area probe) */}
-      <group name="analytics-root">
+      <group name="analytics-root" visible={!tPose}>
         {mannequin2D && (
           <>
             {METRICS.map((d) => {
@@ -1003,7 +1011,7 @@ const SceneContent = React.memo(function SceneContent({
         {showKops && strokeLUT && (
           <KopsIndicator lut={strokeLUT} crankAngleRef={crankAngleRef} z={stanceWidth / 2 + 75} theme={theme} />
         )}
-        {showDimensions && (() => {
+        {showDimensions && !tPose && (() => {
           const saddle = effPtMap.get("saddle");
           const hl = effPtMap.get("hoods_l");
           const hr = effPtMap.get("hoods_r");
@@ -1021,7 +1029,7 @@ const SceneContent = React.memo(function SceneContent({
       </group>
 
       {/* Ghost position comparison */}
-      {ghost && (
+      {ghost && !tPose && (
         <GhostMannequin
           snapshot={ghost}
           weightKg={weightKg}
@@ -1192,6 +1200,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   }, []);
   const [devMode, setDevMode] = useState(false);
   const [showMannequin, setShowMannequin] = useState(true);
+  const [tPose, setTPose] = useState(false);
   const [show2dOverlay, setShow2dOverlay] = useState(false);
   const [saddleType, setSaddleType] = useState<SaddleType>("power");
   const [cameraRequest, setCameraRequest] = useState<{ kind: CameraPresetKind; nonce: number } | null>(null);
@@ -1370,6 +1379,14 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
     ];
     return { center, camDist, camPos, span };
   }, [geo]);
+  const tCenter = useMemo<[number, number, number]>(() => {
+    const r = geoPtMap.get("rear_axle");
+    const f = geoPtMap.get("front_axle");
+    const g0 = Math.min(r?.[1] ?? 0, f?.[1] ?? 0) - (geo.frame.wheel_radius ?? 311);
+    return [geoPtMap.get("hip_center")?.[0] ?? center[0], g0 + (geo.rider?.height ?? 1800) * 0.5, 0];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo, center]);
+  const viewCenter = tPose ? tCenter : center;
 
   return (
     <div className="bike3d-container">
@@ -1436,6 +1453,15 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           onClick={() => setShowMannequin((v) => !v)}
         >
           Rider
+        </button>
+        <button
+          className={`tab-pill ${tPose ? "tab-pill--active" : ""}`}
+          onClick={() => {
+            setTPose((v) => !v);
+            setCameraRequest((r) => ({ kind: "front", nonce: (r?.nonce ?? 0) + 1 }));
+          }}
+        >
+          T-pose
         </button>
         {mannequin2D && (
           <button
@@ -1631,8 +1657,9 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             geo={geo}
             attachedAssets={attachedAssets}
             onExportReady={handleExportReady}
-            target={center}
+            target={viewCenter}
             showMannequin={showMannequin}
+            tPose={tPose}
             saddleType={saddleType}
             show2dOverlay={show2dOverlay}
             mannequin2D={mannequin2D}
@@ -1667,10 +1694,10 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
               <SMAA />
             </EffectComposer>
           )}
-          <CameraPresetRig request={cameraRequest} center={center} camDist={camDist} />
+          <CameraPresetRig request={cameraRequest} center={viewCenter} camDist={tPose ? camDist * 1.35 : camDist} />
         </Canvas>
         {/* Callouts (focused + pinned; hover previews at 60%) and the ground-ruler labels */}
-        {box.w > 0 && (
+        {box.w > 0 && !tPose && (
           <div className="b3-callouts">
             <Callouts3D px={px as ProjectedMap<MetricId>} focused={focused} show={shownIds} width={box.w} height={box.h} values={values} />
             {hoverOnly && (
@@ -1688,7 +1715,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
               )}
           </div>
         )}
-        <Overlay3D
+        {!tPose && <Overlay3D
           geo={geo}
           bands={postureBands}
           values={values}
@@ -1701,7 +1728,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           onReset={reset}
           specsOpen={specsOpen}
           onToggleSpecs={() => setSpecsOpen((v) => !v)}
-        />
+        />}
       </div>
     </div>
   );

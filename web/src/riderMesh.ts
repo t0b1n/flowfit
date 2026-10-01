@@ -138,6 +138,8 @@ export interface RiderMeshOpts {
   heightMm: number;
   /** false when AnimatedLegs owns the legs */
   includeLegs: boolean;
+  /** bare clay feet pointing along +x (standing/T-pose; the riding pose has shoes via AnimatedLegs) */
+  feet?: boolean;
 }
 
 /** Radius multiplier for a segment: (weight / 75)^sensitivity × height / 1800. */
@@ -171,7 +173,9 @@ export function limbMesh(
 /** Sagittal-plane normal to a→b pointing towards +x (forward) when `towardsForward`, else the other way. */
 export function sagittalNormal(a: P3, b: P3, towardsForward = true): THREE.Vector3 {
   const d = v3(b).sub(v3(a)).normalize();
-  const n = new THREE.Vector3(-d.y, d.x, 0).normalize();
+  const n = new THREE.Vector3(-d.y, d.x, 0);
+  if (n.lengthSq() < 1e-6) return new THREE.Vector3(towardsForward ? 1 : -1, 0, 0); // bone along z (T-pose arms)
+  n.normalize();
   if ((n.x < 0) === towardsForward) n.negate();
   return n;
 }
@@ -247,8 +251,9 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   const hipL = get("hip_l");
   const hipR = get("hip_r");
   if (hipL && hipR) {
-    const pel = new THREE.Mesh(limbGeometry(Math.abs(hipL[2] - hipR[2]) + 2 * 78 * hs, () => 78 * hs, 8, 36), mat);
-    pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipL[2]) + 78 * hs));
+    const pr = (opts.feet ? 56 : 78) * hs; // standing: slimmer pelvis so the end caps don't read as hip balls
+    const pel = new THREE.Mesh(limbGeometry(Math.abs(hipL[2] - hipR[2]) + 2 * pr, () => pr, 8, 36), mat);
+    pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipL[2]) + pr));
     pel.rotation.x = Math.PI / 2;
     pel.rotation.z = 0;
     // lathe axis is +Y; rotate so it runs along +Z
@@ -312,6 +317,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
       g.add(ellipsoid(kn2, [MASSES.knee.radius * hs, MASSES.knee.radius * hs, MASSES.knee.radius * hs * MASSES.knee.depthScale], mat));
       g.add(limbMesh("calf", kn2, an, mat, { ...o, anteriorWorld: sagittalNormal(kn2, an, true), sideZ: s }));
       g.add(ellipsoid(an, [MASSES.ankle.radius * hs, MASSES.ankle.radius * hs, MASSES.ankle.radius * hs], mat));
+      if (opts.feet) g.add(ellipsoid([an[0] + 62 * hs, an[1] - 42 * hs, an[2]], [118 * hs, 40 * hs, 44 * hs], mat));
     }
   }
   return g;
@@ -321,3 +327,43 @@ const shoulderName = (s: 1 | -1) => (s === 1 ? "shoulder_l" : "shoulder_r");
 
 /** Pure bump/lerp re-exports so consumers (AnimatedLegs) don't need the design module for tiny helpers. */
 export { bump, lerp };
+
+/**
+ * Re-poses the rider's joint points into a standing T-pose (arms out along ±z, palms down, gaze along +x),
+ * keeping every segment length and the shoulder/hip widths of the riding pose. The feet stand on `groundY`
+ * with the pelvis centred at x = `centerX`. Output feeds `buildRiderMeshes` unchanged.
+ */
+export function tPosePoints(pts: Map<string, P3>, groundY: number, centerX: number, heightMm: number): Map<string, P3> {
+  const hs = heightMm / 1800;
+  const d = (a: string, b: string) => {
+    const pa = pts.get(a);
+    const pb = pts.get(b);
+    return pa && pb ? v3(pa).distanceTo(v3(pb)) : 0;
+  };
+  const out = new Map<string, P3>();
+  const halfHip = Math.abs(pts.get("hip_l")?.[2] ?? 90);
+  const halfSh = Math.abs(pts.get("shoulder_l")?.[2] ?? 190);
+  const ankleY = groundY + 85 * hs;
+  const kneeY = ankleY + d("knee_l", "ankle_l");
+  const hipY = kneeY + d("hip_l", "knee_l");
+  const shY = hipY + d("hip_center", "shoulder_center");
+  const neckY = shY + d("shoulder_center", "neck_base_center");
+  const headLen = d("neck_base_center", "head_center");
+  const gaze = (78 * Math.PI) / 180; // head gaze is horizontal when the neck→head angle is 78°
+  out.set("hip_center", [centerX, hipY, 0]);
+  out.set("spine_joint", [centerX, (hipY + shY) / 2, 0]);
+  out.set("shoulder_center", [centerX, shY, 0]);
+  out.set("neck_base_center", [centerX, neckY, 0]);
+  out.set("head_center", [centerX + Math.cos(gaze) * headLen, neckY + Math.sin(gaze) * headLen, 0]);
+  for (const [side, z] of [["l", 1], ["r", -1]] as const) {
+    out.set(`hip_${side}`, [centerX, hipY, z * halfHip]);
+    out.set(`knee_${side}`, [centerX, kneeY, z * halfHip]);
+    out.set(`ankle_${side}`, [centerX, ankleY, z * halfHip]);
+    let x = halfSh;
+    for (const [name, a, b] of [["shoulder", "", ""], ["elbow", "shoulder_l", "elbow_l"], ["wrist", "elbow_l", "wrist_l"], ["hand", "wrist_l", "hand_l"]] as const) {
+      if (name !== "shoulder") x += d(a, b);
+      out.set(`${name}_${side}`, [centerX, shY, z * x]);
+    }
+  }
+  return out;
+}
