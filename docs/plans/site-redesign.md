@@ -303,7 +303,7 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
     fitted to the IK joints. This is the route to a fully detailed, photoreal look. It must not be a replica of a branded
     product.
   - **2D:** the head profile is the z=0 slice of `headDeform`, so 2D and 3D share one model.
-  - **Reference:** `mockups/09-head-helmet.png`.
+  - **Reference:** `mockups/09-head.png`.
 - **Build:** all limb profiles and muscle amplitudes are ×1.1, the torso ×1.08, glutes (64, 58, 58); a little fuller than a
   climber. **Calves:** gastrocnemius medial amp 36 (t 0.30) and lateral amp 28 (t 0.24), both spread 4 and angled 0.75
   towards medial/lateral so the diamond split shows. Soleus amp 12 plus a medial flare, and an ankle pinch at t 0.85.
