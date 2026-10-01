@@ -10,21 +10,33 @@ const smooth = (arr, r) => arr.map((_, i) => { let s = 0, n = 0; for (let k = -r
 const lin = (pts, x) => { if (x <= pts[0][0]) return pts[0][1]; for (let i = 0; i < pts.length - 1; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1]; if (x <= x1) return y0 + (y1 - y0) * (x - x0) / (x1 - x0); } return pts.at(-1)[1]; };
 // side top (px→mm), smoothed; clean bottom traced by hand (straps excluded)
 const sc = S.side.cols.filter(c => c[1] >= 0 && c[0] >= 160 && c[0] <= 1236);
-const topS = smooth(sc.map(c => sideY(c[1])), 3); const TOP = sc.map((c, i) => [sideX(c[0]), topS[i]]).reverse();
+const topS = smooth(smooth(sc.map(c => sideY(c[1])), 4), 4); const TOP = sc.map((c, i) => [sideX(c[0]), topS[i]]).reverse();
 const BOTPX = [[160, 950], [250, 985], [450, 970], [600, 930], [780, 888], [950, 882], [1100, 866], [1236, 852]];
 const BOT = BOTPX.map(([px, py]) => [sideX(px), sideY(py)]).reverse();
 const XT = TOP[0][0], XN = TOP.at(-1)[0];
 // front arch normalised: a(t), t∈[0,1] lateral → height fraction
 const fc = S.front.cols.filter(c => c[1] >= 0); const fTop = Math.min(...fc.map(c => c[1])), fBot = 942, fHalf = (fc.at(-1)[0] - fc[0][0]) / 2, fMid = (fc.at(-1)[0] + fc[0][0]) / 2;
 const archPts = []; for (let k = 0; k <= 40; k++) { const t = k / 40, px = fMid + t * fHalf; const c = fc.reduce((a, b) => Math.abs(b[0] - px) < Math.abs(a[0] - px) ? b : a); const pxr = fMid - t * fHalf; const cr = fc.reduce((a, b) => Math.abs(b[0] - pxr) < Math.abs(a[0] - pxr) ? b : a); archPts.push([t, Math.max(0, Math.min(1, (fBot - (c[1] + cr[1]) / 2) / (fBot - fTop)))]); }
+{ const raw = archPts.map(p => p[1]); for (let it = 0; it < 6; it++) for (let k = 1; k < raw.length - 1; k++) raw[k] = (raw[k - 1] + 2 * raw[k] + raw[k + 1]) / 4; archPts.forEach((p, k) => p[1] = raw[k]); }
 const arch = t => { const a = Math.min(1, Math.abs(t)); const w = a < .95 ? 1 : Math.max(0, 1 - (a - .95) / .05); return lin(archPts, Math.min(a, .95)) * w; };
 // plan half-width: max from the front photo, rounded nose, tapering tail
 const WMAX = fHalf * FK;
-const width = X => { const L = XN - XT, u = (X - XT) / L; const tail = Math.pow(Math.min(1, u / .22), .5), nose = Math.pow(Math.min(1, (1 - u) / .2), .45); return WMAX * Math.min(1, .55 + .45 * tail) * Math.min(1, .5 + .5 * nose) * (1 - .06 * (u - .55) ** 2); };
-const NS = 320, NT = 260, pos = new Float32Array((NS + 1) * (NT + 1) * 3);
+// plan half-width: closed, rounded nose (wraps the brow) and a blunt rounded tail
+const sup = (x, p) => Math.pow(Math.max(0, 1 - Math.min(1, x) ** p), 1 / p);
+const width = X => { const L = XN - XT, u = (X - XT) / L; return WMAX * sup(Math.max(0, (u - .78) / .22), 2.2) * sup(Math.max(0, (.16 - u) / .16), 3) * (1 - .06 * (u - .55) ** 2); };
+const T = 18;                                                     // shell (EPS) thickness, mm
+const NS = 320, NT = 260, NG = (NS + 1) * (NT + 1), pos = new Float32Array(NG * 2 * 3);
 const P = (s, t) => { const X = XT + (XN - XT) * s, top = lin(TOP, X), bot = lin(BOT, X), W = width(X); return [X, bot + (top - bot) * arch(t), t * W]; };
-for (let i = 0; i <= NS; i++) for (let j = 0; j <= NT; j++) { const p = P(i / NS, -1 + 2 * j / NT); pos.set(p, (i * (NT + 1) + j) * 3); }
-const idx = []; for (let i = 0; i < NS; i++) for (let j = 0; j < NT; j++) { const a = i * (NT + 1) + j, b = a + NT + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+const Pin = (s, t) => { const X = XT + (XN - XT) * s, top = lin(TOP, X), bot = lin(BOT, X), W = width(X), k = Math.min(1, W / 40);
+  const ti = Math.max(bot, top - T * k), Wi = Math.max(0, W - T * k); return [X, bot + (ti - bot) * arch(t), t * Wi]; };
+for (let i = 0; i <= NS; i++) for (let j = 0; j <= NT; j++) { const s = i / NS, t = -1 + 2 * j / NT, k = i * (NT + 1) + j; pos.set(P(s, t), k * 3); pos.set(Pin(s, t), (NG + k) * 3); }
+const idx = [];
+for (let i = 0; i < NS; i++) for (let j = 0; j < NT; j++) { const a = i * (NT + 1) + j, b = a + NT + 1;
+  idx.push(a, b, a + 1, b, b + 1, a + 1);                                     // outer
+  idx.push(NG + a, NG + a + 1, NG + b, NG + b, NG + a + 1, NG + b + 1); }      // inner (reversed)
+for (const j of [0, NT]) for (let i = 0; i < NS; i++) {                        // rim band joining outer and inner bottom edges
+  const a = i * (NT + 1) + j, b = (i + 1) * (NT + 1) + j, c = NG + a, d = NG + b;
+  j === 0 ? idx.push(a, c, b, b, c, d) : idx.push(a, b, c, b, d, c); }
 let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
 // press vents in along the normal, from whichever photo the surface faces
 const D = (view) => S[view].dark;

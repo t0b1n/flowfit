@@ -300,7 +300,10 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
     `helmet_geo.json`, loaded by `helmet.js`).
     - The side profile (crown line) and the front-view arch are extracted automatically from the side and front photos.
     - Every cross-section is the front arch, scaled to the local height from the side photo and to a rounded plan width
-      (half-width 105 mm). Vertical side walls; a clean bottom edge traced by hand (low brow, ear cutout, raised rear).
+      (half-width 105 mm). The plan **closes at the nose** (it wraps the brow; no open notch at the front) and is blunt at
+      the tail. Vertical side walls; a clean bottom edge traced by hand (low brow, ear cutout, raised rear).
+    - **Thickness:** an inner surface offset 18 mm (EPS liner thickness), joined to the outer by a rim band along the
+      bottom edge.
     - Length ≈ 264 mm, crown ≈ 38 mm above the skull.
     - **No vents, no black, no straps**: the silhouette carries the likeness. Pressing the photo vents in as recesses was
       tried and came out noisy.
