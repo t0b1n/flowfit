@@ -1,7 +1,15 @@
 import React from "react";
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 
-import "./App.css";
+import "./styles/base.css";
+import "./styles/shell.css";
+import "./styles/controls.css";
+import "./styles/builder.css";
+import "./styles/stage2d.css";
+import "./styles/stage3d.css";
+import "./styles/transfer.css";
+import "./styles/forms.css";
+import "./styles/profile.css";
 import { AddBikeMode } from "./AddBikeMode";
 import { FitBuilderMode } from "./FitBuilderMode";
 import { FitTransferMode } from "./FitTransferMode";
