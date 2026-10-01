@@ -251,7 +251,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   const hipL = get("hip_l");
   const hipR = get("hip_r");
   if (hipL && hipR) {
-    const pr = (opts.feet ? 46 : 78) * hs; // standing: slimmer pelvis so the end caps don't read as hip balls
+    const pr = 46 * hs; // reference-matched pelvis: end caps must not read as hip balls
     const pel = new THREE.Mesh(limbGeometry(Math.abs(hipL[2] - hipR[2]) + 2 * pr, () => pr, 8, 36), mat);
     pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipL[2]) + pr));
     pel.rotation.x = Math.PI / 2;
