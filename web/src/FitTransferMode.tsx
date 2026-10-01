@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Pill } from "./design/Pill";
+import { Segmented } from "./design/Segmented";
 import { BikeGeometryAnnotations, BikeFitAnnotations } from "./BikeAnnotations";
 import { solve } from "./api";
 import { useCatalog } from "./catalog/CatalogContext";
@@ -473,23 +475,16 @@ export const FitTransferMode: React.FC = () => {
     <div className={`mode-layout mode-layout--transfer${fullscreen ? " mode-layout--fullscreen" : ""}`}>
       {/* ── Frame pickers row ── */}
       <section className="selector-panel" style={{ display: fullscreen ? "none" : undefined }}>
-        <div className="seg-control" role="tablist" aria-label="Reference mode" style={{ marginBottom: 12 }}>
-          <button
-            role="tab"
-            aria-selected={refMode === "frame"}
-            className={`seg-control__btn${refMode === "frame" ? " seg-control__btn--active" : ""}`}
-            onClick={() => setRefMode("frame")}
-          >
-            Frame A reference
-          </button>
-          <button
-            role="tab"
-            aria-selected={refMode === "direct"}
-            className={`seg-control__btn${refMode === "direct" ? " seg-control__btn--active" : ""}`}
-            onClick={() => setRefMode("direct")}
-          >
-            Direct X/Y input
-          </button>
+        <div style={{ marginBottom: 12 }}>
+          <Segmented
+            ariaLabel="Reference mode"
+            value={refMode}
+            onChange={setRefMode}
+            options={[
+              { id: "frame", label: "Frame A reference" },
+              { id: "direct", label: "Direct X/Y input" },
+            ]}
+          />
         </div>
         <div className="compare-picker compare-picker--horizontal">
           {(
@@ -691,25 +686,19 @@ export const FitTransferMode: React.FC = () => {
               <h2>Contact point overlay</h2>
             </div>
             <div className="viz-toolbar">
-              <button
-                className={`tab-pill tab-pill--visual ${showFit ? "tab-pill--active" : ""}`}
-                onClick={() => setShowFit((v) => !v)}
-              >
+              <Pill variant={showFit ? "active" : "ghost"} onClick={() => setShowFit((v) => !v)}>
                 Fit positions
-              </button>
-              <button
-                className={`tab-pill tab-pill--visual ${showGeometry ? "tab-pill--active" : ""}`}
-                onClick={() => setShowGeometry((v) => !v)}
-              >
+              </Pill>
+              <Pill variant={showGeometry ? "active" : "ghost"} onClick={() => setShowGeometry((v) => !v)}>
                 Frame geometry
-              </button>
-              <button
-                className="tab-pill tab-pill--visual"
+              </Pill>
+              <Pill
                 title={fullscreen ? "Show controls" : "Hide controls"}
+                aria-pressed={fullscreen}
                 onClick={() => setFullscreen((v) => !v)}
               >
                 {fullscreen ? "⊠" : "⛶"}
-              </button>
+              </Pill>
             </div>
           </div>
 
@@ -805,7 +794,7 @@ export const FitTransferMode: React.FC = () => {
                       <line
                         x1={ptA.x} y1={-ptA.y}
                         x2={ptB.x} y2={-ptB.y}
-                        stroke="rgba(250, 240, 226, 0.55)"
+                        stroke="var(--accent)"
                         strokeWidth={1.5}
                         strokeDasharray="6 3"
                         opacity={0.7}

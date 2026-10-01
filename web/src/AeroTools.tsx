@@ -10,18 +10,21 @@
  */
 
 import React, { useEffect, useMemo } from "react";
+import { Line } from "@react-three/drei";
+import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import {
   Geometry3DPoint,
   Geometry3DEdge,
-  buildMannequinParts,
+  MANNEQUIN_EDGE_SPEC,
+  scaleRadius,
 } from "./bike3d";
 
 // Scene-graph group names the probe uses to decide what a "rider" is.
 export const MANNEQUIN_GROUP_NAMES = new Set(["mannequin-root", "mannequin-legs"]);
 // Never measured: analytics overlays, contact shadows, and the ghost itself.
-export const NON_AERO_GROUP_NAMES = new Set(["analytics-root", "ghost-root"]);
+export const NON_AERO_GROUP_NAMES = new Set(["analytics-root", "ghost-root", "stage-root"]);
 
 const PROBE_RESOLUTION = 512;
 /** Assumed drag coefficient for the CdA estimate (hoods position). */
@@ -94,6 +97,7 @@ export function FrontalAreaProbe({
       });
 
       const prevBackground = scene.background;
+      const prevFog = scene.fog;
       const prevOverride = scene.overrideMaterial;
       const prevTarget = gl.getRenderTarget();
       const rt = new THREE.WebGLRenderTarget(PROBE_RESOLUTION, PROBE_RESOLUTION);
@@ -101,6 +105,7 @@ export function FrontalAreaProbe({
       let litFraction = 0;
       try {
         scene.background = new THREE.Color(0x000000);
+        scene.fog = null; // fog would darken the white silhouette and break the threshold
         scene.overrideMaterial = whiteMat;
         gl.setRenderTarget(rt);
         gl.clear();
@@ -126,6 +131,7 @@ export function FrontalAreaProbe({
       } finally {
         gl.setRenderTarget(prevTarget);
         scene.background = prevBackground;
+        scene.fog = prevFog;
         scene.overrideMaterial = prevOverride;
         for (const obj of hidden) obj.visible = true;
         rt.dispose();
@@ -152,30 +158,18 @@ export interface GhostSnapshot {
   frontalAreaM2: number | null;
 }
 
-const GHOST_MATERIAL = (
-  <meshStandardMaterial
-    color="#4aa3ff"
-    transparent
-    opacity={0.25}
-    depthWrite={false}
-    roughness={0.6}
-  />
-);
+/** Parts whose endpoints all moved less than this are not drawn (otherwise the whole body tints). */
+const GHOST_SAME_MM = 2;
+/** If every displacement is below this, only hairlines are drawn: a 4 mm ghost is unreadable as volume. */
+const GHOST_HAIRLINE_ONLY_MM = 6;
 
-function GhostPartMesh({
-  type, start, end, radiusStart, radiusEnd,
-}: {
-  type: string;
-  start: [number, number, number];
-  end: [number, number, number];
-  radiusStart: number;
-  radiusEnd: number;
-}) {
-  if (type === "sphere") {
+type P3 = [number, number, number];
+
+function GhostPartMesh({ start, end, radius, sphere, material }: { start: P3; end: P3; radius: number; sphere?: boolean; material: THREE.Material }) {
+  if (sphere) {
     return (
-      <mesh position={start}>
-        <sphereGeometry args={[radiusStart, 20, 20]} />
-        {GHOST_MATERIAL}
+      <mesh position={start} material={material}>
+        <sphereGeometry args={[radius, 20, 20]} />
       </mesh>
     );
   }
@@ -185,43 +179,81 @@ function GhostPartMesh({
   const length = dir.length();
   if (length < 1) return null;
   const mid = new THREE.Vector3().addVectors(s, e).multiplyScalar(0.5);
-  const quat = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    dir.normalize()
-  );
-  const radius = (radiusStart + radiusEnd) / 2;
+  const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
   const bodyLength = Math.max(0, length - radius * 2);
   return (
-    <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
+    <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]} material={material}>
       <capsuleGeometry args={[radius, bodyLength, 8, 20]} />
-      {GHOST_MATERIAL}
     </mesh>
   );
 }
 
+const dist3 = (a: P3, b: P3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+
+/**
+ * Comparison ghost: the previous fit in accent at 20% (light) / 22% (dark), drawn only where it differs from
+ * the live rider, plus 1 px accent hairlines for its drive-side leg and torso. Lives under `ghost-root`
+ * so the frontal-area probe ignores it.
+ */
 export function GhostMannequin({
   snapshot,
   weightKg,
+  current,
+  theme,
 }: {
   snapshot: GhostSnapshot;
   weightKg: number;
+  /** The live rider's points by name, to find where the ghost differs. */
+  current: Map<string, P3>;
+  theme: Theme;
 }) {
-  const parts = useMemo(
-    () => buildMannequinParts(snapshot.points, snapshot.edges, weightKg),
-    [snapshot, weightKg]
+  const tokens = TOKENS[theme];
+  const opacity = material3d[theme].ghostOpacity;
+  const material = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: tokens.accent, transparent: true, opacity, depthWrite: false }),
+    [tokens.accent, opacity],
   );
+  useEffect(() => () => material.dispose(), [material]);
+
+  const P = useMemo(() => new Map(snapshot.points.map((p) => [p.name, p.pos as P3])), [snapshot]);
+  const moved = (name: string) => {
+    const g = P.get(name);
+    const c = current.get(name);
+    return g && c ? dist3(g, c) : 0;
+  };
+  const maxMove = useMemo(
+    () => Math.max(0, ...snapshot.points.map((p) => (current.get(p.name) ? dist3(p.pos as P3, current.get(p.name)!) : 0))),
+    [snapshot, current],
+  );
+  const hairlineOnly = maxMove < GHOST_HAIRLINE_ONLY_MM;
+
+  const parts = useMemo(() => {
+    if (hairlineOnly) return [];
+    const out: Array<{ start: P3; end: P3; radius: number }> = [];
+    for (const e of snapshot.edges) {
+      const a = P.get(e.a);
+      const b = P.get(e.b);
+      if (!a || !b) continue;
+      if (moved(e.a) < GHOST_SAME_MM && moved(e.b) < GHOST_SAME_MM) continue;
+      const spec = MANNEQUIN_EDGE_SPEC[e.group];
+      if (!spec) continue;
+      out.push({ start: a, end: b, radius: scaleRadius(spec.baseRadius, weightKg, spec.sensitivity) });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot, current, weightKg, hairlineOnly]);
+
+  const chain = (names: string[]) => names.map((n) => P.get(n)).filter((p): p is P3 => !!p);
+  const leg = chain(["hip_r", "knee_r", "ankle_r", "cleat_r"]);
+  const torso = chain(["hip_center", "spine_joint", "shoulder_center", "neck_base_center", "head_center"]);
+
   return (
     <group name="ghost-root">
       {parts.map((p, i) => (
-        <GhostPartMesh
-          key={i}
-          type={p.type}
-          start={p.start}
-          end={p.end}
-          radiusStart={p.radiusStart}
-          radiusEnd={p.radiusEnd}
-        />
+        <GhostPartMesh key={i} start={p.start} end={p.end} radius={p.radius} material={material} />
       ))}
+      {leg.length > 1 && <Line points={leg} color={tokens.accent} lineWidth={1} depthTest={false} renderOrder={9} />}
+      {torso.length > 1 && <Line points={torso} color={tokens.accent} lineWidth={1} depthTest={false} renderOrder={9} />}
     </group>
   );
 }

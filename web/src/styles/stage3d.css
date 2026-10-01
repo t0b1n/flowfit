@@ -4,45 +4,67 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* fills the viewport under the nav and stage bar, like the approved mock-up */
+  height: calc(100vh - 56px - 48px - 12px);
+  min-height: 600px;
 }
 
 .bike3d-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 0 8px;
+  gap: var(--s-2);
+  padding: var(--s-2) 0;
+  flex-wrap: wrap;
+  /* toolbar tokens (theme-driven through the global tokens) */
+  --b3-ink: var(--ink);
+  --b3-muted: var(--muted);
+  --b3-faint: var(--faint);
+  --b3-bg: var(--bg);
+  --b3-accent: var(--accent);
 }
 
-/* Override tab-pill colours inside the dark 3D toolbar */
+/* Pills: transparent, 1px faint border, mono 11px uppercase; active = ink fill */
 
-.bike3d-toolbar .tab-pill {
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-  color: color-mix(in srgb, var(--ink) 82%, transparent);
-  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+.bike3d-toolbar .tab-pill,
+.bike3d-toolbar .seg-control__btn {
+  border: 1px solid var(--b3-faint);
+  border-radius: 0;
+  background: transparent;
+  color: var(--b3-ink);
+  padding: 6px 10px;
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.bike3d-toolbar .tab-pill:hover {
-  background: color-mix(in srgb, var(--ink) 12%, transparent);
-  color: var(--ink);
+.bike3d-toolbar .tab-pill:hover,
+.bike3d-toolbar .seg-control__btn:hover {
+  border-color: var(--b3-ink);
+  background: transparent;
+  color: var(--b3-ink);
 }
 
 .bike3d-toolbar .tab-pill--active {
-  background: color-mix(in srgb, var(--ink) 18%, transparent);
-  border-color: color-mix(in srgb, var(--ink) 55%, transparent);
-  color: var(--ink);
+  background: var(--b3-ink);
+  border-color: var(--b3-ink);
+  color: var(--b3-bg);
+}
+
+.bike3d-toolbar .seg-control {
+  border: 0;
 }
 
 .bike3d-toolbar--anim {
   padding-top: 0;
-  flex-wrap: wrap;
 }
 
 .bike3d-anim-control {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: color-mix(in srgb, var(--ink) 70%, transparent);
-  font-size: 12px;
+  gap: var(--s-2);
+  color: var(--b3-muted);
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.08em;
 }
 
 .bike3d-anim-control span {
@@ -53,91 +75,212 @@
 
 .bike3d-anim-control input[type="range"] {
   width: 140px;
-  accent-color: var(--ink);
+  accent-color: var(--b3-ink);
 }
 
 .bike3d-aero-chip {
-  color: color-mix(in srgb, var(--ink) 85%, transparent);
-  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--b3-faint);
+  color: var(--b3-ink);
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
-  border-radius: 999px;
-  padding: 4px 12px;
   white-space: nowrap;
 }
 
 .bike3d-aero-chip em {
   font-style: normal;
-  color: color-mix(in srgb, var(--ink) 45%, transparent);
+  color: var(--b3-muted);
 }
 
 .bike3d-layer-sep {
   width: 1px;
   height: 18px;
-  background: color-mix(in srgb, var(--ink) 18%, transparent);
-  margin: 0 4px;
+  margin: 0 var(--s-1);
+  background: var(--b3-faint);
 }
 
-/* Explicit height on the wrapper so R3F gets a real pixel size to measure.
-   The canvas renders with alpha; this gradient is the scene backdrop. */
+/* Explicit height on the wrapper so R3F gets a real pixel size to measure. */
 
 .bike3d-canvas-wrapper {
-  width: 100%;
-  height: min(65vh, 600px);
-  border-radius: var(--radius-md);
-  overflow: hidden;
   position: relative;
-  background: var(--surface);
+  width: 100%;
+  overflow: hidden;
+  background: var(--bike3d-bg, var(--surface));
+  outline: none;
 }
 
-/* ── In-canvas metrics HUD ─────────────────────────────────────────────────── */
+/* ── Overlay: header, readout, spec panel, footer, Metric Rail ─────────────── */
 
-.bike3d-hud {
+.b3-overlay,
+.b3-callouts {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
-  border-radius: 6px;
-  padding: 10px 12px;
-  min-width: 168px;
-  backdrop-filter: blur(4px);
+  inset: 0;
   pointer-events: none;
-  font-size: 12px;
+  font-family: var(--font-mono);
 }
 
-.bike3d-hud__title {
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 10px;
-  margin-bottom: 6px;
-}
-
-.bike3d-hud__row {
+.b3-head {
+  position: absolute;
+  top: var(--s-4);
+  left: var(--s-4);
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 2px 0;
-  color: color-mix(in srgb, var(--ink) 85%, transparent);
+  gap: var(--s-3);
 }
 
-.bike3d-hud__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.b3-head__meta {
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.16em;
+  color: var(--muted);
 }
 
-.bike3d-hud__label {
+.b3-right {
+  position: absolute;
+  top: var(--s-4);
+  right: var(--s-4);
+  width: 290px;
+  max-height: calc(100% - 120px);
+  overflow: hidden;
+}
+
+.b3-readout {
+  text-align: right;
+  --readout-big-size: 72px;
+}
+
+.b3-readout .ff-gauge__track {
+  margin-top: var(--s-3);
+}
+
+.b3-pins {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--faint);
+  text-align: left;
+}
+
+.b3-spec {
+  margin-top: var(--s-4);
+}
+
+.b3-specs-toggle {
+  display: none;
+  pointer-events: auto;
+}
+
+.b3-foot {
+  position: absolute;
+  left: var(--s-4);
+  right: var(--s-4);
+  bottom: 96px;
+  display: flex;
+  gap: var(--s-5);
+  font: 400 10px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.b3-foot__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.b3-foot__legend .ff-dot {
+  margin-left: var(--s-2);
+}
+
+.b3-foot__cam {
+  margin-left: auto;
+}
+
+.b3-rail {
+  position: absolute;
+  left: var(--s-4);
+  right: var(--s-4);
+  bottom: var(--s-4);
+  pointer-events: auto;
+}
+
+.b3-ruler-label {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font: 400 10px var(--font-mono);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+/* The spec panel sits beside the scene only when the canvas is wide enough; otherwise a "Specs" pill opens it as a sheet. */
+.bike3d-canvas-wrapper {
+  container-type: inline-size;
+  /* fills the viewport under the nav, stage bar and toolbar, like the approved mock-up */
   flex: 1;
-  color: color-mix(in srgb, var(--ink) 65%, transparent);
+  min-height: 480px;
 }
 
-.bike3d-hud__value {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
+.b3-specs-toggle {
+  display: inline-flex;
+  margin: var(--s-3) 0 0 auto;
+}
+
+.b3-spec {
+  display: none;
+}
+
+.b3-spec--open {
+  display: block;
+  padding: var(--s-4);
+  background: var(--surface-2);
+  border: 1px solid var(--faint);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+
+@container (min-width: 1100px) {
+  .b3-specs-toggle {
+    display: none;
+  }
+
+  .b3-spec,
+  .b3-spec--open {
+    display: block;
+    padding: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .b3-readout {
+    --readout-big-size: 104px;
+  }
+}
+
+@container (max-width: 640px) {
+  .b3-readout {
+    --readout-big-size: 56px;
+  }
+
+  .b3-foot {
+    display: none;
+  }
+
+  .b3-spec--open {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-width: 1px 0 0;
+  }
 }
 
 .visual-stage__loading {
@@ -145,8 +288,10 @@
   align-items: center;
   justify-content: center;
   height: min(65vh, 600px);
-  color: color-mix(in srgb, var(--ink) 50%, transparent);
-  font-size: 14px;
+  color: var(--muted);
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   text-align: center;
 }
 

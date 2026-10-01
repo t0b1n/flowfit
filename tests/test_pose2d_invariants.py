@@ -216,3 +216,26 @@ def test_overstretched_knee_on_hip_ankle_line():
     # loose tolerance here — the important invariant is thigh_length above.
     assert abs(j2.knee.x - expected_knee_x) < 0.05
     assert abs(j2.knee.y - expected_knee_y) < 0.05
+
+
+# ── Elbow direction: the elbow bends down and back (towards the BB), never up ─
+
+def test_elbow_points_toward_bb_2d():
+    """The elbow sits on the same side of the shoulder→hand line as the BB, and not above the arm line.
+
+    Regression guard for the rider redesign: the 3D/2D drawings rely on the IK putting the elbow
+    below the arm line. side(P) = (hx-sx)*(P.y-sy) - (hy-sy)*(P.x-sx)."""
+    j2 = _feasible_2d_joints()
+    sx, sy = j2.shoulder.x, j2.shoulder.y
+    hx, hy = j2.hand.x, j2.hand.y
+
+    def side(px: float, py: float) -> float:
+        return (hx - sx) * (py - sy) - (hy - sy) * (px - sx)
+
+    bb_side = side(0.0, 0.0)
+    elbow_side = side(j2.elbow.x, j2.elbow.y)
+    assert bb_side != 0.0
+    assert (elbow_side > 0) == (bb_side > 0), (
+        f"elbow on the wrong side of the shoulder→hand line (elbow side={elbow_side:.2f}, BB side={bb_side:.2f})"
+    )
+    assert j2.elbow.y < max(j2.shoulder.y, j2.hand.y), "elbow is above the arm line"

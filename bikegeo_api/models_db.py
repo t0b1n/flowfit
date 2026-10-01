@@ -36,6 +36,7 @@ class User(Base):
     )
 
     bikes: Mapped[list["Bike"]] = relationship(back_populates="submitted_by", cascade="all, delete-orphan")
+    fits: Mapped[list["Fit"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Bike(Base):
@@ -75,3 +76,23 @@ class Bike(Base):
         ),
         Index("ix_bike_brand_lower", func.lower(brand)),
     )
+
+
+class Fit(Base):
+    """A saved Fit Builder state: `inputs_json` restores the builder, `snapshot_json` is what comparison reads."""
+
+    __tablename__ = "fit"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid_str)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    schema_version: Mapped[int] = mapped_column(nullable=False, default=1)
+    inputs_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    snapshot_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, server_default=func.now(), nullable=False
+    )
+
+    user: Mapped[User] = relationship(back_populates="fits")
