@@ -10,12 +10,12 @@ function cc(a, b, ra, rb) {
   const u = norm(sub(b, a)), n = v(-u.y, u.x), m = add(a, mul(u, x));
   return [add(m, mul(n, h)), add(m, mul(n, -h))];
 }
-export function build(saddleDelta = 0, sex = 'm', trunkDeg = 38) {
+export function build(saddleDelta = 0, sex = 'm', trunkDeg = 36) {
   const male = sex === 'm';
   const H = male ? 1800 : 1680;
   // Optimal road-racer bases: male 1800 mm / 70 kg, female 1680 mm / 58 kg
   const R = male
-    ? { thigh: 465, shank: 455, torso: 560, upper: 320, fore: 300, hipOff: 95, foot: 270, shoulderW: 380, hipW: 190, stance: 155, weight: 70 }
+    ? { thigh: 465, shank: 455, torso: 545, upper: 305, fore: 300, hipOff: 95, foot: 270, shoulderW: 380, hipW: 190, stance: 155, weight: 70 }
     : { thigh: 440, shank: 425, torso: 480, upper: 292, fore: 275, hipOff: 90, foot: 245, shoulderW: 345, hipW: 200, stance: 150, weight: 58 };
   const F = male ? { stack: 560, reach: 385, ha: 73, sa: 73.5, bbDrop: 70, cs: 410, wr: 340 } : { stack: 530, reach: 376, ha: 72, sa: 74, bbDrop: 72, cs: 408, wr: 340 };
   const C = male ? { crank: 172.5, stem: 100, stemAng: -6, spacers: 20, barReach: 78, hoodW: 400, cleatSetback: 12 } : { crank: 165, stem: 80, stemAng: -6, spacers: 15, barReach: 70, hoodW: 370, cleatSetback: 10 };
@@ -60,7 +60,7 @@ export function build(saddleDelta = 0, sex = 'm', trunkDeg = 38) {
   const wrist = add(elbow, mul(norm(sub(hands, elbow)), R.fore - palm));
   const spine = add(hip, mul(sub(shoulder, hip), 0.4));
   const neckAng = d2r(55) - 0.6 * trunk, headDir = trunk + neckAng;
-  const head = add(shoulder, mul(v(Math.cos(headDir), Math.sin(headDir)), 185));
+  const head = add(shoulder, mul(v(Math.cos(headDir), Math.sin(headDir)), 160));
   const neckBase = add(shoulder, mul(sub(head, shoulder), 0.15));
   const ankle = ankL0, ankleR = ankR0;
   // KOPS: knee x at 3 o'clock minus spindle x

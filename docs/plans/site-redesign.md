@@ -304,9 +304,13 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
     product.
   - **2D:** the head profile is the z=0 slice of `headDeform`, so 2D and 3D share one model.
   - **Reference:** `mockups/09-head.png`.
-- **Build:** all limb profiles and muscle amplitudes are ×1.1, the torso ×1.08, glutes (64, 58, 58); a little fuller than a
-  climber. **Calves:** gastrocnemius medial amp 36 (t 0.30) and lateral amp 28 (t 0.24), both spread 4 and angled 0.75
-  towards medial/lateral so the diamond split shows. Soleus amp 12 plus a medial flare, and an ankle pinch at t 0.85.
+- **Build: calibrated against a reference photo of a lean pro rider** (proportions measured using the 700c wheel,
+  ~680 mm, as the scale). No global "fat" factor.
+  - Thigh r 86→50 plus quad bulges; calf base 40→20, with gastrocnemius amps 30 / 22.
+  - Lean arms: upper r 36→28, forearm r 31→18. Shoulders 18 mm outboard of the joints, deltoids 48×58×46.
+  - Torso r 98 (waist pinch 16, chest +20), with a deeper chest: depth scale 1.0→1.15, width 1.08→1.5.
+  - Neck r 44→40; neck length 160 mm (was 185).
+  - The mock-up pose uses trunk 36°, so the elbows bend (~27°) like the reference. Real poses still come from the app's IK.
 
 ### 5.6 3D view (tracks C and E)
 

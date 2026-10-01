@@ -12,7 +12,7 @@ function taperLimb(a, b, prof, sx, sz, mat) {
 }
 // Lathe limb with directional muscle bulges built into the surface.
 // bulges: [{ dir: world Vector3 (unit, ⟂ bone), t, w, amp, spread }] — radius += amp·gauss(t)·max(0,cos θ)^spread
-const FAT = 1.1;
+const FAT = 1.0;   // calibrated against the reference photo (lean pro road/TT build)
 function muscleLimb(a, b, prof0, bulges, mat, sxz = [1, 1]) {
   const prof = t => prof0(t) * FAT; const L = a.distanceTo(b), g = limbGeometry(L, prof, 48, 64), p = g.attributes.position;
   const q = new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize()), qi = q.clone().invert();
@@ -59,42 +59,42 @@ export function buildRider(G, MAT) {
   const T3 = MAT.T || { helmet: 0xEDEAE4 };
   const { J, C, R } = G, g = new THREE.Group();
   const CL = MAT.clay, FO = MAT.focus || CL;
-  const hs = R.shoulderW / 2 + 34, hh = R.hipW / 2, st = R.stance / 2, hw = C.hoodW / 2;
+  const hs = R.shoulderW / 2 + 18, hh = R.hipW / 2, st = R.stance / 2, hw = C.hoodW / 2;
   const hip = V2(J.hip), sh = V2(J.shoulder), ax = sh.clone().sub(hip).normalize(), nrm = V(-ax.y, ax.x); // nrm = "up/back" side of torso
   const trunkA = Math.atan2(ax.y, ax.x);
   // Torso: pelvis → narrow waist → broad ribcage/lats → chest; V-taper in width, flat back
-  const torsoProf = t => 1.08 * (98 - 18 * bump(t, .36, .13) + 18 * bump(t, .78, .16));
+  const torsoProf = t => 98 - 16 * bump(t, .36, .13) + 20 * bump(t, .78, .16);
   g.add(taperLimb(hip.clone().addScaledVector(ax, -10), sh.clone().addScaledVector(ax, -18), torsoProf,
-    t => lerp(.9, 1.02, ss(.3, .85, t)), t => lerp(1.08, 1.6, ss(.28, .86, t)), CL));
-  for (const s of [-1, 1]) g.add(ell(hip.clone().lerp(sh, .66).addScaledVector(nrm, 10).setZ(s * 128), [92, 44, 34], CL, trunkA)); // lats
+    t => lerp(1.0, 1.15, ss(.3, .85, t)), t => lerp(1.08, 1.5, ss(.28, .86, t)), CL));
+  for (const s of [-1, 1]) g.add(ell(hip.clone().lerp(sh, .66).addScaledVector(nrm, 10).setZ(s * 128), [80, 36, 26], CL, trunkA)); // lats
   // (no pec masses: they read wrongly on a leaning figure — chest width carries it)
   // trapezius slope + deltoids (capped, slightly along the upper arm)
   for (const s of [-1, 1]) {
-    g.add(limb(V2(J.neckBase).add(V(-20, -6)), V2(J.shoulder, s * (hs - 16)), t => lerp(50, 42, t), CL));
+    g.add(limb(V2(J.neckBase).add(V(-20, -6)), V2(J.shoulder, s * (hs - 16)), t => lerp(42, 36, t), CL));
     const up = V2(J.elbow, s * (hs + 6)).sub(V2(J.shoulder, s * hs)).normalize();
-    const dl = ell(V2(J.shoulder, s * hs).addScaledVector(up, 26), [60, 70, 56], CL); dl.quaternion.setFromUnitVectors(V(0, 1, 0), up); g.add(dl);
+    const dl = ell(V2(J.shoulder, s * hs).addScaledVector(up, 26), [48, 58, 46], CL); dl.quaternion.setFromUnitVectors(V(0, 1, 0), up); g.add(dl);
   }
   // pelvis + glutes
   g.add(tube(V(J.hip.x - 16, J.hip.y - 4, hh), V(J.hip.x - 16, J.hip.y - 4, -hh), 78, 78, CL));
-  for (const s of [-1, 1]) g.add(ell(V(J.hip.x - 52, J.hip.y - 20, s * 54), [64, 58, 58], CL, trunkA * .3));
+  for (const s of [-1, 1]) g.add(ell(V(J.hip.x - 52, J.hip.y - 20, s * 54), [62, 56, 56], CL, trunkA * .3));
   // legs: quads (vastus + VMO teardrop), calf mass behind the shin
   const legs = [[1, J.knee, J.ankle, J.cleatL, FO], [-1, J.kneeR, J.ankleR, J.cleatR, CL]];
   for (const [s, kn, an, cl, M] of legs) {
     const h = V2(J.hip, s * hh), k = V2(kn, s * st), a = V2(an, s * st), c = V2(cl, s * st);
     const kd = k.clone().sub(h).normalize(), antT = V(-kd.y, kd.x).normalize(); if (antT.y < 0) antT.negate();
     const med = V(0, 0, -s), lat = V(0, 0, s);
-    g.add(muscleLimb(h, k, t => lerp(80, 50, t) + 6 * bump(t, .3, .2), [
+    g.add(muscleLimb(h, k, t => lerp(86, 50, t) + 6 * bump(t, .3, .2), [
       { dir: antT, t: .45, w: .22, amp: 16, spread: 2 },                               // rectus / vastus mass
-      { dir: antT.clone().add(med).normalize(), t: .84, w: .08, amp: 14, spread: 3 },  // VMO teardrop
-      { dir: lat, t: .45, w: .2, amp: 12, spread: 2 },                                 // vastus lateralis sweep
+      { dir: antT.clone().add(med).normalize(), t: .84, w: .08, amp: 10, spread: 3 },  // VMO teardrop
+      { dir: lat, t: .45, w: .2, amp: 9, spread: 2 },                                 // vastus lateralis sweep
       { dir: antT.clone().negate(), t: .35, w: .2, amp: 8, spread: 2 },                // hamstrings
     ], M, [1, .92]));
-    g.add(sphere(k, 54, M, [1, 1, .9]));
+    g.add(sphere(k, 50, M, [1, 1, .9]));
     const sd = a.clone().sub(k).normalize(); let post = V(sd.y, -sd.x).normalize(); if (post.x > 0) post.negate();
-    g.add(muscleLimb(k, a, t => lerp(42, 22, t) - 3 * bump(t, .85, .1), [
-      { dir: post.clone().add(med.clone().multiplyScalar(.75)).normalize(), t: .3, w: .12, amp: 36, spread: 4 },  // gastrocnemius medial head (lower, fuller)
-      { dir: post.clone().add(lat.clone().multiplyScalar(.75)).normalize(), t: .24, w: .1, amp: 28, spread: 4 },  // lateral head (higher) → diamond split
-      { dir: post, t: .5, w: .12, amp: 12, spread: 3 },                                                           // soleus
+    g.add(muscleLimb(k, a, t => lerp(40, 20, t) - 2 * bump(t, .85, .1), [
+      { dir: post.clone().add(med.clone().multiplyScalar(.75)).normalize(), t: .3, w: .11, amp: 30, spread: 4 },  // gastrocnemius medial head (lower, fuller)
+      { dir: post.clone().add(lat.clone().multiplyScalar(.75)).normalize(), t: .24, w: .09, amp: 22, spread: 4 },  // lateral head (higher) → diamond split
+      { dir: post, t: .5, w: .12, amp: 8, spread: 3 },                                                           // soleus
       { dir: med, t: .52, w: .12, amp: 8, spread: 3 },                                                            // soleus medial flare
       { dir: lat, t: .3, w: .16, amp: 5, spread: 2 },                                                            // tibialis/peroneals
     ], M, [1, .92]));
@@ -107,20 +107,20 @@ export function buildRider(G, MAT) {
   for (const s of [-1, 1]) {
     const shp = V2(J.shoulder, s * hs), el = V2(J.elbow, s * (hs + 6)), wr = V2(J.wrist, s * hw), hd = V2(J.hands, s * hw);
     const ud = el.clone().sub(shp).normalize(); let ant = V(-ud.y, ud.x).normalize(); if (ant.x < 0) ant.negate();
-    g.add(muscleLimb(shp, el, t => lerp(42, 33, t), [
-      { dir: ant, t: .52, w: .18, amp: 12, spread: 2 },               // biceps
-      { dir: ant.clone().negate(), t: .38, w: .2, amp: 13, spread: 2 }, // triceps
+    g.add(muscleLimb(shp, el, t => lerp(36, 28, t), [
+      { dir: ant, t: .52, w: .18, amp: 8, spread: 2 },               // biceps
+      { dir: ant.clone().negate(), t: .38, w: .2, amp: 9, spread: 2 }, // triceps
       { dir: V(0, 0, s), t: .2, w: .14, amp: 8, spread: 2 },            // deltoid insertion
     ], CL));
-    g.add(sphere(el, 36, CL));
+    g.add(sphere(el, 30, CL));
     const fd = wr.clone().sub(el).normalize(); let up2 = V(-fd.y, fd.x).normalize(); if (up2.y < 0) up2.negate();
-    g.add(muscleLimb(el, wr, t => lerp(36, 21, t), [{ dir: up2, t: .18, w: .14, amp: 10, spread: 2 }, { dir: V(0, 0, s), t: .22, w: .15, amp: 6, spread: 2 }], CL, [1, .86]));
+    g.add(muscleLimb(el, wr, t => lerp(31, 18, t), [{ dir: up2, t: .18, w: .14, amp: 8, spread: 2 }, { dir: V(0, 0, s), t: .22, w: .15, amp: 6, spread: 2 }], CL, [1, .86]));
     const hEnd = hd.clone().add(hd.clone().sub(wr).normalize().multiplyScalar(28));
     g.add(limb(wr, hEnd, t => lerp(24, 21, t), MAT.glove, [.78, 1.3]));
   }
   // neck (thick), head, jaw, glasses, helmet
   const headC = V2(J.head);
-  g.add(tube(sh.clone().add(V(-12, -22)), headC.clone().add(V(-26, -44)), 54, 49, CL));
+  g.add(tube(sh.clone().add(V(-12, -22)), headC.clone().add(V(-26, -44)), 44, 40, CL));
   const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gaze = na - d2r(78);
   const H = new THREE.Group(); H.position.copy(headC); H.rotation.z = gaze; g.add(H);
   // head (head-local: +x gaze, +y up, +z left): one deformed ellipsoid — cranium, tapered jaw, subtle nose ridge
