@@ -233,16 +233,11 @@ export const FitBuilderMode: React.FC = () => {
     [FRAME_CATALOG, currentBrand]
   );
 
-  const severityColor = (s: "ok" | "warning" | "bad") =>
-    s === "ok" ? "var(--ok)" : s === "warning" ? "var(--warn)" : "var(--bad)";
   // Brighter variants for strokes/labels on the dark visualization canvas
   const severitySvgColor = (s: "ok" | "warning" | "bad") =>
     s === "ok" ? "#4cbf7e" : s === "warning" ? "#e8a33c" : "#e05252";
   const severityTone = (s: "ok" | "warning" | "bad"): SummaryTone =>
     s === "ok" ? "ok" : s === "warning" ? "warn" : "bad";
-
-  const bandColor = (s: BandStatus) =>
-    s === "in" ? "var(--teal)" : s === "near" ? "#d4880a" : "var(--accent)";
 
   const updateComponent = (key: keyof Components, value: number) =>
     setComponents((c) => ({ ...c, [key]: value }));
@@ -351,7 +346,7 @@ export const FitBuilderMode: React.FC = () => {
 
   const controlPanels = <ControlsColumn mobilePanel={mobilePanel} fullscreen={fullscreen} fitMode={fitMode} handleFitModeChange={handleFitModeChange} idealSaddleY={idealSaddleY} kneeFlex={kneeFlex} riderFit={riderFit} setRiderFit={setRiderFit} targetSaddleHeightMm={targetSaddleHeightMm} setTargetSaddleHeightMm={setTargetSaddleHeightMm} rider={rider} updateBodyMeasurement={updateBodyMeasurement} setBodyMeasurements={setBodyMeasurements} trunkAngleOverride={trunkAngleOverride} backBendOverride={backBendOverride} preset={preset} setPreset={setPreset} setTrunkAngleOverride={setTrunkAngleOverride} setBackBendOverride={setBackBendOverride} targetTrunkAngleDeg={targetTrunkAngleDeg} backBendDeg={backBendDeg} currentBrand={currentBrand} FRAME_CATALOG={FRAME_CATALOG} setSelection={setSelection} brands={brands} selection={selection} getModelById={getModelById} modelsForBrand={modelsForBrand} model={model} sizeData={sizeData} components={components} updateComponent={updateComponent} resetComponent={resetComponent} hoodPresetId={hoodPresetId} setHoodPresetId={setHoodPresetId} tyreSize={tyreSize} setTyreSize={setTyreSize} pedalPresetId={pedalPresetId} handlePedalPreset={handlePedalPreset} shoePresetId={shoePresetId} handleShoePreset={handleShoePreset} setPedalPresetId={setPedalPresetId} setShoePresetId={setShoePresetId} />;
 
-  const metricsPanel = <ResultsColumn mobilePanel={mobilePanel} fullscreen={fullscreen} issueCount={issueCount} actualSaddleY={actualSaddleY} saddleDelta={saddleDelta} idealSaddleY={idealSaddleY} saddleWarning={saddleWarning} severityTone={severityTone} kneeFlex={kneeFlex} fitMode={fitMode} riderFit={riderFit} kneeTone={kneeTone} hoodsWarning={hoodsWarning} barReachNeededValue={barReachNeededValue} barReachDelta={barReachDelta} components={components} barReachTone={barReachTone} bbToSaddleDistance={bbToSaddleDistance} seatpostExtension={seatpostExtension} strokeMetrics={strokeMetrics} bandColor={bandColor} targetTrunkAngleDeg={targetTrunkAngleDeg} preset={preset} warnings={warnings} severityColor={severityColor} bike={bike} seatpostRec={seatpostRec} frameGeometryRows={frameGeometryRows} />;
+  const metricsPanel = <ResultsColumn mannequin={mannequin} mobilePanel={mobilePanel} fullscreen={fullscreen} issueCount={issueCount} actualSaddleY={actualSaddleY} saddleDelta={saddleDelta} idealSaddleY={idealSaddleY} saddleWarning={saddleWarning} severityTone={severityTone} kneeFlex={kneeFlex} fitMode={fitMode} riderFit={riderFit} kneeTone={kneeTone} hoodsWarning={hoodsWarning} barReachNeededValue={barReachNeededValue} barReachDelta={barReachDelta} components={components} barReachTone={barReachTone} bbToSaddleDistance={bbToSaddleDistance} seatpostExtension={seatpostExtension} strokeMetrics={strokeMetrics} targetTrunkAngleDeg={targetTrunkAngleDeg} preset={preset} warnings={warnings} bike={bike} seatpostRec={seatpostRec} frameGeometryRows={frameGeometryRows} />;
 
   return (
     <div className={`mode-layout mode-layout--builder${fullscreen ? " mode-layout--fullscreen" : ""}`}>

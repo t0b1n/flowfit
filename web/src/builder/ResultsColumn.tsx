@@ -1,10 +1,13 @@
 import React from "react";
 import { CollapsibleSection } from "../components/CollapsibleSection";
 import { MetricCard } from "../components/MetricCard";
+import { StatusDot } from "../design/StatusDot";
+import { SpecTable } from "../design/SpecTable";
+import { computeAll, metricStatus, type MetricId } from "../fitMetrics";
 import { POSTURE_PRESET, bandStatus, type BandStatus } from "../geometry";
 import { SummaryTone, SummaryRow, PRESET_LABELS } from "./shared";
 import type { FitWarning, ContactPoint, SeatpostType } from "../types";
-import type { RiderFit, Components } from "../types";
+import type { RiderFit, Components, MannequinSketch } from "../types";
 import type { PedalStrokeLUT } from "../geometry";
 export interface ResultsColumnProps {
   mobilePanel: "controls" | "results" | null;
@@ -27,17 +30,33 @@ export interface ResultsColumnProps {
   bbToSaddleDistance: number;
   seatpostExtension: number;
   strokeMetrics: PedalStrokeLUT;
-  bandColor: (s: BandStatus) => "var(--teal)" | "#d4880a" | "var(--accent)";
   targetTrunkAngleDeg: number;
   preset: "endurance" | "race" | "fast";
   warnings: FitWarning[];
-  severityColor: (s: "ok" | "warning" | "bad") => "var(--ok)" | "var(--warn)" | "var(--bad)";
   bike: { bb: ContactPoint; rearAxle: ContactPoint; frontAxle: ContactPoint; seatCluster: ContactPoint; seatTubeTop: ContactPoint; headTubeBottom: ContactPoint; headTubeTop: ContactPoint; saddle: ContactPoint; saddleClamp: ContactPoint; seatpostTop: ContactPoint; seatpostBend: ContactPoint; cleat: ContactPoint; crankEnd: ContactPoint; steererTop: ContactPoint; barClamp: ContactPoint; hoods: ContactPoint; };
   seatpostRec: { bbToRailDistance: number; requiredSetback: number; type: SeatpostType; note: string; };
   frameGeometryRows: [string, string][];
+  mannequin: MannequinSketch;
+  /** Slot for the fit history panel (track D). Rendered at the bottom of the column. */
+  historySlot?: React.ReactNode;
 }
 
-export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fullscreen, issueCount, actualSaddleY, saddleDelta, idealSaddleY, saddleWarning, severityTone, kneeFlex, fitMode, riderFit, kneeTone, hoodsWarning, barReachNeededValue, barReachDelta, components, barReachTone, bbToSaddleDistance, seatpostExtension, strokeMetrics, bandColor, targetTrunkAngleDeg, preset, warnings, severityColor, bike, seatpostRec, frameGeometryRows }) => {
+const unitSplit = (v: string): { value: string; unit?: string } => {
+  const m = /^(-?[\d.,]+)\s*(\S.*)$/.exec(v);
+  return m ? { value: m[1], unit: m[2] } : { value: v };
+};
+
+const ANGLE_METRICS: MetricId[] = ["knee_ext_bdc", "knee_flex_tdc", "hip", "trunk", "shoulder", "elbow_flex"];
+
+export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fullscreen, issueCount, actualSaddleY, saddleDelta, idealSaddleY, saddleWarning, severityTone, kneeFlex, fitMode, riderFit, kneeTone, hoodsWarning, barReachNeededValue, barReachDelta, components, barReachTone, bbToSaddleDistance, seatpostExtension, strokeMetrics, targetTrunkAngleDeg, preset, warnings, bike, seatpostRec, frameGeometryRows, mannequin, historySlot }) => {
+  const angleValues = computeAll({ m: mannequin, lut: strokeMetrics, pts: new Map() });
+  const angleStatuses = {
+    total: ANGLE_METRICS.length,
+    in: ANGLE_METRICS.filter((id) => {
+      const v = angleValues[id];
+      return v != null && metricStatus(id, v, POSTURE_PRESET) === "in";
+    }).length,
+  };
   return (
     (
     <aside
@@ -48,14 +67,10 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
       <div className="fit-summary">
         <div className="fit-summary__header">
           <div>
-            <div className="eyebrow">Fit summary</div>
+            <div className="ff-eyebrow">Fit summary</div>
             <h3>At a glance</h3>
           </div>
-          {issueCount > 0 ? (
-            <span className="warn-chip">{issueCount} issue{issueCount === 1 ? "" : "s"}</span>
-          ) : (
-            <span className="warn-chip warn-chip--ok">All on target</span>
-          )}
+          <span className="fit-summary__count">{angleStatuses.in} of {angleStatuses.total} in band</span>
         </div>
         <SummaryRow
           label="Saddle height"
@@ -133,7 +148,7 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
             title="Knee flexion when the crank is at top dead centre. Values above ~115° suggest the saddle is too low or the cranks too long for your hip mobility."
             label="Knee flex at TDC"
             value={`${strokeMetrics.kneeFlexionTdcDeg.toFixed(1)}°`}
-            color={bandColor(bandStatus(strokeMetrics.kneeFlexionTdcDeg, POSTURE_PRESET.knee_flexion_tdc))}
+            color={`var(--band-${bandStatus(strokeMetrics.kneeFlexionTdcDeg, POSTURE_PRESET.knee_flexion_tdc)})`}
             delta={`Band ${POSTURE_PRESET.knee_flexion_tdc.min_deg}–${POSTURE_PRESET.knee_flexion_tdc.max_deg}°`}
           />
           <MetricCard
@@ -155,43 +170,45 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
               delta={`${barReachNeededValue - components.bar_reach >= 0 ? "+" : ""}${Math.round(barReachNeededValue - components.bar_reach)} mm vs current`}
             />
           ) : (
-            <MetricCard label="Bar reach needed" value="Out of range" color="var(--bad)" />
+            <MetricCard label="Bar reach needed" value="Out of range" color="var(--band-out)" />
           )}
         </div>
       </CollapsibleSection>
 
       <CollapsibleSection eyebrow="Warnings" title="Contact point match">
-        <div className="metric-grid">
-          {warnings.map((w) => (
-            <MetricCard
-              key={w.contact}
-              label={w.contact}
-              labelStyle={{ textTransform: "capitalize" }}
-              value={w.severity === "ok" ? `On target (${w.distance.toFixed(0)} mm)` : `${w.distance.toFixed(0)} mm off`}
-              color={severityColor(w.severity)}
-              delta={
-                w.severity !== "ok"
-                  ? `ΔX ${w.deltaX.toFixed(0)} mm · ΔY ${w.deltaY.toFixed(0)} mm`
-                  : undefined
-              }
-            />
-          ))}
-        </div>
+        {warnings.map((w) => {
+          const st: BandStatus = w.severity === "ok" ? "in" : w.severity === "warning" ? "near" : "out";
+          return (
+            <div key={w.contact} className={`warn-note warn-note--${st}`}>
+              <b className="warn-note__eyebrow">
+                <StatusDot status={st} /> {st === "in" ? "ON TARGET" : st === "near" ? "NEAR" : "OUT"} · {w.contact}
+              </b>
+              <div>{w.severity === "ok" ? `On target (${w.distance.toFixed(0)} mm)` : `${w.distance.toFixed(0)} mm off`}</div>
+              {w.severity !== "ok" && (
+                <div className="warn-note__delta">ΔX {w.deltaX.toFixed(0)} mm · ΔY {w.deltaY.toFixed(0)} mm</div>
+              )}
+            </div>
+          );
+        })}
       </CollapsibleSection>
 
       <CollapsibleSection eyebrow="Coordinates" title="Contact positions (from BB)" defaultOpen={false}>
-        <div className="metric-grid">
-          {([
-            ["Saddle X", bike.saddle.x],
-            ["Saddle Y", bike.saddle.y],
-            ["Hoods X",  bike.hoods.x],
-            ["Hoods Y",  bike.hoods.y],
-            ["Cleat X",  bike.cleat.x],
-            ["Cleat Y",  bike.cleat.y],
-          ] as [string, number][]).map(([label, value]) => (
-            <MetricCard key={label} label={label} value={`${Math.round(value)} mm`} />
-          ))}
-        </div>
+        <SpecTable
+          sections={[
+            {
+              rows: (
+                [
+                  ["Saddle X", bike.saddle.x],
+                  ["Saddle Y", bike.saddle.y],
+                  ["Hoods X", bike.hoods.x],
+                  ["Hoods Y", bike.hoods.y],
+                  ["Cleat X", bike.cleat.x],
+                  ["Cleat Y", bike.cleat.y],
+                ] as [string, number][]
+              ).map(([label, value]) => ({ label, value: String(Math.round(value)), unit: "mm" })),
+            },
+          ]}
+        />
       </CollapsibleSection>
 
       <CollapsibleSection eyebrow="Seatpost" title="Seatpost recommendation" defaultOpen={false}>
@@ -205,10 +222,10 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
             value={<span style={{ textTransform: "capitalize" }}>{seatpostRec.type}</span>}
             color={
               seatpostRec.type === "straight"
-                ? "var(--ok)"
+                ? "var(--band-in)"
                 : seatpostRec.type === "setback"
-                ? "var(--warn)"
-                : "var(--bad)"
+                ? "var(--band-near)"
+                : "var(--band-out)"
             }
             delta={seatpostRec.note}
           />
@@ -216,12 +233,12 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
       </CollapsibleSection>
 
       <CollapsibleSection eyebrow="Frame" title="Geometry" defaultOpen={false}>
-        <div className="metric-grid">
-          {frameGeometryRows.map(([label, value]) => (
-            <MetricCard key={label} label={label} value={value} />
-          ))}
-        </div>
+        <SpecTable
+          sections={[{ rows: frameGeometryRows.map(([label, value]) => ({ label, ...unitSplit(value) })) }]}
+        />
       </CollapsibleSection>
+
+      {historySlot}
     </aside>
   )
   );

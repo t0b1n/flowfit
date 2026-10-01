@@ -110,6 +110,15 @@ export const SummaryRow: React.FC<{
       <span className="fit-summary__label">{label}</span>
       {caption && <span className="fit-summary__caption">{caption}</span>}
     </div>
-    <strong className="fit-summary__value">{value}</strong>
+    <strong className="fit-summary__value">
+      {typeof value === "string" && /^-?[\d.,]+\s*\S/.test(value) ? (
+        <>
+          {value.replace(/^(-?[\d.,]+)\s*(\S.*)$/, "$1")}
+          <small>{value.replace(/^(-?[\d.,]+)\s*(\S.*)$/, "$2")}</small>
+        </>
+      ) : (
+        value
+      )}
+    </strong>
   </div>
 );
