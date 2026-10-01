@@ -32,12 +32,16 @@ import { MatsProvider, useMats } from "./scene3d/materials";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
 import {
-  BAND_COLORS,
+  ArcHairline,
   DimensionLines3D,
-  JointArc,
-  KneeArcAnimated,
+  GroundRuler,
+  KneeArcLive,
   KopsIndicator,
+  rulerLayout,
 } from "./FitAnalytics3D";
+import { Callouts3D, ScreenProjector, type ProjectTarget, type ProjectedMap } from "./Callouts3D";
+import { Overlay3D } from "./scene3d/Overlay3D";
+import { METRICS, computeAll, type MetricId, type Vec3, useMetricFocus } from "./fitMetrics";
 import {
   ASSUMED_CD,
   FrontalAreaProbe,
@@ -45,14 +49,7 @@ import {
   type GhostSnapshot,
   type MeasureFrontalArea,
 } from "./AeroTools";
-import {
-  angleAtPoint,
-  bandStatus,
-  kneeExtensionAt,
-  legPoseAt,
-  type PedalStrokeLUT,
-  type PosturePreset,
-} from "./geometry";
+import { legPoseAt, type PedalStrokeLUT, type PosturePreset } from "./geometry";
 import type { MannequinSketch } from "./types";
 
 // Materials come from scene3d/materials.tsx (theme tokens); only the cockpit tube set stays here.
@@ -964,7 +961,21 @@ const SceneContent = React.memo(function SceneContent({
   quality,
   span,
   camDist,
+  focused,
+  pinned,
+  hovered,
+  onFocusMetric,
+  onHoverMetric,
+  onProject,
+  projectTargets,
 }: {
+  focused: MetricId;
+  pinned: MetricId[];
+  hovered: MetricId | null;
+  onFocusMetric: (id: MetricId) => void;
+  onHoverMetric: (id: MetricId | null) => void;
+  onProject: (px: ProjectedMap<string>) => void;
+  projectTargets: ProjectTarget[];
   theme: Theme;
   quality: Quality;
   span: number;
@@ -1134,65 +1145,69 @@ const SceneContent = React.memo(function SceneContent({
 
       {/* Fit analytics (excluded from the frontal-area probe) */}
       <group name="analytics-root">
-        {showAngles && mannequin2D && postureBands && (
+        {mannequin2D && (
           <>
-            <JointArc
-              vertex={mannequin2D.hip}
-              rayA={mannequin2D.shoulder}
-              rayC={mannequin2D.knee}
-              z={(hipL?.[2] ?? 100) + 85}
-              label="Hip"
-              value={angleAtPoint(mannequin2D.shoulder, mannequin2D.hip, mannequin2D.knee)}
-              band={postureBands.hip_angle}
-            />
-            <JointArc
-              vertex={mannequin2D.shoulder}
-              rayA={mannequin2D.hip}
-              rayC={mannequin2D.elbow}
-              z={(effPtMap.get("shoulder_l")?.[2] ?? 185) + 70}
-              label="Shoulder"
-              value={angleAtPoint(mannequin2D.hip, mannequin2D.shoulder, mannequin2D.elbow)}
-              band={postureBands.shoulder_flexion}
-              radius={75}
-            />
-            <JointArc
-              vertex={mannequin2D.elbow}
-              rayA={mannequin2D.shoulder}
-              rayC={mannequin2D.hands}
-              z={(effPtMap.get("elbow_l")?.[2] ?? 185) + 60}
-              label="Elbow"
-              value={180 - angleAtPoint(mannequin2D.shoulder, mannequin2D.elbow, mannequin2D.hands)}
-              band={postureBands.elbow_flexion}
-              radius={65}
-            />
-            {strokeLUT ? (
-              <KneeArcAnimated
-                lut={strokeLUT}
-                crankAngleRef={crankAngleRef}
-                hip={strokeLUT.hip}
-                z={stanceWidth / 2 + 75}
-                band={postureBands.knee_extension}
-              />
-            ) : (
-              <JointArc
-                vertex={mannequin2D.knee}
-                rayA={mannequin2D.hip}
-                rayC={mannequin2D.ankle}
-                z={stanceWidth / 2 + 75}
-                label="Knee"
-                value={angleAtPoint(mannequin2D.hip, mannequin2D.knee, mannequin2D.ankle)}
-                band={postureBands.knee_extension}
-                radius={80}
-              />
+            {METRICS.map((d) => {
+              const arc = d.arc?.({ m: mannequin2D, lut: strokeLUT, pts: effPtMap });
+              if (!arc) return null;
+              const isFocus = d.id === focused;
+              const isPin = pinned.includes(d.id);
+              if (!isFocus && !isPin && !showAngles) return null;
+              const zFor: Record<string, number> = {
+                hip: (hipL?.[2] ?? 100) + 85,
+                trunk: (hipL?.[2] ?? 100) + 85,
+                shoulder: (effPtMap.get("shoulder_l")?.[2] ?? 185) + 70,
+                elbow_flex: (effPtMap.get("elbow_l")?.[2] ?? 185) + 60,
+                knee_ext_bdc: stanceWidth / 2 + 75,
+                knee_flex_tdc: -(stanceWidth / 2 + 75),
+              };
+              return (
+                <ArcHairline
+                  key={d.id}
+                  vertex={arc.v}
+                  rayA={arc.a}
+                  rayC={arc.c}
+                  z={zFor[d.id] ?? 0}
+                  kind={isFocus ? "hot" : isPin ? "pin" : "dim"}
+                  theme={theme}
+                  radius={d.id === "trunk" ? 100 : d.id === "elbow_flex" ? 65 : d.id === "shoulder" ? 75 : 85}
+                />
+              );
+            })}
+            {showAngles && strokeLUT && playing && (
+              <KneeArcLive lut={strokeLUT} crankAngleRef={crankAngleRef} hip={strokeLUT.hip} z={stanceWidth / 2 + 75} theme={theme} />
             )}
+            {/* invisible 45 mm hit spheres: click a joint to focus its metric */}
+            {METRICS.map((d) => {
+              const p = d.anchor({ m: mannequin2D, lut: strokeLUT, pts: effPtMap });
+              if (!p) return null;
+              return (
+                <mesh
+                  key={`hit-${d.id}`}
+                  position={p}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFocusMetric(d.id);
+                  }}
+                  onPointerOver={(e) => {
+                    e.stopPropagation();
+                    onHoverMetric(d.id);
+                    document.body.style.cursor = "pointer";
+                  }}
+                  onPointerOut={() => {
+                    onHoverMetric(null);
+                    document.body.style.cursor = "";
+                  }}
+                >
+                  <sphereGeometry args={[45, 12, 12]} />
+                  <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                </mesh>
+              );
+            })}
           </>
         )}
         {showKops && strokeLUT && (
-          <KopsIndicator
-            lut={strokeLUT}
-            crankAngleRef={crankAngleRef}
-            z={stanceWidth / 2 + 75}
-          />
+          <KopsIndicator lut={strokeLUT} crankAngleRef={crankAngleRef} z={stanceWidth / 2 + 75} theme={theme} />
         )}
         {showDimensions && (() => {
           const saddle = effPtMap.get("saddle");
@@ -1200,12 +1215,13 @@ const SceneContent = React.memo(function SceneContent({
           const hr = effPtMap.get("hoods_r");
           if (!saddle || !hl || !hr) return null;
           const barW = geo.components.bar_width ?? 400;
-          const hoods: [number, number, number] = [
-            (hl[0] + hr[0]) / 2,
-            (hl[1] + hr[1]) / 2,
-            0,
-          ];
-          return <DimensionLines3D saddle={saddle} hoods={hoods} z={-(barW / 2 + 120)} />;
+          const hoods: [number, number, number] = [(hl[0] + hr[0]) / 2, (hl[1] + hr[1]) / 2, 0];
+          return (
+            <>
+              <DimensionLines3D saddle={saddle} hoods={hoods} z={-(barW / 2 + 120)} theme={theme} />
+              {rear && front && <GroundRuler rearX={rear[0]} frontX={front[0]} groundY={groundY} stanceWidth={stanceWidth} theme={theme} />}
+            </>
+          );
         })()}
         {show2dOverlay && mannequin2D && <Overlay2D mannequin2D={mannequin2D} />}
       </group>
@@ -1215,6 +1231,8 @@ const SceneContent = React.memo(function SceneContent({
 
       {/* Frontal-area probe (registers its measure fn with the host) */}
       <FrontalAreaProbe onReady={onMeasureReady} />
+
+      <ScreenProjector targets={projectTargets} onProject={onProject} />
 
       {/* Orbit controls — damped, clamped above the ground plane */}
       <OrbitControls
@@ -1284,104 +1302,6 @@ function CameraPresetRig({
   return null;
 }
 
-// ── In-canvas metrics HUD (plain DOM overlay — crisper than drei Html) ───────
-
-function MetricsHud({
-  mannequin2D,
-  strokeLUT,
-  bands,
-  crankAngleRef,
-  playing,
-}: {
-  mannequin2D?: MannequinSketch;
-  strokeLUT?: PedalStrokeLUT;
-  bands: PosturePreset;
-  crankAngleRef: React.MutableRefObject<number>;
-  playing: boolean;
-}) {
-  const [liveKneeExt, setLiveKneeExt] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!strokeLUT || !playing) {
-      setLiveKneeExt(null);
-      return;
-    }
-    const id = setInterval(() => {
-      // Near-side (left) leg — matches the animated knee arc
-      setLiveKneeExt(kneeExtensionAt(strokeLUT, crankAngleRef.current + 180));
-    }, 150);
-    return () => clearInterval(id);
-  }, [strokeLUT, playing, crankAngleRef]);
-
-  if (!mannequin2D) return null;
-  const m = mannequin2D;
-  const trunk = (Math.atan2(m.shoulder.y - m.hip.y, m.shoulder.x - m.hip.x) * 180) / Math.PI;
-
-  const rows: { label: string; text: string; color: string }[] = [
-    {
-      label: "Trunk",
-      text: `${trunk.toFixed(0)}°`,
-      color: BAND_COLORS[bandStatus(trunk, bands.trunk_angle)],
-    },
-    {
-      label: "Hip",
-      text: `${angleAtPoint(m.shoulder, m.hip, m.knee).toFixed(0)}°`,
-      color: BAND_COLORS[bandStatus(angleAtPoint(m.shoulder, m.hip, m.knee), bands.hip_angle)],
-    },
-    {
-      label: "Shoulder",
-      text: `${angleAtPoint(m.hip, m.shoulder, m.elbow).toFixed(0)}°`,
-      color: BAND_COLORS[bandStatus(angleAtPoint(m.hip, m.shoulder, m.elbow), bands.shoulder_flexion)],
-    },
-    {
-      label: "Elbow flex",
-      text: `${(180 - angleAtPoint(m.shoulder, m.elbow, m.hands)).toFixed(0)}°`,
-      color: BAND_COLORS[bandStatus(180 - angleAtPoint(m.shoulder, m.elbow, m.hands), bands.elbow_flexion)],
-    },
-  ];
-
-  if (strokeLUT) {
-    const kneeExtBdc = 180 - strokeLUT.kneeFlexionBdcDeg;
-    rows.push(
-      {
-        label: "Knee ext BDC",
-        text: `${kneeExtBdc.toFixed(0)}°`,
-        color: BAND_COLORS[bandStatus(kneeExtBdc, bands.knee_extension)],
-      },
-      {
-        label: "Knee flex TDC",
-        text: `${strokeLUT.kneeFlexionTdcDeg.toFixed(0)}°`,
-        color: BAND_COLORS[bandStatus(strokeLUT.kneeFlexionTdcDeg, bands.knee_flexion_tdc)],
-      },
-      {
-        label: "KOPS",
-        text: `${strokeLUT.kopsOffsetMm >= 0 ? "+" : ""}${strokeLUT.kopsOffsetMm.toFixed(0)} mm`,
-        color: "rgba(255,255,255,0.45)",
-      },
-    );
-  }
-  if (liveKneeExt !== null) {
-    rows.push({
-      label: "Knee now",
-      text: `${liveKneeExt.toFixed(0)}°`,
-      color: BAND_COLORS[bandStatus(liveKneeExt, bands.knee_extension)],
-    });
-  }
-
-  return (
-    <div className="bike3d-hud">
-      <div className="bike3d-hud__title">{bands.name} posture</div>
-      {rows.map((r) => (
-        <div className="bike3d-hud__row" key={r.label}>
-          <i className="bike3d-hud__dot" style={{ background: r.color }} />
-          <span className="bike3d-hud__label">{r.label}</span>
-          <span className="bike3d-hud__value">{r.text}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 type Quality = "high" | "low";
 const QUALITY_KEY = "flowfit.3d.quality";
 
@@ -1445,6 +1365,20 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
       /* ignore */
     }
   };
+  const { focused, pinned, focus, togglePin, reset } = useMetricFocus();
+  const [hovered, setHovered] = useState<MetricId | null>(null);
+  const [specsOpen, setSpecsOpen] = useState(false);
+  const [px, setPx] = useState<ProjectedMap<string>>({});
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBox({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    setBox({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
   const [devMode, setDevMode] = useState(false);
   const [showMannequin, setShowMannequin] = useState(true);
   const [show2dOverlay, setShow2dOverlay] = useState(false);
@@ -1461,7 +1395,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [showAngles, setShowAngles] = useState(true);
   const [showDimensions, setShowDimensions] = useState(false);
   const [showKops, setShowKops] = useState(false);
-  const [showHud, setShowHud] = useState(true);
   const [discWheels, setDiscWheels] = useState(false);
   // Aero tools
   const measureFnRef = useRef<MeasureFrontalArea | null>(null);
@@ -1495,6 +1428,35 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
 
   // Current position metrics for ghost deltas
   const geoPtMap = new Map(geo.points.map((p) => [p.name, p.pos]));
+  const metricCtx = mannequin2D ? { m: mannequin2D, lut: strokeLUT, pts: geoPtMap as Map<string, Vec3> } : null;
+  const values = useMemo(
+    () => (metricCtx ? computeAll(metricCtx) : {}),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [geo, mannequin2D, strokeLUT],
+  );
+  const shownIds = useMemo(() => Array.from(new Set<MetricId>([focused, ...pinned])), [focused, pinned]);
+  const hoverOnly = hovered && !shownIds.includes(hovered) ? hovered : null;
+  const projectTargets = useMemo<ProjectTarget[]>(() => {
+    const out: ProjectTarget[] = [];
+    if (metricCtx) {
+      for (const id of [...shownIds, ...(hoverOnly ? [hoverOnly] : [])]) {
+        const p = METRICS.find((d) => d.id === id)?.anchor(metricCtx);
+        if (p) out.push({ key: id, pos: p });
+      }
+    }
+    if (showDimensions) {
+      const r = geoPtMap.get("rear_axle");
+      const f = geoPtMap.get("front_axle");
+      if (r && f) {
+        const wheelR = geo.frame.wheel_radius ?? 311;
+        const groundY = Math.min(r[1], f[1]) - wheelR;
+        rulerLayout(r[0], f[0], groundY, stanceWidth ?? 155).labels.forEach((l, i) => out.push({ key: `ruler:${i}`, pos: l.pos }));
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo, mannequin2D, strokeLUT, shownIds, hoverOnly, showDimensions, stanceWidth]);
+  const rulerLabels = ["R.AXLE", "BB 0", `F.AXLE · WB ${Math.round((geoPtMap.get("front_axle")?.[0] ?? 0) - (geoPtMap.get("rear_axle")?.[0] ?? 0))}`];
   const saddlePt = geoPtMap.get("saddle");
   const hoodsLPt = geoPtMap.get("hoods_l");
   const hoodsRPt = geoPtMap.get("hoods_r");
@@ -1571,8 +1533,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   // Memoized so `center` stays referentially stable for the memoized scene.
   const { center, camDist, camPos, span } = useMemo(() => {
     const { center, span } = sceneBounds(geo);
-    // fov=30° half-angle 15°, tan(15°) ≈ 0.268 → distance = span/2 / 0.268 * 1.3 (padding)
-    const camDist = (span / 2 / 0.268) * 1.3;
+    // fov=30° half-angle 15°, tan(15°) ≈ 0.268 → distance = span/2 / 0.268 * 1.55 (padding, leaves room for the Metric Rail)
+    const camDist = (span / 2 / 0.268) * 1.55;
     const camPos: [number, number, number] = [
       center[0] + camDist * 0.15,   // slight rightward offset
       center[1] + camDist * 0.25,   // slightly above centre
@@ -1747,12 +1709,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             KOPS
           </button>
           <button
-            className={`tab-pill ${showHud ? "tab-pill--active" : ""}`}
-            onClick={() => setShowHud((v) => !v)}
-          >
-            HUD
-          </button>
-          <button
             className={`tab-pill ${discWheels ? "tab-pill--active" : ""}`}
             onClick={() => setDiscWheels((v) => !v)}
             title="Rear aero disc wheel"
@@ -1816,7 +1772,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
 
       {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size.
           The canvas is transparent; the wrapper carries a gradient backdrop. */}
-      <div className="bike3d-canvas-wrapper" style={{ ["--bike3d-bg" as string]: TOKENS[theme].bg }}>
+      <div className="bike3d-canvas-wrapper" ref={wrapRef} tabIndex={0} style={{ ["--bike3d-bg" as string]: TOKENS[theme].bg }}>
         <Canvas
           shadows
           camera={{ position: camPos, fov: 30, near: 1, far: 50000 }}
@@ -1854,6 +1810,13 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             quality={quality}
             span={span}
             camDist={camDist}
+            focused={focused}
+            pinned={pinned}
+            hovered={hovered}
+            onFocusMetric={focus}
+            onHoverMetric={setHovered}
+            onProject={setPx}
+            projectTargets={projectTargets}
           />
           {quality === "high" && (
             <EffectComposer multisampling={0}>
@@ -1863,15 +1826,37 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           )}
           <CameraPresetRig request={cameraRequest} center={center} camDist={camDist} />
         </Canvas>
-        {showHud && postureBands && (
-          <MetricsHud
-            mannequin2D={mannequin2D}
-            strokeLUT={strokeLUT}
-            bands={postureBands}
-            crankAngleRef={crankAngleRef}
-            playing={playing}
-          />
+        {/* Callouts (focused + pinned; hover previews at 60%) and the ground-ruler labels */}
+        {box.w > 0 && (
+          <div className="b3-callouts">
+            <Callouts3D px={px as ProjectedMap<MetricId>} focused={focused} show={shownIds} width={box.w} height={box.h} values={values} />
+            {hoverOnly && (
+              <div style={{ opacity: 0.6 }}>
+                <Callouts3D px={px as ProjectedMap<MetricId>} focused={focused} show={[hoverOnly]} width={box.w} height={box.h} values={values} />
+              </div>
+            )}
+            {showDimensions &&
+              rulerLabels.map((l, i) =>
+                px[`ruler:${i}`] ? (
+                  <span key={l} className="b3-ruler-label" style={{ left: px[`ruler:${i}`]!.x, top: px[`ruler:${i}`]!.y }}>
+                    {l}
+                  </span>
+                ) : null,
+              )}
+          </div>
         )}
+        <Overlay3D
+          geo={geo}
+          bands={postureBands}
+          values={values}
+          focused={focused}
+          pinned={pinned}
+          onFocus={focus}
+          onTogglePin={togglePin}
+          onReset={reset}
+          specsOpen={specsOpen}
+          onToggleSpecs={() => setSpecsOpen((v) => !v)}
+        />
       </div>
     </div>
   );
