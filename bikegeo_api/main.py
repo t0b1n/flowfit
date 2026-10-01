@@ -10,6 +10,7 @@ from .db import init_db
 from .middleware import RequestSizeLimitMiddleware, StrictJsonContentTypeMiddleware
 from .routers import auth as auth_router
 from .routers import bikes as bikes_router
+from .routers import fits as fits_router
 from .schemas import SolveRequest, SolveResponse
 
 
@@ -24,6 +25,7 @@ app.add_middleware(RequestSizeLimitMiddleware, max_bytes=64 * 1024)
 app.add_middleware(StrictJsonContentTypeMiddleware)
 app.include_router(auth_router.router)
 app.include_router(bikes_router.router)
+app.include_router(fits_router.router)
 
 
 @app.post("/solve", response_model=SolveResponse)
