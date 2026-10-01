@@ -28,6 +28,7 @@ export interface Stage2DSideProps {
   showFrameGeometry: boolean;
   sizeData: SizeData;
   frameMeasurementVisibility: FrameMeasurementVisibility;
+  showKops?: boolean;
 }
 
 /** mm ruler along the ground: 25 mm minor ticks, 100 mm major, accent ticks at the axles and BB. */
@@ -100,6 +101,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   showFrameGeometry,
   sizeData,
   frameMeasurementVisibility,
+  showKops,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const { focused, pinned } = useMetricFocus();
@@ -127,7 +129,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         marks={[
           { x: bike.rearAxle.x, label: "R.AXLE" },
           { x: bike.bb.x, label: "BB 0" },
-          { x: bike.frontAxle.x, label: "F.AXLE" },
+          { x: bike.frontAxle.x, label: `F.AXLE · WB ${Math.round(bike.frontAxle.x - bike.rearAxle.x)}` },
         ]}
       />
 
@@ -177,6 +179,21 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
           return <MetricArcShape key={d.id} {...arc} kind={isFocus ? "hot" : isPin ? "pin" : "dim"} />;
         })}
       </g>
+
+      {/* KOPS: knee plumb at the 3 o'clock crank position */}
+      {showKops && (() => {
+        const q = strokeMetrics.poses[Math.round(strokeMetrics.samples / 4)];
+        return (
+          <g className="s2d-kops">
+            <line x1={q.knee.x} y1={-q.knee.y} x2={q.knee.x} y2={-q.spindle.y + 60} />
+            <line x1={q.knee.x} y1={-q.spindle.y} x2={q.spindle.x} y2={-q.spindle.y} />
+            <circle cx={q.spindle.x} cy={-q.spindle.y} r={8} />
+            <text x={q.knee.x + 14} y={-q.spindle.y + 40} className="geometry-label">
+              KOPS {strokeMetrics.kopsOffsetMm >= 0 ? "+" : "−"}{Math.abs(Math.round(strokeMetrics.kopsOffsetMm))}
+            </text>
+          </g>
+        );
+      })()}
 
       {/* ideal contacts: registration crosshairs */}
       {visibleParts.contactMarkers &&

@@ -636,3 +636,40 @@
     flex: 0 0 96px;
   }
 }
+
+.s2d-kops line {
+  stroke: var(--ink);
+  stroke-opacity: 0.7;
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d-kops circle {
+  fill: var(--ink);
+}
+
+.s2d .s2d-ruler-label {
+  font-size: 22px;
+}
+
+/* The stage fills the viewport under the 56px nav and 48px toolbar, like the approved mock-up. */
+@media (min-width: 761px) {
+  .mode-layout--builder .visual-panel.builder-center {
+    min-height: calc(100vh - 56px);
+  }
+
+  .mode-layout--builder .visual-stage {
+    min-height: calc(100vh - 56px - 48px);
+  }
+
+  .s2d-wrap {
+    height: calc(100vh - 56px - 48px - 36px);
+    min-height: 560px;
+  }
+
+  .s2d-wrap > svg.s2d {
+    height: calc(100% - 96px);
+    min-height: 420px;
+  }
+}

@@ -3,7 +3,7 @@ import { CollapsibleSection } from "../components/CollapsibleSection";
 import { MetricCard } from "../components/MetricCard";
 import { StatusDot } from "../design/StatusDot";
 import { SpecTable } from "../design/SpecTable";
-import { computeAll, metricStatus, type MetricId } from "../fitMetrics";
+import { METRIC_BY_ID, computeAll, formatDelta, formatMetric, metricStatus, type MetricId } from "../fitMetrics";
 import { POSTURE_PRESET, bandStatus, type BandStatus } from "../geometry";
 import { SummaryTone, SummaryRow, PRESET_LABELS } from "./shared";
 import type { FitWarning, ContactPoint, SeatpostType } from "../types";
@@ -39,6 +39,8 @@ export interface ResultsColumnProps {
   mannequin: MannequinSketch;
   /** Slot for the fit history panel (track D). Rendered at the bottom of the column. */
   historySlot?: React.ReactNode;
+  /** Comparison fit metrics (D-ui): shown as +n / −n beside each summary row. */
+  compareMetrics?: Partial<Record<MetricId, number>>;
 }
 
 const unitSplit = (v: string): { value: string; unit?: string } => {
@@ -48,7 +50,7 @@ const unitSplit = (v: string): { value: string; unit?: string } => {
 
 const ANGLE_METRICS: MetricId[] = ["knee_ext_bdc", "knee_flex_tdc", "hip", "trunk", "shoulder", "elbow_flex"];
 
-export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fullscreen, issueCount, actualSaddleY, saddleDelta, idealSaddleY, saddleWarning, severityTone, kneeFlex, fitMode, riderFit, kneeTone, hoodsWarning, barReachNeededValue, barReachDelta, components, barReachTone, bbToSaddleDistance, seatpostExtension, strokeMetrics, targetTrunkAngleDeg, preset, warnings, bike, seatpostRec, frameGeometryRows, mannequin, historySlot }) => {
+export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fullscreen, issueCount, actualSaddleY, saddleDelta, idealSaddleY, saddleWarning, severityTone, kneeFlex, fitMode, riderFit, kneeTone, hoodsWarning, barReachNeededValue, barReachDelta, components, barReachTone, bbToSaddleDistance, seatpostExtension, strokeMetrics, targetTrunkAngleDeg, preset, warnings, bike, seatpostRec, frameGeometryRows, mannequin, historySlot, compareMetrics }) => {
   const angleValues = computeAll({ m: mannequin, lut: strokeMetrics, pts: new Map() });
   const angleStatuses = {
     total: ANGLE_METRICS.length,
@@ -72,48 +74,27 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
           </div>
           <span className="fit-summary__count">{angleStatuses.in} of {angleStatuses.total} in band</span>
         </div>
-        <SummaryRow
-          label="Saddle height"
-          value={`${actualSaddleY.toFixed(0)} mm`}
-          caption={`${saddleDelta >= 0 ? "+" : ""}${saddleDelta.toFixed(0)} mm vs ideal ${idealSaddleY.toFixed(0)}`}
-          tone={saddleWarning ? severityTone(saddleWarning.severity) : "muted"}
-        />
-        <SummaryRow
-          label="Knee flex at BDC"
-          value={`${kneeFlex.toFixed(1)}°`}
-          caption={
-            fitMode === "contact"
-              ? `target ${riderFit.targetKneeFlexDeg}°`
-              : "follows saddle height"
-          }
-          tone={kneeTone}
-        />
-        <SummaryRow
-          label="Hoods position"
-          value={
-            hoodsWarning
-              ? hoodsWarning.severity === "ok"
-                ? "On target"
-                : `${hoodsWarning.distance.toFixed(0)} mm off`
-              : "—"
-          }
-          caption={
-            hoodsWarning && hoodsWarning.severity !== "ok"
-              ? `ΔX ${hoodsWarning.deltaX.toFixed(0)} · ΔY ${hoodsWarning.deltaY.toFixed(0)} mm`
-              : undefined
-          }
-          tone={hoodsWarning ? severityTone(hoodsWarning.severity) : "muted"}
-        />
-        <SummaryRow
-          label="Bar reach"
-          value={barReachNeededValue !== null ? `${Math.round(barReachNeededValue)} mm needed` : "Out of range"}
-          caption={
-            barReachDelta !== null
-              ? `${barReachDelta >= 0 ? "+" : ""}${Math.round(barReachDelta)} mm vs current ${components.bar_reach}`
-              : undefined
-          }
-          tone={barReachTone}
-        />
+        {ANGLE_METRICS.map((id) => {
+          const v = angleValues[id];
+          if (v == null) return null;
+          const d = METRIC_BY_ID[id];
+          const st = metricStatus(id, v, POSTURE_PRESET);
+          const was = compareMetrics?.[id];
+          const delta = was != null ? formatDelta(id, v - was) : "";
+          return (
+            <div key={id} className="fit-summary__row">
+              {st ? <StatusDot status={st} /> : <span />}
+              <div className="fit-summary__text">
+                <span className="fit-summary__label">{d.short.charAt(0) + d.short.slice(1).toLowerCase()}</span>
+              </div>
+              <strong className="fit-summary__value">
+                {formatMetric(id, v)}
+                <small>{d.unit}</small>
+              </strong>
+              <i className="fit-summary__delta">{delta.replace(/^[▲▼] /, (m) => (m.startsWith("▲") ? "+" : "−"))}</i>
+            </div>
+          );
+        })}
       </div>
 
       <CollapsibleSection eyebrow="Fit Analysis" title="Ideal vs actual" defaultOpen={false}>

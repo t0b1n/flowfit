@@ -254,7 +254,7 @@
 
 .fit-summary__row {
   display: grid;
-  grid-template-columns: 12px 1fr auto;
+  grid-template-columns: 12px 1fr auto 34px;
   align-items: baseline;
   gap: 6px;
   padding: 7px 0;
@@ -298,6 +298,13 @@
 .fit-summary__value {
   font: 500 12.5px var(--font-mono);
   white-space: nowrap;
+}
+
+.fit-summary__delta {
+  font: 400 11px var(--font-mono);
+  font-style: normal;
+  text-align: right;
+  color: var(--accent-text);
 }
 
 .fit-summary__value small {
