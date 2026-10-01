@@ -1202,7 +1202,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [scrubDeg, setScrubDeg] = useState(0);
   // Analytics layers
   const [showAngles, setShowAngles] = useState(true);
-  const [showDimensions, setShowDimensions] = useState(false);
+  const [showDimensions, setShowDimensions] = useState(true);
   const [showKops, setShowKops] = useState(false);
   const [discWheels, setDiscWheels] = useState(false);
   // Aero tools
