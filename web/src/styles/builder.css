@@ -68,11 +68,10 @@
 .mode-layout--builder {
   position: relative;
   z-index: 1;
-  max-width: 1500px;
-  margin: 0 auto;
+  margin: 0 -20px;
   display: grid;
-  grid-template-columns: 280px 1fr 280px;
-  gap: 12px;
+  grid-template-columns: 272px 1fr 292px;
+  gap: 0;
   align-items: start;
 }
 
@@ -122,78 +121,51 @@
   }
 }
 
-/* ── Builder tiers (Rider → Posture → Bike) ───────────────────────────────── */
+/* ── Builder tiers (Rider → Posture → Bike): `[01] RIDER` ─────────────────── */
+
+/* Column chrome: no cards, hairline rules between regions */
+.mode-layout--builder .builder-left,
+.mode-layout--builder .builder-right {
+  top: 0;
+  max-height: 100vh;
+  padding: 18px 20px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.mode-layout--builder .builder-left {
+  border-right: 1px solid var(--faint);
+}
+
+.mode-layout--builder .builder-right {
+  border-left: 1px solid var(--faint);
+}
 
 .tier {
-  display: grid;
-  gap: 10px;
+  display: block;
 }
 
 .tier + .tier {
-  margin-top: 8px;
+  margin-top: var(--s-4);
 }
 
 .tier-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 2px 2px 0;
+  margin: 6px 0 10px;
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .tier-chip {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: var(--bg);
-}
-
-.tier--rider .tier-chip {
-  background: var(--teal);
-}
-
-.tier--frame .tier-chip {
-  background: var(--accent);
-}
-
-.tier-header__text {
-  display: grid;
-  line-height: 1.15;
-}
-
-.tier-header__text strong {
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.tier--rider .tier-header__text strong {
-  color: var(--teal);
-}
-
-.tier--frame .tier-header__text strong {
-  color: var(--accent);
-}
-
-.tier-header__text span {
-  font-size: 0.72rem;
-  color: var(--muted);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-
-.tier--rider .subpanel {
-  border-left: 3px solid color-mix(in srgb, var(--ink) 35%, transparent);
-}
-
-.tier--frame .subpanel {
-  border-left: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  padding: 1px 5px;
+  border: 1px solid var(--ink);
+  font-weight: 500;
+  color: var(--ink);
 }
 
 .subpanel-note--tight {
@@ -349,7 +321,9 @@
     max-height: 62vh;
     margin: 0;
     overflow-y: auto;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    box-shadow: var(--shadow-1);
+    border: 0;
+    border-top: 1px solid var(--faint);
+    background: var(--surface-2);
+    box-shadow: var(--shadow-pop);
   }
 }

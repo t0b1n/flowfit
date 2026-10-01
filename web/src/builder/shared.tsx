@@ -80,7 +80,7 @@ export const DEFAULT_FRAME_MEASUREMENT_VISIBILITY: FrameMeasurementVisibility = 
 export type ViewKind = "side" | "front" | "3d";
 export type SummaryTone = "ok" | "warn" | "bad" | "muted";
 
-// ── Tier header: numbers the conceptual flow (rider → posture → hardware) ────
+// ── Tier header: `[01] RIDER`, numbers the conceptual flow (rider → posture → hardware) ──
 
 export const Tier: React.FC<{
   n: number;
@@ -90,12 +90,9 @@ export const Tier: React.FC<{
   children: React.ReactNode;
 }> = ({ n, tone, title, desc, children }) => (
   <div className={`tier tier--${tone}`}>
-    <div className="tier-header">
-      <span className="tier-chip">{n}</span>
-      <div className="tier-header__text">
-        <strong>{title}</strong>
-        <span>{desc}</span>
-      </div>
+    <div className="tier-header" title={desc}>
+      <b className="tier-chip">{String(n).padStart(2, "0")}</b>
+      <span className="tier-header__title">{title}</span>
     </div>
     {children}
   </div>

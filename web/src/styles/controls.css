@@ -23,8 +23,7 @@
 }
 
 .field span {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font: 400 10.5px var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--muted);
@@ -32,12 +31,22 @@
 
 .field select {
   width: 100%;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--panel-strong);
-  padding: 0.7rem 0.8rem;
-  color: var(--text);
-  font-weight: 600;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: var(--surface);
+  padding: 8px 10px;
+  color: var(--ink);
+  font: 500 12.5px var(--font-sans);
+}
+
+.field select:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.ff-seg--block {
+  display: flex;
+  width: 100%;
 }
 
 .tab-row {
