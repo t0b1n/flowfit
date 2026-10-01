@@ -18,6 +18,7 @@ export interface Stage2DFrontProps {
   riderVisibility: RiderVisibility;
   weightKg: number;
   wheelRadius: number;
+  compare?: import("../fits/capture").CompareTarget | null;
 }
 
 
@@ -35,6 +36,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   strokeMetrics,
   weightKg,
   wheelRadius: R,
+  compare,
 }) => {
   const hs = rider.height / 1800;
   const wk = (sens: number) => hs * Math.pow(weightKg / 75, sens);
@@ -135,7 +137,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
           </>
         )}
       </svg>
-      <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} />
+      <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} was={compare?.metrics} />
     </div>
   );
 };
