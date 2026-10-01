@@ -1,6 +1,7 @@
 /* ── App shell: 56px top nav, hairline rules, no cards ─────────────────────── */
 
 .app-shell {
+  --shell-gutter: 0px; /* the builder cancels the shell gutter with this (see builder.css) */
   padding: 0;
   border-top: 0;
   overflow-x: clip;
