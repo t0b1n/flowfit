@@ -444,6 +444,7 @@ export const FitBuilderMode: React.FC = () => {
               strokeLUT={strokeMetrics}
               stanceWidth={components.stance_width ?? 155}
               postureBands={POSTURE_PRESET}
+              compare={history.compareTo ?? sessionSnapshot}
             />
           ) : view === "side" ? (
             <Stage2DSide showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
