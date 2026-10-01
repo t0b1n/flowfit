@@ -20,14 +20,15 @@ import {
   Geometry3DResponse,
   Geometry3DPoint,
   buildTubes,
-  buildMannequinParts,
+  buildBikeMeshes,
+  buildHoods,
   getWheelCenters,
   Tube3D,
-  MannequinPart3D,
   LEG_POINT_NAMES,
   LEG_EDGE_GROUPS,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
+import { buildRiderMeshes, type P3 } from "./riderMesh";
 import { MatsProvider, useMats } from "./scene3d/materials";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
@@ -451,198 +452,44 @@ function SaddleMesh({
   );
 }
 
-// ── Tube mesh (cylinder positioned between start and end) ─────────────────────
-
-function TubeMesh({ tube }: { tube: Tube3D }) {
+/** The static bike (tapered frame, curved fork, deep carbon rims, rotors, cassette, derailleur, chain, hoods). */
+function BikeStatic({
+  geo, tubes, wheelRadius, discRear,
+}: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; discRear: boolean }) {
   const M = useMats();
-  const [sx, sy, sz] = tube.start;
-  const [ex, ey, ez] = tube.end;
-
-  const start = new THREE.Vector3(sx, sy, sz);
-  const end = new THREE.Vector3(ex, ey, ez);
-  const dir = new THREE.Vector3().subVectors(end, start);
-  const length = dir.length();
-  if (length < 1) return null;
-
-  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-
-  // Quaternion: default cylinder axis is Y+, rotate to align with dir
-  const axis = new THREE.Vector3(0, 1, 0);
-  const quat = new THREE.Quaternion().setFromUnitVectors(axis, dir.clone().normalize());
-
-  return (
-    <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
-      <cylinderGeometry args={[tube.radius, tube.radius, length, 16, 1]} />
-      {COCKPIT_TUBE_NAMES.has(tube.name) ? M.carbon : M.frame}
-    </mesh>
+  const { bike, hoods } = useMemo(() => {
+    const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape };
+    return {
+      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear }),
+      hoods: buildHoods(geo.points, mats),
+    };
+  }, [geo, tubes, wheelRadius, discRear, M]);
+  useEffect(
+    () => () => {
+      for (const grp of [bike, hoods]) grp.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+    },
+    [bike, hoods],
   );
-}
-
-// ── Mannequin primitive meshes ──────────────────────────────────────────────
-
-function MannequinPartMesh({ part }: { part: MannequinPart3D }) {
-  const M = useMats();
-  if (part.type === "sphere") {
-    return <MannequinSphereMesh part={part} />;
-  }
-  // cylinder, tapered_cylinder, capsule all share directional positioning
-  const [sx, sy, sz] = part.start;
-  const [ex, ey, ez] = part.end;
-  const start = new THREE.Vector3(sx, sy, sz);
-  const end = new THREE.Vector3(ex, ey, ez);
-  const dir = new THREE.Vector3().subVectors(end, start);
-  const length = dir.length();
-  if (length < 1) return null;
-
-  const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-  const axis = new THREE.Vector3(0, 1, 0);
-  const quat = new THREE.Quaternion().setFromUnitVectors(axis, dir.clone().normalize());
-  const posArr = mid.toArray();
-  const quatArr = quat.toArray() as [number, number, number, number];
-
-  if (part.type === "capsule") {
-    const bodyLength = Math.max(0, length - part.radiusStart * 2);
-    return (
-      <group position={posArr} quaternion={quatArr}>
-        <mesh>
-          <capsuleGeometry args={[part.radiusStart, bodyLength, 16, 32]} />
-          {M.clay}
-        </mesh>
-      </group>
-    );
-  }
-
-  if (part.type === "tapered_cylinder") {
-    // Use average radius as a uniform capsule for rounded ends
-    const avgR = (part.radiusStart + part.radiusEnd) / 2;
-    const bodyLength = Math.max(0, length - avgR * 2);
-    return (
-      <group position={posArr} quaternion={quatArr}>
-        <mesh>
-          <capsuleGeometry args={[avgR, bodyLength, 16, 32]} />
-          {M.clay}
-        </mesh>
-      </group>
-    );
-  }
-
-  // cylinder — render as capsule for rounded ends
-  const bodyLength = Math.max(0, length - part.radiusStart * 2);
-  // Elliptical torso: widen laterally, narrow front-to-back
-  const isTorso = part.group === "mannequin_upper_torso" || part.group === "mannequin_lower_torso";
-  const meshScale: [number, number, number] = isTorso ? [0.85, 1.0, 1.2] : [1, 1, 1];
-  return (
-    <group position={posArr} quaternion={quatArr}>
-      <mesh scale={meshScale}>
-        <capsuleGeometry args={[part.radiusStart, bodyLength, 16, 32]} />
-        {M.clay}
-      </mesh>
-    </group>
-  );
-}
-
-function MannequinSphereMesh({ part }: { part: MannequinPart3D }) {
-  const M = useMats();
-  return (
-    <group position={part.start}>
-      <mesh>
-        <sphereGeometry args={[part.radiusStart, 32, 32]} />
-        {M.clay}
-      </mesh>
-    </group>
-  );
-}
-
-// ── Wheels ───────────────────────────────────────────────────────────────────
-
-const SPOKE_COUNT_3D = 24;
-
-/** Composed wheel: tyre torus + rim + brand accent line + hub + laced spokes */
-function Wheel3D({
-  center,
-  wheelRadius,
-  disc = false,
-}: {
-  center: [number, number, number];
-  wheelRadius: number;
-  disc?: boolean;
-}) {
-  const M = useMats();
-  const tyreRadius = 14; // visual tyre cross-section radius
-  const rimRadius = wheelRadius - tyreRadius * 2 - 4;
-
-  const spokes = Array.from({ length: SPOKE_COUNT_3D }, (_, i) => {
-    const a = (i / SPOKE_COUNT_3D) * Math.PI * 2;
-    // Alternate spokes between left/right hub flange for a laced look
-    const flangeZ = i % 2 === 0 ? 16 : -16;
-    const hubX = 20 * Math.cos(a);
-    const hubY = 20 * Math.sin(a);
-    const rimX = rimRadius * Math.cos(a);
-    const rimY = rimRadius * Math.sin(a);
-    const start = new THREE.Vector3(hubX, hubY, flangeZ);
-    const end = new THREE.Vector3(rimX, rimY, 0);
-    const dir = new THREE.Vector3().subVectors(end, start);
-    const len = dir.length();
-    const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-    const quat = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      dir.clone().normalize()
-    );
-    return (
-      <mesh key={i} position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
-        <cylinderGeometry args={[1.1, 1.1, len, 5, 1]} />
-        {M.spoke}
-      </mesh>
-    );
-  });
-
-  return (
-    <group position={center}>
-      {/* Tyre */}
-      <mesh>
-        <torusGeometry args={[wheelRadius - tyreRadius, tyreRadius, 18, 88]} />
-        {M.tyre}
-      </mesh>
-      {/* Rim */}
-      <mesh>
-        <torusGeometry args={[rimRadius + 6, 9, 4, 88]} />
-        {M.carbon}
-      </mesh>
-      {disc ? (
-        // Aero disc: shallow drum between hub and rim
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[rimRadius + 2, rimRadius + 2, 18, 48, 1]} />
-          {M.carbon}
-        </mesh>
-      ) : (
-        spokes
-      )}
-      {/* Hub shell along the axle */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[14, 14, 64, 16, 1]} />
-        {M.carbon}
-      </mesh>
-    </group>
-  );
-}
-
-function Wheels({
-  geo,
-  wheelRadius,
-  discRear,
-}: {
-  geo: Geometry3DResponse;
-  wheelRadius: number;
-  discRear: boolean;
-}) {
-  const { rear, front } = getWheelCenters(geo.points);
   return (
     <>
-      {/* Aero setup: disc rear, spoked front (a front disc is unrideable outdoors) */}
-      {rear && <Wheel3D center={rear} wheelRadius={wheelRadius} disc={discRear} />}
-      {front && <Wheel3D center={front} wheelRadius={wheelRadius} />}
+      <primitive object={bike} />
+      <primitive object={hoods} />
     </>
   );
+}
+
+/** The static clay rider (legs only when no stroke LUT is available; otherwise AnimatedLegs owns them). */
+function RiderStatic({ geo, weightKg, includeLegs }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean }) {
+  const M = useMats();
+  const group = useMemo(() => {
+    const pts = new Map(geo.points.filter((p) => p.group === "mannequin").map((p) => [p.name, p.pos as P3]));
+    return buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm: geo.rider?.height ?? 1800, includeLegs });
+  }, [geo, weightKg, includeLegs, M]);
+  useEffect(
+    () => () => group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()),
+    [group],
+  );
+  return <primitive object={group} />;
 }
 
 // ── Curved handlebar ─────────────────────────────────────────────────────────
@@ -773,36 +620,6 @@ function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
 }
 
 /** Rubber hood bodies extending forward from the hood contact points */
-function Hoods3D({ geo }: { geo: Geometry3DResponse }) {
-  const M = useMats();
-  const ptMap = new Map(geo.points.map((p) => [p.name, p.pos]));
-  return (
-    <group>
-      {(["l", "r"] as const).map((side) => {
-        const hood = ptMap.get(`hoods_${side}`);
-        const barTop = ptMap.get(`bar_top_${side}`);
-        if (!hood || !barTop) return null;
-        const from = new THREE.Vector3(...barTop);
-        const at = new THREE.Vector3(...hood);
-        const dir = new THREE.Vector3().subVectors(at, from).normalize();
-        const start = at.clone().addScaledVector(dir, -10);
-        const end = at.clone().addScaledVector(dir, 55).add(new THREE.Vector3(0, 8, 0));
-        const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-        const quat = new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0),
-          new THREE.Vector3().subVectors(end, start).normalize()
-        );
-        return (
-          <mesh key={side} position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
-            <capsuleGeometry args={[14, 42, 8, 16]} />
-            {M.tape}
-          </mesh>
-        );
-      })}
-    </group>
-  );
-}
-
 // ── Attached asset ────────────────────────────────────────────────────────────
 
 interface AttachedAsset {
@@ -1015,20 +832,6 @@ const SceneContent = React.memo(function SceneContent({
     };
   }, [geo]);
 
-  // Mannequin parts (sphere joints + cylinders + capsules + tapered).
-  // With a stroke LUT the legs are animated by <AnimatedLegs> instead, so they
-  // are excluded from the declarative part list.
-  const mannequinParts = useMemo(() => {
-    if (!showMannequin) return [];
-    const mannequinPts = geo.points.filter(
-      (p) => p.group === "mannequin" && !(strokeLUT && LEG_POINT_NAMES.has(p.name))
-    );
-    const mannequinEdges = geo.edges.filter(
-      (e) => e.group.startsWith("mannequin") && !(strokeLUT && LEG_EDGE_GROUPS.has(e.group))
-    );
-    return buildMannequinParts(mannequinPts, mannequinEdges, weightKg);
-  }, [geo, strokeLUT, weightKg, showMannequin]);
-
   const effPtMap = useMemo(
     () => new Map(geo.points.map((p) => [p.name, p.pos])),
     [geo]
@@ -1097,20 +900,14 @@ const SceneContent = React.memo(function SceneContent({
         </mesh>
       </group>
 
-      {/* Frame tubes */}
-      {frameTubes.map((tube, i) => (
-        <TubeMesh key={`frame-${i}`} tube={tube} />
-      ))}
+      {/* Bike: tapered frame, fork, wheels, drivetrain parts, hoods (see bike3d.ts) */}
+      <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discWheels} />
 
       {/* Swept handlebar */}
       <HandlebarMesh ptMap={framePtMap} />
 
-      {/* Mannequin body parts */}
-      <group name="mannequin-root">
-        {mannequinParts.map((part, i) => (
-          <MannequinPartMesh key={`mann-${i}`} part={part} />
-        ))}
-      </group>
+      {/* Clay rider (segmented lathe limbs; see riderMesh.ts) */}
+      {showMannequin && <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />}
 
       {/* Animated legs + crankset (replaces the static drivetrain while the
           stroke LUT is available) */}
@@ -1122,6 +919,7 @@ const SceneContent = React.memo(function SceneContent({
           bb={bbPt}
           halfStance={stanceWidth / 2}
           weightKg={weightKg}
+          heightMm={geo.rider?.height ?? 1800}
           crankAngleRef={crankAngleRef}
           playing={playing}
           cadenceRpm={cadenceRpm}
@@ -1130,12 +928,6 @@ const SceneContent = React.memo(function SceneContent({
       ) : (
         <Drivetrain3D points={geo.points} />
       )}
-
-      {/* Wheels */}
-      <Wheels geo={geo} wheelRadius={wheelRadius} discRear={discWheels} />
-
-      {/* Hood bodies */}
-      <Hoods3D geo={geo} />
 
       {/* Saddle */}
       <SaddleMesh geo={geo} saddleType={saddleType} />
