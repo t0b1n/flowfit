@@ -1,7 +1,7 @@
 /* FlowFit "Instrument" design tokens. The only CSS file (with tokens.ts) allowed to hold colour literals. */
 
 :root,
-:root[data-theme="light"] {
+[data-theme="light"] {
   color-scheme: light;
   --bg: #e6e1d8;
   --surface: #ede9e2;
@@ -26,7 +26,7 @@
   --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   color-scheme: dark;
   --bg: #111213;
   --surface: #18191b;

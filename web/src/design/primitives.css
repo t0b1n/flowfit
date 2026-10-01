@@ -804,3 +804,82 @@
 .ff-callout__unit {
   color: var(--muted);
 }
+
+/* ── /design page (dev only) ───────────────────────────────────────────────── */
+
+.ds-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+.ds-theme {
+  padding: var(--s-6);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+.ds-theme__title {
+  margin: 0 0 var(--s-4);
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.ds-block {
+  padding: var(--s-4) 0;
+  border-top: 1px solid var(--faint);
+}
+
+.ds-block__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4);
+  margin-top: var(--s-3);
+}
+
+.ds-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--s-2);
+  width: 100%;
+}
+
+.ds-swatch {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 0 var(--s-2);
+  font: 400 10.5px var(--font-mono);
+}
+
+.ds-swatch i {
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--faint);
+}
+
+.ds-swatch em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.ds-type {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.ds-stage {
+  position: relative;
+  width: 420px;
+  height: 220px;
+  background: var(--surface);
+}
+
+@media (max-width: 1100px) {
+  .ds-page {
+    grid-template-columns: 1fr;
+  }
+}

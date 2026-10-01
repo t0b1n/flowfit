@@ -19,6 +19,7 @@ import { LoginPage } from "./auth/LoginPage";
 import { RegisterPage } from "./auth/RegisterPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { CatalogProvider } from "./catalog/CatalogContext";
+import { DesignRoute } from "./design/DesignRoute";
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -90,6 +91,7 @@ export const App: React.FC = () => (
     <AuthProvider>
       <CatalogProvider>
         <Routes>
+          {import.meta.env.DEV && <Route path="/design" element={<DesignRoute />} />}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route
