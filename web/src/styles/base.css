@@ -1,33 +1,28 @@
 :root {
-  color-scheme: light;
-  --bg: #faf0e2;
-  --bg-2: #f0e0cc;
-  --panel: #fff8ef;
-  --panel-strong: #ffffff;
-  --panel-dark: #1a0800;
-  --panel-dark-2: #2d1500;
-  --border: rgba(240, 53, 0, 0.18);
-  --border-strong: rgba(240, 53, 0, 0.4);
-  --text: #1a0800;
-  --muted: rgba(26, 8, 0, 0.52);
-  --accent: #f03500;
-  --accent-soft: rgba(240, 53, 0, 0.08);
-  --teal: #005f6b;
-  --teal-soft: rgba(0, 95, 107, 0.1);
-  --compare-a: #f03500;
-  --compare-b: #0070a8;
-  /* Status colors — use these instead of hardcoded severity hexes */
-  --ok: #1e7d43;
-  --ok-soft: rgba(30, 125, 67, 0.12);
-  --warn: #d4880a;
-  --warn-soft: rgba(212, 136, 10, 0.14);
-  --bad: #c02828;
-  --bad-soft: rgba(192, 40, 40, 0.12);
-  /* Single elevation level: overlays, popovers, modals only — panels stay flat */
-  --shadow-1: 0 1px 2px rgba(26, 8, 0, 0.06), 0 6px 20px rgba(26, 8, 0, 0.1);
-  --radius-xl: 4px;
-  --radius-lg: 3px;
-  --radius-md: 2px;
+  /* Legacy names kept so existing rules keep working; all values come from design/tokens.css. */
+  --bg-2: var(--surface);
+  --panel: var(--surface);
+  --panel-strong: var(--surface-2);
+  --panel-dark: var(--surface);
+  --panel-dark-2: var(--surface-2);
+  --border: var(--faint);
+  --border-strong: color-mix(in srgb, var(--ink) 40%, transparent);
+  --text: var(--ink);
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, transparent);
+  --teal: var(--ink);
+  --teal-soft: var(--faint-2);
+  --compare-a: var(--ink);
+  --compare-b: var(--muted);
+  --ok: var(--band-in);
+  --ok-soft: color-mix(in srgb, var(--band-in) 12%, transparent);
+  --warn: var(--band-near);
+  --warn-soft: color-mix(in srgb, var(--band-near) 14%, transparent);
+  --bad: var(--band-out);
+  --bad-soft: color-mix(in srgb, var(--band-out) 12%, transparent);
+  --shadow-1: var(--shadow-pop);
+  --radius-xl: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
 }
 
 * {
@@ -44,7 +39,7 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Barlow Condensed", "Avenir Next", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 16px;
 }
 
@@ -75,13 +70,13 @@ a {
 }
 
 .eyebrow--light {
-  color: rgba(250, 240, 226, 0.68);
+  color: color-mix(in srgb, var(--ink) 68%, transparent);
 }
 
 .panel-header h2,
 .panel-header h3 {
   margin: 0;
-  font-family: "Barlow Condensed", "Avenir Next", sans-serif;
+  font-family: var(--font-sans);
   font-weight: 800;
   letter-spacing: 0.01em;
   text-transform: uppercase;

@@ -62,9 +62,9 @@
 .mode-tab--active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .mode-tab--active span {
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
 }

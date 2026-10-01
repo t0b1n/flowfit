@@ -3,7 +3,7 @@
   flex-wrap: wrap;
   gap: 14px;
   margin-top: 14px;
-  color: rgba(250, 240, 226, 0.75);
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
   font-size: 0.82rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -32,7 +32,7 @@
 }
 
 .legend-swatch--target {
-  background: rgba(255, 255, 255, 0.55);
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
 }
 
 .geometry-svg {
@@ -66,7 +66,7 @@
 }
 
 .geometry-ground {
-  stroke: rgba(255, 255, 255, 0.1);
+  stroke: color-mix(in srgb, var(--ink) 10%, transparent);
   stroke-width: 2;
   stroke-dasharray: 10 10;
 }
@@ -104,12 +104,12 @@
 .geometry-mannequin__line,
 .geometry-mannequin__head {
   fill: none;
-  stroke: rgba(250, 240, 226, 0.68);
+  stroke: color-mix(in srgb, var(--ink) 68%, transparent);
   stroke-linecap: round;
 }
 
 .geometry-mannequin__head {
-  fill: rgba(250, 240, 226, 0.06);
+  fill: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .geometry-guide {
@@ -119,30 +119,30 @@
 }
 
 .geometry-target {
-  stroke: rgba(255, 255, 255, 0.6);
+  stroke: color-mix(in srgb, var(--ink) 60%, transparent);
   stroke-width: 3;
 }
 
 .geometry-node--contact {
-  fill: #faf0e2;
-  stroke: rgba(26, 8, 0, 0.5);
+  fill: var(--surface);
+  stroke: color-mix(in srgb, var(--ink) 50%, transparent);
   stroke-width: 2;
 }
 
 .geometry-label {
-  fill: rgba(255, 255, 255, 0.92);
+  fill: color-mix(in srgb, var(--ink) 92%, transparent);
   font-size: 15px;
   font-weight: 700;
-  font-family: "Barlow Condensed", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   paint-order: stroke;
-  stroke: rgba(26, 8, 0, 0.75);
+  stroke: color-mix(in srgb, var(--surface) 75%, transparent);
   stroke-width: 3px;
 }
 
 .geometry-label--target {
-  fill: rgba(255, 255, 255, 0.78);
+  fill: color-mix(in srgb, var(--ink) 78%, transparent);
 }
 
 @media (max-width: 760px) {
@@ -154,56 +154,56 @@
 /* ── Geometry annotations ─────────────────────────────────────────────────── */
 
 .ann-line {
-  stroke: rgba(255, 255, 255, 0.5);
+  stroke: color-mix(in srgb, var(--ink) 50%, transparent);
   stroke-width: 1.5;
   fill: none;
 }
 
 .ann-ext {
-  stroke: rgba(255, 255, 255, 0.25);
+  stroke: color-mix(in srgb, var(--ink) 25%, transparent);
   stroke-width: 1;
   fill: none;
 }
 
 .ann-label {
-  fill: rgba(250, 240, 226, 0.82);
+  fill: color-mix(in srgb, var(--ink) 82%, transparent);
   font-size: 17px;
   font-weight: 700;
-  font-family: "Barlow Condensed", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   paint-order: stroke;
-  stroke: rgba(26, 8, 0, 0.75);
+  stroke: color-mix(in srgb, var(--surface) 75%, transparent);
   stroke-width: 3px;
 }
 
 /* Saddle silhouette */
 
 .geometry-saddle-body {
-  fill: rgba(250, 240, 226, 0.12);
-  stroke: #faf0e2;
+  fill: color-mix(in srgb, var(--ink) 12%, transparent);
+  stroke: var(--ink);
   stroke-width: 2;
 }
 
 .geometry-saddle-rail {
-  stroke: rgba(250, 240, 226, 0.45);
+  stroke: color-mix(in srgb, var(--ink) 45%, transparent);
   stroke-width: 1.5;
 }
 
 .geometry-saddle-clamp {
-  fill: rgba(250, 240, 226, 0.65);
-  stroke: rgba(26, 8, 0, 0.5);
+  fill: color-mix(in srgb, var(--ink) 65%, transparent);
+  stroke: color-mix(in srgb, var(--ink) 50%, transparent);
   stroke-width: 1.5;
 }
 
 .geometry-layer--a .geometry-saddle-body {
   stroke: var(--compare-a);
-  fill: rgba(240, 53, 0, 0.08);
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .geometry-layer--b .geometry-saddle-body {
   stroke: var(--compare-b);
-  fill: rgba(0, 112, 168, 0.08);
+  fill: color-mix(in srgb, var(--muted) 8%, transparent);
 }
 
 /* ── 2D bike detail: wheels, drivetrain, frame joints ─────────────────────── */
@@ -221,7 +221,7 @@
 }
 
 .geometry-hub {
-  fill: rgba(0, 0, 0, 0.35);
+  fill: color-mix(in srgb, var(--carbon) 35%, transparent);
   stroke-width: 3;
   opacity: 0.5;
 }
@@ -270,7 +270,7 @@
 }
 
 .geometry-joint {
-  stroke: rgba(0, 0, 0, 0.35);
+  stroke: color-mix(in srgb, var(--carbon) 35%, transparent);
   stroke-width: 1.5;
 }
 
@@ -287,7 +287,7 @@
 
 .geometry-mannequin__flesh {
   fill: none;
-  stroke: rgba(250, 240, 226, 0.055);
+  stroke: color-mix(in srgb, var(--ink) 5.5%, transparent);
   stroke-linecap: round;
 }
 
@@ -296,10 +296,10 @@
 .joint-angle__label {
   font-size: 26px;
   font-weight: 700;
-  font-family: "Barlow Condensed", sans-serif;
+  font-family: var(--font-sans);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   paint-order: stroke;
-  stroke: rgba(26, 8, 0, 0.85);
+  stroke: color-mix(in srgb, var(--surface) 85%, transparent);
   stroke-width: 5px;
 }

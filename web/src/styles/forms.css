@@ -89,7 +89,7 @@
 .modal textarea:focus {
   outline: none;
   border-color: var(--border-strong);
-  background: #fff;
+  background: var(--surface-2);
 }
 
 .auth-form input::placeholder,
@@ -110,7 +110,7 @@
 
 .auth-error {
   background: var(--bad-soft);
-  border: 1.5px solid rgba(192, 40, 40, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--band-out) 35%, transparent);
   color: var(--bad);
   border-radius: var(--radius-md);
   padding: 8px 10px;
@@ -127,7 +127,7 @@ ul.auth-error {
 
 .auth-success {
   background: var(--ok-soft);
-  border: 1.5px solid rgba(30, 125, 67, 0.35);
+  border: 1.5px solid color-mix(in srgb, var(--band-in) 35%, transparent);
   color: var(--ok);
   border-radius: var(--radius-md);
   padding: 8px 10px;
@@ -144,7 +144,7 @@ ul.auth-error {
 
 .primary-btn {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: 1.5px solid var(--accent);
   border-radius: var(--radius-md);
   padding: 0.7rem 1.1rem;
@@ -292,7 +292,7 @@ ul.auth-error {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(26, 8, 0, 0.45);
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;

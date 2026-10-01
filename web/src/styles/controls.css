@@ -40,7 +40,7 @@
 .ghost-button:hover,
 .preset-pill:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .ghost-button {
@@ -110,19 +110,19 @@
 .tab-pill--active {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .tab-pill--visual {
-  background: rgba(255, 255, 255, 0.08);
-  color: #faf0e2;
-  border-color: rgba(255, 255, 255, 0.18);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
 }
 
 .tab-pill--visual.tab-pill--active {
-  background: rgba(250, 240, 226, 0.18);
-  border-color: rgba(250, 240, 226, 0.55);
-  color: #faf0e2;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 55%, transparent);
+  color: var(--ink);
 }
 
 .overlay-drawer {
@@ -135,8 +135,8 @@
   display: grid;
   gap: 8px;
   padding: 12px 14px;
-  border: 1px solid rgba(250, 240, 226, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 .overlay-drawer__header {
@@ -152,7 +152,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(250, 240, 226, 0.72);
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
 .overlay-drawer__actions,
@@ -163,9 +163,9 @@
 }
 
 .overlay-chip {
-  border: 1px solid rgba(250, 240, 226, 0.22);
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   background: transparent;
-  color: rgba(250, 240, 226, 0.76);
+  color: color-mix(in srgb, var(--ink) 76%, transparent);
   padding: 0.35rem 0.55rem;
   font-size: 0.7rem;
   font-weight: 700;
@@ -176,19 +176,19 @@
 }
 
 .overlay-chip:hover {
-  border-color: rgba(250, 240, 226, 0.5);
-  color: #faf0e2;
+  border-color: color-mix(in srgb, var(--ink) 50%, transparent);
+  color: var(--ink);
 }
 
 .overlay-chip--active {
-  background: rgba(250, 240, 226, 0.16);
-  border-color: rgba(250, 240, 226, 0.58);
-  color: #faf0e2;
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 58%, transparent);
+  color: var(--ink);
 }
 
 .overlay-chip--action {
-  border-color: rgba(240, 53, 0, 0.35);
-  color: rgba(250, 240, 226, 0.88);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: color-mix(in srgb, var(--ink) 88%, transparent);
 }
 
 .subpanel-note {
@@ -201,7 +201,7 @@
 .preset-pill--active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .preset-pill--sm {
@@ -281,7 +281,7 @@
 
 .slider-card--target {
   background: var(--teal-soft);
-  border-color: rgba(0, 95, 107, 0.2);
+  border-color: color-mix(in srgb, var(--ink) 20%, transparent);
 }
 
 .slider-card__header,
@@ -342,16 +342,16 @@
 }
 
 .status-pill {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
 }
 
 .status-pill--live {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .error-pill {
-  border: 1.5px solid rgba(192, 40, 40, 0.3);
+  border: 1.5px solid color-mix(in srgb, var(--band-out) 30%, transparent);
   background: var(--bad-soft);
   color: var(--bad);
 }
@@ -370,8 +370,8 @@
 }
 
 .visual-panel .metric-card {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: color-mix(in srgb, var(--ink) 8%, transparent);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
 
 .metric-card__label {
@@ -386,7 +386,7 @@
 .visual-panel .metric-card__label,
 .visual-panel .metric-card__compare strong,
 .visual-panel .metric-card__delta {
-  color: #faf0e2;
+  color: var(--ink);
 }
 
 .metric-card__compare {
@@ -412,7 +412,7 @@
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #fff;
+  color: var(--bg);
   font-weight: 700;
 }
 
@@ -530,29 +530,29 @@
 
 .seg-control__btn--active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .seg-control--dark {
-  border-color: rgba(250, 240, 226, 0.25);
+  border-color: color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .seg-control--dark .seg-control__btn {
-  color: rgba(250, 240, 226, 0.78);
+  color: color-mix(in srgb, var(--ink) 78%, transparent);
 }
 
 .seg-control--dark .seg-control__btn + .seg-control__btn {
-  border-left-color: rgba(250, 240, 226, 0.25);
+  border-left-color: color-mix(in srgb, var(--ink) 25%, transparent);
 }
 
 .seg-control--dark .seg-control__btn:hover:not(.seg-control__btn--active) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #faf0e2;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
 }
 
 .seg-control--dark .seg-control__btn--active {
-  background: rgba(250, 240, 226, 0.18);
-  color: #faf0e2;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  color: var(--ink);
 }
 
 /* ── Visualization toolbar + layers popover ───────────────────────────────── */
@@ -578,7 +578,7 @@
   gap: 10px;
   padding: 12px;
   background: var(--panel-dark-2);
-  border: 1px solid rgba(250, 240, 226, 0.18);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-1);
 }
@@ -599,5 +599,5 @@
 
 .add-bike-form label:has(.field-error) input,
 .add-bike-form label:has(.field-error) textarea {
-  border-color: rgba(192, 40, 40, 0.55);
+  border-color: color-mix(in srgb, var(--band-out) 55%, transparent);
 }
