@@ -71,7 +71,7 @@ export const JointAngleArc: React.FC<{
   joint: ContactPoint;
   a: ContactPoint;
   b: ContactPoint;
-  label: string;
+  label?: string;
   color: string;
   radius?: number;
   labelRadiusFactor?: number;
@@ -97,16 +97,18 @@ export const JointAngleArc: React.FC<{
         strokeWidth={2.5}
         opacity={0.9}
       />
-      <text
-        x={jx + lr * Math.cos(mid)}
-        y={jy + lr * Math.sin(mid)}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="joint-angle__label"
-        style={{ fill: color }}
-      >
-        {label}
-      </text>
+      {label && (
+        <text
+          x={jx + lr * Math.cos(mid)}
+          y={jy + lr * Math.sin(mid)}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="joint-angle__label"
+          style={{ fill: color }}
+        >
+          {label}
+        </text>
+      )}
     </g>
   );
 };

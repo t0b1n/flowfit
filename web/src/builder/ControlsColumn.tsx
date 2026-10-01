@@ -1,4 +1,5 @@
 import React from "react";
+import { Segmented } from "../design/Segmented";
 import { CollapsibleSection } from "../components/CollapsibleSection";
 import { HOOD_PRESETS } from "../components/hoodPresets";
 import { PresetPills } from "../components/PresetPills";
@@ -65,24 +66,16 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
       >
         <Tier n={1} tone="rider" title="Rider" desc="Who is being fitted">
           <CollapsibleSection eyebrow="Rider" title="Fit targets">
-            <div className="seg-control" role="tablist" aria-label="Fit target mode">
-              <button
-                role="tab"
-                aria-selected={fitMode === "contact"}
-                className={`seg-control__btn${fitMode === "contact" ? " seg-control__btn--active" : ""}`}
-                onClick={() => handleFitModeChange("contact")}
-              >
-                Knee flex
-              </button>
-              <button
-                role="tab"
-                aria-selected={fitMode === "saddle_height"}
-                className={`seg-control__btn${fitMode === "saddle_height" ? " seg-control__btn--active" : ""}`}
-                onClick={() => handleFitModeChange("saddle_height")}
-              >
-                Saddle height
-              </button>
-            </div>
+            <Segmented
+              ariaLabel="Fit target mode"
+              className="ff-seg--block"
+              value={fitMode}
+              onChange={handleFitModeChange}
+              options={[
+                { id: "contact", label: "Knee flex" },
+                { id: "saddle_height", label: "Saddle height" },
+              ]}
+            />
             <p className="subpanel-note subpanel-note--tight">
               {fitMode === "contact"
                 ? `Saddle height follows knee flex → ${idealSaddleY.toFixed(0)} mm`

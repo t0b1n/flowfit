@@ -1,4 +1,6 @@
 import React from "react";
+import { Pill } from "../design/Pill";
+import { Segmented } from "../design/Segmented";
 import { FRAME_MEASUREMENT_IDS, type FrameMeasurementId } from "../BikeAnnotations";
 import { ViewKind, RiderVisibilityPart, RIDER_VISIBILITY_LABELS, FRAME_MEASUREMENT_LABELS } from "./shared";
 import { RiderVisibility } from "./shared";
@@ -27,38 +29,34 @@ export interface StageToolbarProps {
   toggleFrameMeasurement: (measurement: FrameMeasurementId) => void;
   fullscreen: boolean;
   setFullscreen: (value: React.SetStateAction<boolean>) => void;
+  /** Slot for the compare menu (track D). */
+  compareSlot?: React.ReactNode;
+  showKops?: boolean;
+  setShowKops?: (value: React.SetStateAction<boolean>) => void;
 }
 
-export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, viewOptions, view, setView, view3d, layersRef, layersOpen, setLayersOpen, setAllRiderVisibility, riderVisibility, toggleRiderVisibility, showJointAngles, setShowJointAngles, showFitPositions, setShowFitPositions, showFrameGeometry, setShowFrameGeometry, setAllFrameMeasurements, frameMeasurementVisibility, toggleFrameMeasurement, fullscreen, setFullscreen }) => {
+export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, viewOptions, view, setView, view3d, layersRef, layersOpen, setLayersOpen, setAllRiderVisibility, riderVisibility, toggleRiderVisibility, showJointAngles, setShowJointAngles, showFitPositions, setShowFitPositions, showFrameGeometry, setShowFrameGeometry, setAllFrameMeasurements, frameMeasurementVisibility, toggleFrameMeasurement, fullscreen, setFullscreen, compareSlot, showKops, setShowKops }) => {
   return (
-    <div className="panel-header">
-          <div>
-            <div className="eyebrow eyebrow--light">Fit Builder</div>
-            <h2>{model.brand} {model.model} {sizeData.size}</h2>
+    <div className="stage-bar">
+          <div className="stage-bar__title">
+            Fit Builder · <b>{model.brand} {model.model} {sizeData.size}</b>
           </div>
           <div className="viz-toolbar">
-            <div className="seg-control seg-control--dark" role="tablist" aria-label="View">
-              {viewOptions.map((opt) => (
-                <button
-                  key={opt.id}
-                  role="tab"
-                  aria-selected={view === opt.id}
-                  className={`seg-control__btn${view === opt.id ? " seg-control__btn--active" : ""}`}
-                  onClick={() => setView(opt.id)}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              ariaLabel="View"
+              value={view}
+              onChange={setView}
+              options={viewOptions}
+            />
             {!view3d && (
               <div className="layers-anchor" ref={layersRef}>
-                <button
-                  className={`tab-pill tab-pill--visual${layersOpen ? " tab-pill--active" : ""}`}
+                <Pill
+                  variant={layersOpen ? "active" : "ghost"}
                   aria-expanded={layersOpen}
                   onClick={() => setLayersOpen((v) => !v)}
                 >
                   Layers ▾
-                </button>
+                </Pill>
                 {layersOpen && (
                   <div className="layers-popover">
                     <div className="overlay-drawer__section">
@@ -137,13 +135,30 @@ export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, vie
                 )}
               </div>
             )}
-            <button
-              className="tab-pill tab-pill--visual"
+            {!view3d && (
+              <>
+                <Pill variant={showJointAngles ? "active" : "ghost"} onClick={() => setShowJointAngles((v) => !v)}>
+                  Angles
+                </Pill>
+                <Pill variant={showFitPositions ? "active" : "ghost"} onClick={() => setShowFitPositions((v) => !v)}>
+                  Dimensions
+                </Pill>
+                {setShowKops && (
+                  <Pill variant={showKops ? "active" : "ghost"} onClick={() => setShowKops((v) => !v)}>
+                    KOPS
+                  </Pill>
+                )}
+              </>
+            )}
+            <span className="stage-bar__spacer" />
+            {compareSlot}
+            <Pill
               title={fullscreen ? "Show controls" : "Hide controls"}
+              aria-pressed={fullscreen}
               onClick={() => setFullscreen((v) => !v)}
             >
               {fullscreen ? "⊠" : "⛶"}
-            </button>
+            </Pill>
           </div>
         </div>
   );

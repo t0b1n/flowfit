@@ -23,8 +23,7 @@
 }
 
 .field span {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font: 400 10.5px var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--muted);
@@ -32,12 +31,22 @@
 
 .field select {
   width: 100%;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--panel-strong);
-  padding: 0.7rem 0.8rem;
-  color: var(--text);
-  font-weight: 600;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: var(--surface);
+  padding: 8px 10px;
+  color: var(--ink);
+  font: 500 12.5px var(--font-sans);
+}
+
+.field select:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.ff-seg--block {
+  display: flex;
+  width: 100%;
 }
 
 .tab-row {
@@ -89,10 +98,14 @@
 
 .overlay-drawer__section {
   display: grid;
-  gap: 8px;
-  padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
-  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--faint-2);
+}
+
+.overlay-drawer__section:first-child {
+  padding-top: 0;
+  border-top: 0;
 }
 
 .overlay-drawer__header {
@@ -104,47 +117,44 @@
 }
 
 .overlay-drawer__header span {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font: 400 10px var(--font-mono);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  color: var(--muted);
 }
 
 .overlay-drawer__actions,
 .overlay-chip-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .overlay-chip {
-  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border: 1px solid var(--faint);
+  border-radius: 0;
   background: transparent;
-  color: color-mix(in srgb, var(--ink) 76%, transparent);
-  padding: 0.35rem 0.55rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 4px 8px;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
 .overlay-chip:hover {
-  border-color: color-mix(in srgb, var(--ink) 50%, transparent);
+  border-color: var(--ink);
   color: var(--ink);
 }
 
 .overlay-chip--active {
-  background: color-mix(in srgb, var(--ink) 16%, transparent);
-  border-color: color-mix(in srgb, var(--ink) 58%, transparent);
-  color: var(--ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
 }
 
 .overlay-chip--action {
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  color: color-mix(in srgb, var(--ink) 88%, transparent);
+  color: var(--ink);
 }
 
 .subpanel-note {
@@ -282,9 +292,10 @@
 
 .viz-toolbar {
   display: flex;
+  flex: 1;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: var(--s-2);
+  min-width: 0;
 }
 
 .layers-anchor {
@@ -294,16 +305,15 @@
 .layers-popover {
   position: absolute;
   top: calc(100% + 6px);
-  right: 0;
+  left: 0;
   z-index: 30;
   width: min(360px, 82vw);
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  background: var(--panel-dark-2);
-  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  gap: var(--s-3);
+  padding: var(--s-3);
+  background: var(--surface-2);
+  border: 1px solid var(--faint);
+  box-shadow: var(--shadow-pop);
 }
 
 /* Light selector panels can host collapsible sections directly */
