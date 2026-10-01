@@ -19,57 +19,47 @@ import { LoginPage } from "./auth/LoginPage";
 import { RegisterPage } from "./auth/RegisterPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { CatalogProvider } from "./catalog/CatalogContext";
+import { BrandMark } from "./design/BrandMark";
 import { DesignRoute } from "./design/DesignRoute";
+import { ThemeToggle } from "./design/ThemeToggle";
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
+  const tab = ({ isActive }: { isActive: boolean }) => `top-tab${isActive ? " top-tab--active" : ""}`;
 
   return (
-    <header className="mode-nav">
-      <div className="mode-nav__brand">
-        <div className="eyebrow">Contact-point bike fitting</div>
-        <h1>FlowFit</h1>
-      </div>
-      <nav className="mode-nav__tabs">
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) => `mode-tab ${isActive ? "mode-tab--active" : ""}`}
-        >
-          <strong>Fit Builder</strong>
-          <span>Body → ideal contact points</span>
+    <header className="top-nav">
+      <Link to="/" className="top-nav__brand" aria-label="FlowFit home">
+        <BrandMark />
+      </Link>
+      <nav className="top-nav__tabs" aria-label="Modes">
+        <NavLink to="/" end className={tab}>
+          Fit Builder
         </NavLink>
-        <NavLink
-          to="/transfer"
-          className={({ isActive }) => `mode-tab ${isActive ? "mode-tab--active" : ""}`}
-        >
-          <strong>Fit Transfer</strong>
-          <span>Frame A setup → Frame B components</span>
+        <NavLink to="/transfer" className={tab}>
+          Fit Transfer
         </NavLink>
-        <NavLink
-          to="/add"
-          className={({ isActive }) => `mode-tab ${isActive ? "mode-tab--active" : ""}`}
-        >
-          <strong>Add bike</strong>
-          <span>{user ? "Contribute a frame to the catalog" : "Sign in to contribute a frame"}</span>
+        <NavLink to="/add" className={tab}>
+          Add Bike
         </NavLink>
       </nav>
-      <div className="mode-nav__auth">
+      <div className="top-nav__right">
+        <ThemeToggle />
         {user ? (
           <>
-            <Link to="/profile" className="link-btn">
+            <Link to="/profile" className="top-nav__account" title="Profile">
               {user.email}
             </Link>
-            <button className="link-btn" onClick={logout}>
+            <button type="button" className="ff-pill ff-pill--ghost" onClick={logout}>
               Sign out
             </button>
           </>
         ) : (
           <>
-            <Link to="/login" className="link-btn">
+            <Link to="/login" className="ff-pill ff-pill--ghost">
               Sign in
             </Link>
-            <Link to="/register" className="link-btn">
+            <Link to="/register" className="ff-pill ff-pill--ghost">
               Register
             </Link>
           </>
@@ -79,10 +69,11 @@ const Header: React.FC = () => {
   );
 };
 
-const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+/** `bleed` pages (the builder) manage their own full-width columns; the rest sit in a padded page. */
+const Shell: React.FC<{ children: React.ReactNode; bleed?: boolean }> = ({ children, bleed }) => (
   <div className="app-shell">
     <Header />
-    <main>{children}</main>
+    <main className={`app-main${bleed ? " app-main--bleed" : ""}`}>{children}</main>
   </div>
 );
 
@@ -97,7 +88,7 @@ export const App: React.FC = () => (
           <Route
             path="/"
             element={
-              <Shell>
+              <Shell bleed>
                 <FitBuilderMode />
               </Shell>
             }

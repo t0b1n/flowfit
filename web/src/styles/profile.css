@@ -1,4 +1,4 @@
-/* Profile */
+/* ── Profile ───────────────────────────────────────────────────────────────── */
 
 .profile-page {
   max-width: 760px;
@@ -10,60 +10,56 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: var(--s-4);
+  margin-bottom: var(--s-6);
 }
 
 .profile-page__header h1 {
-  margin: 4px 0 0;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  color: var(--accent);
-  font-size: 1.7rem;
-  line-height: 1.1;
+  margin: 6px 0 0;
+  font: 600 24px/1.2 var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
   word-break: break-all;
 }
 
 .profile-page__header p {
   margin: 6px 0 0;
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.1em;
   color: var(--muted);
-  font-size: 0.9rem;
 }
 
-.profile-page h2 {
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--accent);
-  font-size: 1.15rem;
+.profile-section {
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--faint);
 }
 
-.profile-bikes {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 8px;
+.profile-section .ff-spec {
+  margin-top: var(--s-2);
 }
 
-.profile-bikes li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--panel-strong);
+.profile-section__manage {
+  display: inline-flex;
+  margin-top: var(--s-4);
+  text-decoration: none;
 }
 
 .empty-state {
-  border: 1.5px dashed var(--border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  padding: 28px 20px;
-  text-align: center;
-  color: var(--muted);
   display: grid;
-  gap: 12px;
-  justify-items: center;
+  gap: var(--s-3);
+  justify-items: start;
+  margin-top: var(--s-3);
+  padding: var(--s-5);
+  border: 1px solid var(--faint);
+  font: 400 12.5px var(--font-sans);
+  color: var(--muted);
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.empty-state .primary-btn {
+  text-decoration: none;
 }

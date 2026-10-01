@@ -250,3 +250,202 @@
 @keyframes solve-pulse {
   50% { opacity: 0.35; }
 }
+
+/* ── Instrument restyle: flat panels, hairlines, A = ink solid, B = ink dashed, accent = differences ── */
+
+.mode-layout--transfer {
+  max-width: none;
+  margin: 0;
+  gap: var(--s-6);
+}
+
+.mode-layout--transfer .selector-panel {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.mode-layout--transfer .eyebrow {
+  font: 400 10.5px var(--font-mono);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.mode-layout--transfer .panel-header h2,
+.mode-layout--transfer .panel-header h3 {
+  margin-top: 4px;
+  font: 600 15px var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.mode-layout--transfer .visual-panel {
+  padding: var(--s-4);
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.mode-layout--transfer .visual-stage {
+  margin-top: var(--s-3);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.bike-card {
+  padding: var(--s-3) 0 0;
+  border: 0;
+  border-top: 1px solid var(--faint);
+  background: none;
+}
+
+.bike-card--a,
+.bike-card--b {
+  border-left: 0;
+}
+
+.bike-card--a {
+  border-top: 2px solid var(--ink);
+}
+
+.bike-card--b {
+  border-top: 2px dashed var(--ink);
+}
+
+.bike-card__header strong {
+  font: 600 13px var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.bike-card__meta span {
+  padding: 3px 6px;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.metric-card__tag {
+  padding: 2px 6px;
+  border-radius: 0;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.metric-card__tag--a {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.metric-card__tag--b {
+  background: transparent;
+  color: var(--ink);
+  border: 1px dashed var(--ink);
+}
+
+.solver-block {
+  padding: var(--s-3);
+  border: 1px dashed var(--faint);
+  border-radius: 0;
+  background: none;
+}
+
+.solver-block__header > span {
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.lock-btn {
+  border-radius: 0;
+  border-color: var(--faint);
+}
+
+.lock-btn:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.lock-btn--locked {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.state-chip {
+  padding: 1px 5px;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: none;
+  font: 500 9px var(--font-mono);
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.state-chip--solver {
+  background: none;
+  color: var(--muted);
+}
+
+.state-chip--pinned {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.state-chip--tweaked {
+  background: none;
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.reset-mini:hover {
+  color: var(--ink);
+}
+
+.solve-status {
+  margin-top: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: none;
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.06em;
+}
+
+.solve-status strong {
+  font: 500 10.5px var(--font-mono);
+  letter-spacing: 0.14em;
+}
+
+.solve-status--live .solve-status__dot {
+  background: var(--ink);
+}
+
+.solve-status__residuals {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Overlay: Frame A solid ink, Frame B dashed ink; the A→B connectors (differences) are accent */
+.mode-layout--transfer .geometry-layer--a .geometry-wheel,
+.mode-layout--transfer .geometry-layer--a .geometry-tyre,
+.mode-layout--transfer .geometry-layer--a .geometry-frame,
+.mode-layout--transfer .geometry-layer--a .geometry-guide {
+  stroke: var(--ink);
+}
+
+.mode-layout--transfer .geometry-layer--b .geometry-wheel,
+.mode-layout--transfer .geometry-layer--b .geometry-tyre,
+.mode-layout--transfer .geometry-layer--b .geometry-frame,
+.mode-layout--transfer .geometry-layer--b .geometry-guide {
+  stroke: var(--ink);
+  stroke-dasharray: 14 8;
+}
