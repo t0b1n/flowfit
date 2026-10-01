@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useRef } from "react";
 import { BikeFitAnnotations, BikeGeometryAnnotations, type FrameMeasurementVisibility } from "../BikeAnnotations";
-import { JointAngleArc } from "../components/BikeParts2D";
 import type { FrameGeometry, SizeData } from "../frameCatalog";
 import type { buildRider, PedalStrokeLUT } from "../geometry";
 import type { BikeSketch, Components, ContactPoint, FitWarning, MannequinSketch } from "../types";
 import { CockpitDrawing, DrivetrainFar, FrameDrawing, NearHardware, Wheel } from "./BikeDrawing2D";
-import { buildFigure, v } from "./draw2d";
+import { buildFigure, v, type V } from "./draw2d";
+import { StageOverlay } from "./StageOverlay";
+import { METRICS, useMetricFocus } from "../fitMetrics";
 import type { RiderVisibility } from "./shared";
 
 export interface Stage2DSideProps {
@@ -58,6 +59,28 @@ const Ruler: React.FC<{ minX: number; maxX: number; groundY: number; marks: Arra
   );
 };
 
+/** Hairline interior-angle arc at `v` between rays to `a` and `c`; the focused one also draws its rays. */
+const MetricArcShape: React.FC<{ v: V; a: V; c: V; kind: "hot" | "pin" | "dim" }> = ({ v: vx, a, c, kind }) => {
+  const r = 70;
+  const a1 = Math.atan2(-a.y + vx.y, a.x - vx.x);
+  const a2 = Math.atan2(-c.y + vx.y, c.x - vx.x);
+  let d = a2 - a1;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d <= -Math.PI) d += Math.PI * 2;
+  const p = (ang: number) => `${vx.x + r * Math.cos(ang)} ${-vx.y + r * Math.sin(ang)}`;
+  return (
+    <g className={`s2d-arc s2d-arc--${kind}`}>
+      <path d={`M ${p(a1)} A ${r} ${r} 0 0 ${d > 0 ? 1 : 0} ${p(a2)}`} fill="none" />
+      {kind === "hot" && (
+        <>
+          <line x1={vx.x} y1={-vx.y} x2={vx.x + 1.6 * r * Math.cos(a1)} y2={-vx.y + 1.6 * r * Math.sin(a1)} />
+          <line x1={vx.x} y1={-vx.y} x2={vx.x + 1.6 * r * Math.cos(a2)} y2={-vx.y + 1.6 * r * Math.sin(a2)} />
+        </>
+      )}
+    </g>
+  );
+};
+
 export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   viewBox,
   activeBounds,
@@ -78,6 +101,8 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   sizeData,
   frameMeasurementVisibility,
 }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const { focused, pinned } = useMetricFocus();
   const R = effectiveFrame.wheel_radius;
   const farPose = strokeMetrics.poses[0];
   const fig = buildFigure({
@@ -90,11 +115,10 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   });
   const polys = (list: string[], cls = "s2d-clay") => list.map((p, i) => <polygon key={i} className={cls} points={p} />);
   const visibleParts = riderVisibility;
-  const footLenVis = rider.foot_length * (rider.height / 1800) * 0.19;
-  const nearKnee = { joint: mannequin.knee, a: mannequin.hip, b: v(bike.cleat.x - footLenVis, mannequin.ankle.y) };
 
   return (
-    <svg viewBox={viewBox} className="geometry-svg s2d">
+    <div className="s2d-wrap">
+    <svg ref={svgRef} viewBox={viewBox} className="geometry-svg s2d">
       <line className="s2d-ground" x1={activeBounds.minX} y1={groundY} x2={activeBounds.maxX} y2={groundY} />
       <Ruler
         minX={activeBounds.minX}
@@ -139,11 +163,20 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
           {fig.joints.map((j, i) => (
             <circle key={i} className="s2d-joint" cx={j.x} cy={-j.y} r={9} />
           ))}
-          <JointAngleArc {...nearKnee} color="var(--ink)" />
-          <JointAngleArc joint={mannequin.hip} a={mannequin.shoulder} b={v(mannequin.hip.x + 300, mannequin.hip.y)} color="var(--ink)" radius={90} />
-          <JointAngleArc joint={mannequin.elbow} a={mannequin.shoulder} b={mannequin.wrist} color="var(--ink)" radius={52} />
         </g>
       )}
+
+      {/* metric arcs: focused in accent (with rays), pinned in ink 60%, the rest only with ANGLES (ink 35%) */}
+      <g>
+        {METRICS.map((d) => {
+          const arc = d.arc?.({ m: mannequin, lut: strokeMetrics, pts: new Map() });
+          if (!arc) return null;
+          const isFocus = d.id === focused;
+          const isPin = pinned.includes(d.id);
+          if (!isFocus && !isPin && !showJointAngles) return null;
+          return <MetricArcShape key={d.id} {...arc} kind={isFocus ? "hot" : isPin ? "pin" : "dim"} />;
+        })}
+      </g>
 
       {/* ideal contacts: registration crosshairs */}
       {visibleParts.contactMarkers &&
@@ -185,5 +218,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         />
       )}
     </svg>
+      <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} svgRef={svgRef} viewBox={viewBox} />
+    </div>
   );
 };

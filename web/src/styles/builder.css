@@ -107,6 +107,7 @@
 }
 
 .mode-layout--builder .visual-stage {
+  position: relative;
   margin: 0;
   border: 0;
   border-radius: 0;

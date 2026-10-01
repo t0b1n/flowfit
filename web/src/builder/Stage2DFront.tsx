@@ -1,4 +1,7 @@
 import React from "react";
+import type { BikeSketch } from "../types";
+import type { PedalStrokeLUT } from "../geometry";
+import { StageOverlay } from "./StageOverlay";
 import type { buildFrontalMannequin, buildRider } from "../geometry";
 import { RiderVisibility } from "./shared";
 import type { Components, MannequinSketch } from "../types";
@@ -8,12 +11,15 @@ export interface Stage2DFrontProps {
   components: Components;
   mannequin: MannequinSketch;
   groundY: number;
+  bike: BikeSketch;
+  strokeMetrics: PedalStrokeLUT;
   riderVisibility: RiderVisibility;
 }
 
-export const Stage2DFront: React.FC<Stage2DFrontProps> = ({ frontalMannequin, rider, components, mannequin, groundY, riderVisibility }) => {
+export const Stage2DFront: React.FC<Stage2DFrontProps> = ({ frontalMannequin, rider, components, mannequin, groundY, riderVisibility, bike, strokeMetrics }) => {
   return (
-    (() => {
+    <div className="s2d-wrap">
+    {(() => {
             const fm = frontalMannequin;
             const halfW = Math.max(rider.shoulder_width, components.bar_width) / 2 + 150;
             const svgTop = -mannequin.head.y - 80;
@@ -78,6 +84,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({ frontalMannequin, ri
                 </g>
               </svg>
             );
-          })()
+          })()}
+    <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} />
+    </div>
   );
 };

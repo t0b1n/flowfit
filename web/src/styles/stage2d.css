@@ -501,3 +501,76 @@
   vector-effect: non-scaling-stroke;
   opacity: 0.35;
 }
+
+.s2d-arc path,
+.s2d-arc line {
+  fill: none;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.s2d-arc--hot path,
+.s2d-arc--hot line {
+  stroke: var(--accent);
+}
+
+.s2d-arc--pin path {
+  stroke: var(--ink);
+  stroke-opacity: 0.6;
+}
+
+.s2d-arc--dim path {
+  stroke: var(--ink);
+  stroke-opacity: 0.35;
+}
+
+.s2d-wrap {
+  position: relative;
+}
+
+/* ── Stage overlay: readout (top-right), callouts, Metric Rail (bottom) ─────────────────────────── */
+
+.stage-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stage-overlay__readout {
+  position: absolute;
+  top: var(--s-4);
+  right: var(--s-4);
+  width: 250px;
+  text-align: right;
+  --readout-big-size: 72px;
+}
+
+.stage-overlay__readout .ff-readout--big .ff-readout__value {
+  margin-right: -4px;
+}
+
+.stage-overlay__readout .ff-gauge__track {
+  margin-top: var(--s-2);
+}
+
+.stage-overlay__pins {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--faint);
+  text-align: left;
+}
+
+.stage-overlay__rail {
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: var(--s-3);
+  pointer-events: auto;
+}
+
+.stage-overlay .ff-chip__label {
+  padding-right: 14px;
+}
