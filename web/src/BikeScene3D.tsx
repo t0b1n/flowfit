@@ -1048,6 +1048,8 @@ const SceneContent = React.memo(function SceneContent({
   const tokens = TOKENS[theme];
   const mat3d = material3d[theme];
   const light = theme === "light";
+  // The light stage reads a touch darker than the page token once lit (as in mock-up 02): match the clear colour to it.
+  const stageBg = useMemo(() => new THREE.Color(tokens.bg).multiplyScalar(light ? 0.86 : 1), [tokens.bg, light]);
   // Every bike and rider mesh casts and receives shadows (the stage floor only receives).
   const { scene } = useThree();
   useEffect(() => {
@@ -1064,8 +1066,8 @@ const SceneContent = React.memo(function SceneContent({
     <MatsProvider theme={theme}>
       {/* Stage: theme background + fog, soft key/rim lights with shadows, matte floor.
           Everything here lives under stage-root so the frontal-area probe and GLB export skip it. */}
-      <color attach="background" args={[tokens.bg]} />
-      <fog attach="fog" args={[tokens.bg, camDist * 1.6, camDist * 3.5]} />
+      <color attach="background" args={[stageBg]} />
+      <fog attach="fog" args={[stageBg, camDist * 1.6, camDist * 3.5]} />
       <group name="stage-root">
         <hemisphereLight args={[light ? "#FFFAF2" : "#D9E2EC", light ? "#B3A898" : "#0B0B0C", light ? 0.9 : 0.55]} />
         <directionalLight
@@ -1829,7 +1831,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             alpha: false,
             antialias: true,
             toneMapping: THREE.AgXToneMapping,
-            toneMappingExposure: theme === "light" ? 1.05 : 1.15,
+            toneMappingExposure: theme === "light" ? 0.92 : 1.15,
           }}
           style={{ width: "100%", height: "100%" }}
         >
