@@ -99,6 +99,53 @@
   border-radius: var(--radius-md);
 }
 
+.mode-layout--builder .visual-panel.builder-center {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+}
+
+.mode-layout--builder .visual-stage {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.mode-layout--builder .legend-row {
+  padding: var(--s-3) var(--s-4) 0;
+}
+
+.stage-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 48px;
+  padding: 0 var(--s-4);
+  border-bottom: 1px solid var(--faint-2);
+}
+
+.stage-bar__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 10.5px var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.stage-bar__title b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.stage-bar__spacer {
+  flex: 1;
+}
+
 .builder-center {
   min-width: 0;
   position: sticky;
