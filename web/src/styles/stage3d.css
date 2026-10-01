@@ -4,6 +4,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* fills the viewport under the nav and stage bar, like the approved mock-up */
+  height: calc(100vh - 56px - 48px - 12px);
+  min-height: 600px;
 }
 
 .bike3d-toolbar {
@@ -218,7 +221,8 @@
 .bike3d-canvas-wrapper {
   container-type: inline-size;
   /* fills the viewport under the nav, stage bar and toolbar, like the approved mock-up */
-  height: max(560px, calc(100vh - 56px - 48px - 56px));
+  flex: 1;
+  min-height: 480px;
 }
 
 .b3-specs-toggle {
