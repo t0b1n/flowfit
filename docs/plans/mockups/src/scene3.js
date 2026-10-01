@@ -9,7 +9,6 @@ import { build, METRICS, band } from './geom.js';
 import { V, V2, lerp, d2r, bump, limb as limbG } from './kit.js';
 import { buildRider } from './rider3.js';
 import { buildBike } from './bike3.js';
-import { withFresnel } from './fresnel.js';
 
 const Q = new URLSearchParams(location.search);
 const THEME = Q.get('theme') || 'light', SEX = Q.get('sex') || 'm';
@@ -17,8 +16,8 @@ const W = +(Q.get('w') || 1600), H = +(Q.get('h') || 1000);
 const ANALYTICS = Q.get('analytics') !== '0';
 // Contact brand tokens. Bike colourway: "Moss" satin frame, carbon black everything else.
 const T = {
-  light: { bg: 0xE6E1D8, floor: 0xE2DDD3, ink: 0x161616, accent: 0xFF4F00, frame: 0x4A5240, clay: 0x8C8276, rim: 0xFFFBF3, rimK: +(Q.get('rim') ?? .38), skin: 0xA69888, jersey: 0x2E3033, bib: 0x161718, sock: 0xEDEAE4, shoe: 0xEDEAE4, helmet: 0xEDEAE4, exp: .95 },
-  dark: { bg: 0x111213, floor: 0x0a0a0b, ink: 0xE8E6E1, accent: 0xFF5A1F, frame: 0x8E9A7C, clay: 0x7D8085, rim: 0xD6DDE6, rimK: +(Q.get('rim') ?? .5), skin: 0x8A8D91, jersey: 0x3A3D42, bib: 0x131415, sock: 0xD9D5CD, shoe: 0xD9D5CD, helmet: 0xD9D5CD, exp: 1.12 },
+  light: { bg: 0xE6E1D8, floor: 0xE2DDD3, ink: 0x161616, accent: 0xFF4F00, frame: 0x4A5240, clay: 0x8C8276, exp: .95 },
+  dark: { bg: 0x111213, floor: 0x0a0a0b, ink: 0xE8E6E1, accent: 0xFF5A1F, frame: 0x8E9A7C, clay: 0x7D8085, exp: 1.12 },
 }[THEME];
 const phys = (c, o = {}) => new THREE.MeshPhysicalMaterial({ color: c, roughness: .8, ...o });
 const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, ...o });
@@ -30,18 +29,9 @@ const MAT = {
   saddle: std(0x1A1A1B, { roughness: .6 }), spoke: std(0x303236, { metalness: .7, roughness: .4 }),
   rotor: phys(0x9A9FA6, { metalness: .9, roughness: .28 }), caliper: phys(0x2A2C2F, { metalness: .6, roughness: .4 }), chain: phys(0x55595F, { metalness: .9, roughness: .35 }),
   bottle: std(THEME === 'light' ? 0xD6CFC2 : 0x4B4D50, { roughness: .6 }),
-  skin: phys(T.skin, { roughness: .78, sheen: .35, sheenColor: 0xffffff }),
-  jersey: phys(T.jersey, { roughness: .7, sheen: .5, sheenColor: 0x9aa0a6 }), bib: phys(T.bib, { roughness: .55, sheen: .4, sheenColor: 0x777777 }),
-  sock: std(T.sock, { roughness: .9 }), shoe: phys(0x1A1B1C, { roughness: .35, clearcoat: .6 }), sole: phys(0x141516, { roughness: .4 }),
-  glove: withFresnel(phys(T.clay, { roughness: .82 }), { color: T.rim, strength: T.rimK, power: 2.6 }), lens: phys(0x0E0F10, { roughness: .08, metalness: .5, clearcoat: 1 }),
-  clay: withFresnel(phys(T.clay, { roughness: .8 }), { color: T.rim, strength: T.rimK, power: 4 }),
-  focus: Q.get('focus') === '0' ? null : withFresnel(phys(T.clay, { roughness: .8 }), { color: T.accent, strength: .6, power: 3.6 }),
-  helmetV: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .5, clearcoat: .4, clearcoatRoughness: .5, side: THREE.DoubleSide }),
+  glove: phys(T.clay, { roughness: .82 }), shoe: phys(0x1A1B1C, { roughness: .35, clearcoat: .6 }), sole: phys(0x141516, { roughness: .4 }),
+  clay: phys(T.clay, { roughness: .8 }),
   T: T,
-  hair: phys(0x3B3430, { roughness: .9, sheen: .6, sheenColor: 0x8a7a6a }),
-  body: new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: .74, sheen: .35, sheenColor: 0xbbbbbb }),
-  cols: { skin: T.skin, jersey: T.jersey, bib: T.bib, sock: T.sock },
-  helmet: phys(T.helmet, { roughness: .35, clearcoat: 1, clearcoatRoughness: .08, side: THREE.DoubleSide }), vent: phys(0x141516, { roughness: .6, side: THREE.DoubleSide }),
 };
 const G = build(0, SEX), G0 = build(-6, SEX), { P, J, F, R } = G;
 const scene = new THREE.Scene(); scene.background = new THREE.Color(T.bg);
@@ -76,10 +66,6 @@ if (ANALYTICS) {
   arc(J.hip, 0, d2r(G.M.trunk), 220, T.ink, zA, .6); line([V2(J.hip, zA), V(J.hip.x + 300, J.hip.y, zA)], T.ink, .6); line([V2(J.hip, zA), V2(J.shoulder, zA)], T.ink, .6);
   { const x = P.saddle.x; line([V(x, 0, zA), V(x, P.saddle.y, zA)], T.ink, .55); for (const y of [0, P.saddle.y]) line([V(x - 18, y, zA), V(x + 18, y, zA)], T.ink, .55); line([V(0, 0, zA), V(x, 0, zA)], T.ink, .25); }
   line([V2(G0.J.hip, zA), V2(G0.J.knee, zA), V2(G0.J.ankle, zA)], T.accent, .45);
-  if (Q.get('ghost') === 'race') { const gm = withFresnel(new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false }), { color: T.accent, strength: .75, power: 3, alphaOnly: true });
-    const GR = build(0, SEX, 28); const gmat = new Proxy({}, { get: () => gm }); const gr = buildRider(GR, gmat); gr.traverse(o => { if (o.isMesh) { o.castShadow = false; o.renderOrder = 5; } }); scene.add(gr); }
-  else if (Q.get('ghost') !== '0') { const gm = withFresnel(new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false }), { color: T.accent, strength: .9, power: 2.2, alphaOnly: true });
-    scene.add(limbG(V2(G0.J.hip, R.hipW / 2), V2(G0.J.knee, R.stance / 2), t => lerp(84, 51, t) + 12 * bump(t, .3, .2), gm, [1.02, .9]), limbG(V2(G0.J.knee, R.stance / 2), V2(G0.J.ankle, R.stance / 2), t => lerp(45, 27, t) + 8 * bump(t, .3, .14), gm, [1, .92])); }
   line([V(x0, gy, zr), V(x1, gy, zr)], T.ink, .6);
   for (let x = x0; x <= x1; x += 25) { const big = x % 100 === 0; line([V(x, gy, zr), V(x, gy, zr - (big ? 70 : 30))], T.ink, big ? .7 : .3); }
   for (const a of [P.rear, P.bb, P.front]) line([V(a.x, gy, zr + 40), V(a.x, gy, zr - 160)], T.accent, .9);

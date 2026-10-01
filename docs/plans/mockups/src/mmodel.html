@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { build } from './geom.js';
 import { buildRider } from './rider3.js';
 const G = build(0, 'm'), { J, R, C } = G;
-const mat = new THREE.MeshBasicMaterial(); const MAT = new Proxy({ T: { helmet: 0xffffff } }, { get: (o, k) => o[k] ?? mat });
+const mat = new THREE.MeshBasicMaterial(); const MAT = new Proxy({}, { get: (o, k) => o[k] ?? mat });
 const g = buildRider(G, MAT); g.updateMatrixWorld(true);
 const hh = R.hipW / 2, st = R.stance / 2, hs = R.shoulderW / 2 + 18;
 const bones = { thigh: [J.hip, J.knee], calf: [J.knee, J.ankle], upperArm: [J.shoulder, J.elbow], forearm: [J.elbow, J.wrist], torso: [J.hip, J.shoulder],

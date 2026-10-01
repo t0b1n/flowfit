@@ -7,13 +7,13 @@
 >   use `useTheme()` + `TOKENS` from `web/src/design/`.
 > - The accent is `#FF4F00` (brand direction 01 "Contact", **decided**), via tokens.
 > - **Superseded by master plan §5.5:** this plan's §5.2 profile numbers. The rider stays a segmented lathe clay mannequin
->   (as here), reshaped to a Freddy-Ovett-style toned build, with muscles deformed into the limb surfaces
->   (`muscleLimb`) and a tonal Fresnel rim. The §5.3 head is replaced by master plan §5.5, and there is **no helmet** for now (decided).
+>   (as here), reshaped to the calibrated lean build in master plan §5.5, with muscles deformed into the limb surfaces
+>   (`muscleLimb`). Plain clay head, **no helmet, no facial features, no Fresnel/rim shading** (decided).
 > - **Bike (Phase 6) additions:** a full disc road bike: 52/36 chainrings, front and rear derailleurs, 11-speed cassette,
 >   chain through the pulleys, flat-mount calipers, 160/140 rotors on the left, STI hoods + levers, dropped stays,
 >   sloping top tube, aero seatpost, bottle + cage. Carbon-black deep rims and black tyres; **no tan walls, no light rim bands**.
->   The reference is `mockups/src/bike3d.js`. Colour tokens (frame "Moss", carbon, alloy, rotor, clay, rim) are in master plan §4.1;
->   the `tanwall` and `rider` tokens in §2 below are obsolete.
+>   The reference is `mockups/src/bike3d.js`. Colour tokens (frame "Moss", carbon, alloy, rotor, clay) are in master plan §4.1;
+>   the `tanwall`, `rider` and `riderKit` tokens in §2 below are obsolete.
 > - The phases below map to tracks: Phases 1–3 → track C; Phase 4 → D-api (§4.1–4.4) + D-ui (§4.5–4.7) + C (§4.8);
 >   Phases 0, 5 and 6 → track E.
 
@@ -49,7 +49,7 @@ The chosen design direction is **"Instrument"**: precision as the cool factor.
 | Default theme | **Light** ("Spec Sheet"). Dark ("Instrument") is an alternative theme toggle. |
 | Fit history | **Build it.** Saved fits are the basis of the ghost and delta comparison. |
 | Big metric readout | Not fixed to one metric. Use the **Metric Rail**: click to focus one metric, Shift/⌘-click to pin up to 3 (spec in Phase 3). |
-| Order of work | Pass 1: look (lighting, materials, theme), callouts, metric focus, fit history. Pass 2: anatomical rider (incl. new helmet), then bike shapes. |
+| Order of work | Pass 1: look (lighting, materials, theme), callouts, metric focus, fit history. Pass 2: anatomical rider, then bike shapes. |
 | Rejected directions | Lo-fi, VHS, grain, neon, bloom, glowing grids, cartoon or toon shading, black outlines. **Never add these.** |
 
 ### Reference images
@@ -58,7 +58,7 @@ The chosen design direction is **"Instrument"**: precision as the cool factor.
   callouts, ruler, Metric Rail, FIT 02 hairline ghost).
 - `docs/plans/mockups/03-view3d-dark.png`: the same scene in dark.
 - `docs/plans/mockups/01-app-fit-builder-2d-light.png`: the whole app around the stage (shows how the 3D view sits in the page).
-- `docs/plans/mockups/src/scene3.js`: the exact recipes used for the images (limb lathe, profiles, head, helmet, bike shapes, lights).
+- `docs/plans/mockups/src/scene3.js`: the exact recipes used for the images (limb lathe, profiles, head, bike shapes, lights).
 
 **Notes on the mock-ups:**
 1. The elbow follows the app's rule: it lies on the BB side of the shoulder→hands line, so it bends down and back.
@@ -160,7 +160,7 @@ parameter comes from here.
 | `spoke` | `#2A2D31`, metalness 0.8, roughness 0.4 | `#2C2E31`, metalness 0.8, roughness 0.35 | spokes, hubs |
 | `rider` | `#A89E91`, roughness 0.88, sheen 0.4, sheenColor `#FFFFFF` | `#7D8085`, roughness 0.72, sheen 0.5, sheenColor `#CFD6DE` | rider "clay" |
 | `riderKit` | `#8F857A` (same material params as `rider`) | `#5E6166` | jersey/shorts tone (Phase 5 only) |
-| `helmet` | `#EFEBE4`, roughness 0.35, clearcoat 0.8 | `#1C1D1F`, roughness 0.35, clearcoat 0.8 | helmet shell, shoes |
+| `shoe` | `#1A1B1C`, roughness 0.35, clearcoat 0.6 | same | shoes |
 
 - **Accent note:** `#F03500` is already the brand `--accent` in `web/src/App.css`. Keep it.
 - **Band colours:** `BAND_COLORS` in `FitAnalytics3D.tsx` currently hardcodes `#2ecc71 / #e6a817 / #e74c3c`.
@@ -245,7 +245,7 @@ function useMaterials3D(theme: Theme3D) {
     tanwall: new THREE.MeshStandardMaterial({ ...theme.tanwall }),
     spoke: new THREE.MeshStandardMaterial({ ...theme.spoke }),
     rider: new THREE.MeshPhysicalMaterial({ ...theme.rider }),
-    helmet: new THREE.MeshPhysicalMaterial({ ...theme.helmet }),
+    shoe: new THREE.MeshPhysicalMaterial({ ...theme.shoe }),
   }), [theme]);
   useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
   return mats;
@@ -697,7 +697,7 @@ In the 3D view's top-left header area, next to `FIT n`:
 
 ---
 
-## Phase 5: Anatomical rider + new helmet (second pass, part 1)
+## Phase 5: Anatomical rider (second pass, part 1)
 
 **Goal:** replace the capsule mannequin with a believable, neutral "tailor's dummy" figure. Keep
 the same joints; only the skinning changes.
@@ -737,7 +737,7 @@ The profiles below are **base radii in mm for a 75 kg / 1800 mm rider**. Multipl
 |---|---|---|
 | mannequin_thigh (hip→knee) | `lerp(80, 52, t) + 10*bump(t,0.30,0.20)` | (1.0, 0.92) |
 | mannequin_shin (knee→ankle) | `lerp(46, 30, t) + 14*bump(t,0.28,0.13)` (calf) | (1.0, 0.9) |
-| mannequin_foot → **shoe** (ankle→cleat, extend 40 mm past the cleat along the same direction) | `lerp(40, 26, t)` | (1.0, 0.85); shoe uses `mats.helmet` |
+| mannequin_foot → **shoe** (ankle→cleat, extend 40 mm past the cleat along the same direction) | `lerp(40, 26, t)` | (1.0, 0.85); shoe uses `mats.shoe` |
 | mannequin_upper_arm | `lerp(44, 36, t) + 5*bump(t,0.40,0.20)` | (1, 1) |
 | mannequin_forearm | `lerp(38, 24, t) + 6*bump(t,0.22,0.15)` | (1, 0.85) |
 | mannequin_hand (wrist→hand, extend 30 mm) | mitten: `lerp(26, 22, t)` | (0.8, 1.25) |
@@ -762,38 +762,14 @@ each shoulder, `r = 52`.
 at the joint (so there is no visible ball). Remove the articulation gaps: set `GAP_FRACTION = 0`
 for the new builder.
 
-### 5.3 Head, neck, helmet
+### 5.3 Head and neck
 
-- **Head:** an ellipsoid, *not* a sphere. `SphereGeometry(1, 48, 32)` scaled to
-  `(100, 112, 78) * h` (x = length front-back, y = height, z = width). Centre = `head_center`.
-  Rotate about Z to align local +X with the gaze direction: compute
-  `neckAngle = atan2(head_center.y − neck_base_center.y, head_center.x − neck_base_center.x)`, then
-  `gaze = neckAngle − 80°`. With a typical neck at ~70°, the rider looks ~10° below horizontal, up the road
-  (this matches `mockups/src/scene3.js`).
-- **The head must be smaller than in the mock-ups.** The old joint spec used radius 88 (176 mm
-  diameter sphere), which is too big. With the ellipsoid above, the width is 156 mm.
-- **Helmet** (road helmet, not a bowl). Build it in the *head's local frame* (x = gaze forward,
-  y = up, z = lateral):
-  1. Start from `SphereGeometry(1, 64, 32, 0, 2π, 0, 0.62π)` (upper ~62% of a sphere).
-  2. For each vertex `(x,y,z)`:
-     - `z *= 0.86`; `y *= 0.78`;
-     - if `x < 0` (rear): `x *= 1.28`; `y -= 0.18 * (−x)^2` (the tail kicks down and back);
-     - if `x > 0` (front): `x *= 1.06`.
-  3. Scale the result by `(116, 122, 95) * h` so it sits ~12 mm proud of the head ellipsoid. Offset
-     it by `(−10, 16, 0) * h` in head-local space (the values used in the mock-up).
-  4. Recompute normals. Material `mats.helmet` (clearcoat).
-  5. **Vents:** add 4 shallow dark slots as separate thin boxes
-     (`BoxGeometry(60*h, 4, 14*h)`) using `mats.rubber`, placed on the shell top at
-     x = −30, 0, 30, 55 (head-local, mm·h). Rotate each to follow the shell normal: raycast from
-     above onto the shell geometry, or approximate with a y-offset from the ellipse equation.
-     This step is optional; skip it if it looks noisy.
-  6. **Straps:** do not model them.
-  - Acceptance: from the side, the silhouette has a rounded front brow, a long flat top and a
-    tail that ends ~20 mm behind the back of the head. From the front, it is narrower than the
-    shoulders by a wide margin. Compare against the side profile of any modern road helmet photo;
-    the result must not read as a bowl or hemisphere.
-- `MANNEQUIN_JOINT_SPEC.head_center` stays only for the frontal-area probe's bounding if needed;
-  the ellipsoid replaces its visual.
+- **Head:** one plain clay surface: master plan §5.5 / `mockups/src/rider3.js#headDeform` (a deformed ellipsoid with a
+  gently tapered jaw), centred on `head_center`, rotated about Z so local +X follows the gaze:
+  `gaze = atan2(head_center − neck_base_center) − 78°`.
+- **No facial features, no ears, no helmet, no glasses** (decided).
+- `MANNEQUIN_JOINT_SPEC.head_center` stays only for the frontal-area probe's bounding if needed; the head mesh replaces
+  its visual.
 
 ### 5.4 Checks
 
@@ -801,7 +777,7 @@ for the new builder.
   returns false, `console.warn`. It should never fire.
 - Frontal area will change slightly because the body volumes changed. That is expected: record the
   before and after numbers in the commit message. It must stay within ±8% for the default fit. If
-  not, the torso or helmet cross-sections are wrong.
+  not, the torso cross-sections are wrong.
 - The ghost (Phase 4) should now use `limbGeometry` too (same profiles, ghost material).
 
 ### Phase 5 acceptance
@@ -809,7 +785,6 @@ for the new builder.
 - [ ] No visible capsules or balls; joints are seamless.
 - [ ] Elbows bend down and back in every preset (endurance, race, fast), with the trunk slider at its min and max.
 - [ ] The head is proportionate (compare shoulder width to head width: roughly 2.5–3 : 1).
-- [ ] The helmet passes the silhouette check in 5.3.
 - [ ] Pedalling animation plays smoothly: legs use the same profiles, and there are no seams at the knee through the full stroke.
 - [ ] Rider weight 55 kg vs 95 kg visibly changes limb thickness (the power law still applies).
 - [ ] tsc clean; screenshots at side, ¾ and front in both themes.
@@ -874,7 +849,7 @@ edge graph.
 | `web/src/fits/api.ts`, `web/src/fits/useFitHistory.ts` | 4 | **new** |
 | `web/src/FitBuilderMode.tsx` | 4 | capture/restore inputs, `?fit=` loading, pass compare props |
 | `web/src/ProfilePage.tsx` | 4 | "My fits" section |
-| `web/src/riderMesh.ts` | 5 | **new**: `limbGeometry`, `orientBetween`, head/helmet builders |
+| `web/src/riderMesh.ts` | 5 | **new**: `limbGeometry`, `orientBetween`, `muscleLimb`, head builder, `CAL` |
 | `web/src/bike3d.ts` | 5, 6 | profile specs replace radii; tube start/end radii |
 | `web/src/AnimatedLegs.tsx` | 1, 5, 6 | theme materials, shared limb builder, chainring/cranks |
 | `web/src/geometry.ts` | 0 | `elbowPointsTowardBB` helper only |

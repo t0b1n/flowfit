@@ -5,7 +5,7 @@
 <script type="module">
 import { build, METRICS, band } from './geom.js';
 import { mark } from './overlay.js';
-import { bikeLayers, headSVG, extremitiesSVG, clayDefs, clayFigure, clayHead } from './draw2d.js';
+import { bikeLayers, extremitiesSVG, clayFigure, clayHead } from './draw2d.js';
 const SEX = new URLSearchParams(location.search).get('sex') || 'm';
 const theme = new URLSearchParams(location.search).get('theme') || 'light';
 document.documentElement.dataset.theme = theme;
@@ -41,11 +41,9 @@ for (const a of [P.rear, P.bb, P.front]) s += `<line class="accl" x1="${a.x}" y1
 const BL = bikeLayers(G);
 const box = { x0: Math.min(J.hip.x, J.ankle.x, J.ankleR.x) - 200, x1: Math.max(J.hands.x, J.kneeR.x, J.head.x) + 160, y0: Math.min(J.ankle.y, J.ankleR.y) - 80, y1: J.head.y + 60 };
 s += BL.wheels;
-const CT = theme === 'light' ? { rim: '#FFFBF3', rimOp: .75, accent: '#FF4F00' } : { rim: '#D6DDE6', rimOp: .6, accent: '#FF5A1F' };
-s += clayDefs(CT);
-s += `<g opacity=".55" filter="url(#fres)">${clayFigure(G, 'farLeg')}${clayFigure(G, 'farArm')}</g>${extremitiesSVG(G, 'far')}`;
+s += `<g opacity=".55">${clayFigure(G, 'farLeg')}${clayFigure(G, 'farArm')}</g>${extremitiesSVG(G, 'far')}`;
 s += BL.drive + BL.frame + BL.near;
-s += `<g filter="url(#fres)">${clayFigure(G, 'body')}</g><g filter="url(#fresA)">${clayFigure(G, 'nearLeg')}</g>` + extremitiesSVG(G, 'near') + clayHead(G) + BL.bars;
+s += clayFigure(G, 'body') + clayFigure(G, 'nearLeg') + extremitiesSVG(G, 'near') + clayHead(G) + BL.bars;
 // re-draw the near glove over the bar
 s += extremitiesSVG(G, 'near').replace(/<polygon class="shoe[^/]*\/>|<polygon class="sole[^/]*\/>/g, '');
 // skeleton hairlines + joints
@@ -110,17 +108,17 @@ const nav = `<div class="nav"><div class="brand">${mark('var(--ink)', 'var(--acc
 const stage = `<div class="stage"><div class="stagebar"><div class="seg" style="width:180px"><span class="on">SIDE</span><span>FRONT</span><span>3D</span></div><span class="pill">LAYERS ▾</span><span class="pill on">ANGLES</span><span class="pill on">DIMENSIONS</span><span class="pill">KOPS</span><span class="ttl sp">COMPARE <b style="color:var(--accentTxt)">FIT 02</b> ▾</span><span class="pill">⛶</span></div>${stageSvg}<div class="ov ov2">${lab}</div></div>`;
 document.getElementById('root').innerHTML = `<div class="app">${nav}<div class="main">${left}${stage}${right}</div></div>`;
 const st = document.createElement('style'); st.textContent = `
- svg.s2d .frame,svg.s2d .frameF{fill:var(--frame)} svg.s2d .fork{fill:none;stroke:var(--frame);stroke-width:24;stroke-linecap:round} svg.s2d .carbon,svg.s2d .blk,svg.s2d .sad{fill:#141516} svg.s2d .rim{fill:none;stroke:#141516;stroke-width:44} svg.s2d .hub{fill:#2A2C2F} svg.s2d .ringB,svg.s2d .ringS{fill:none;stroke:#2A2C2F;stroke-width:7} svg.s2d .cas{fill:none;stroke:#2A2C2F;stroke-width:3} svg.s2d .pul{fill:#2A2C2F} svg.s2d .rotor{fill:none;stroke:#8E939A;stroke-width:15} svg.s2d .rotorS{stroke:#6F747B;stroke-width:6} svg.s2d .cal{fill:#2A2C2F} svg.s2d .hose{fill:none;stroke:#1C1C1D;stroke-width:6} svg.s2d .bottle{fill:var(--bottle)} svg.s2d .cage{stroke:#141516;stroke-width:5} svg.s2d .hood{fill:#202022} svg.s2d .lever{fill:none;stroke:#2A2C2F;stroke-width:12;stroke-linecap:round} svg.s2d .skin{fill:var(--skin)} svg.s2d .clay{fill:var(--clay)} svg.s2d .hair{fill:#3B3430} svg.s2d .lens{fill:#0E0F10} svg.s2d .hvent rect{fill:var(--ink);fill-opacity:.16} svg.s2d .hedge{fill:none;stroke:var(--ink);stroke-width:2.2;stroke-opacity:.35} svg.s2d .ventf{fill:#151617;stroke:#151617;stroke-width:1} svg.s2d .liner{fill:none;stroke:#141516;stroke-width:9;stroke-linecap:round} svg.s2d .helmet{fill:var(--helmet);stroke:var(--ink);stroke-width:2.5;stroke-opacity:.5} svg.s2d .vent{fill:none;stroke:#141516;stroke-width:9;stroke-linecap:round} svg.s2d .strap{stroke:#141516;stroke-width:4} svg.s2d .shoe{fill:#1A1B1C} svg.s2d .sole{fill:#141516} svg.s2d .glove{fill:var(--clay)}
+ svg.s2d .frame,svg.s2d .frameF{fill:var(--frame)} svg.s2d .fork{fill:none;stroke:var(--frame);stroke-width:24;stroke-linecap:round} svg.s2d .carbon,svg.s2d .blk,svg.s2d .sad{fill:#141516} svg.s2d .rim{fill:none;stroke:#141516;stroke-width:44} svg.s2d .hub{fill:#2A2C2F} svg.s2d .ringB,svg.s2d .ringS{fill:none;stroke:#2A2C2F;stroke-width:7} svg.s2d .cas{fill:none;stroke:#2A2C2F;stroke-width:3} svg.s2d .pul{fill:#2A2C2F} svg.s2d .rotor{fill:none;stroke:#8E939A;stroke-width:15} svg.s2d .rotorS{stroke:#6F747B;stroke-width:6} svg.s2d .cal{fill:#2A2C2F} svg.s2d .hose{fill:none;stroke:#1C1C1D;stroke-width:6} svg.s2d .bottle{fill:var(--bottle)} svg.s2d .cage{stroke:#141516;stroke-width:5} svg.s2d .hood{fill:#202022} svg.s2d .lever{fill:none;stroke:#2A2C2F;stroke-width:12;stroke-linecap:round} svg.s2d .clay{fill:var(--clay)} svg.s2d .shoe{fill:#1A1B1C} svg.s2d .sole{fill:#141516} svg.s2d .glove{fill:var(--clay)}
  svg.s2d .bar{fill:none;stroke:#1C1C1D;stroke-width:25;stroke-linecap:round}
  svg.s2d .tyre{fill:none;stroke:#1A1A1A;stroke-width:28}
  svg.s2d .rimd{fill:none;stroke:var(--ink);stroke-width:55;opacity:.07} svg.s2d .spoke{stroke:#303236;stroke-width:2.2;opacity:.8}
  svg.s2d .ring{fill:none;stroke:var(--ink);stroke-width:8} svg.s2d .chain{stroke:var(--ink);stroke-width:7;opacity:.8}
  svg.s2d .rider{fill:var(--rider)} svg.s2d .riderFar{fill:var(--rider);opacity:.45} svg.s2d .shoe{fill:#1A1B1C}
- svg.s2d .hvent rect{fill:var(--ink);fill-opacity:.16} svg.s2d .hedge{fill:none;stroke:var(--ink);stroke-width:2.2;stroke-opacity:.35} svg.s2d .ventf{fill:#151617;stroke:#151617;stroke-width:1} svg.s2d .liner{fill:none;stroke:#141516;stroke-width:9;stroke-linecap:round} svg.s2d .helmet{fill:var(--surface);stroke:var(--ink);stroke-width:3} svg.s2d .bone{stroke:var(--ink);stroke-width:2.2;opacity:.55} svg.s2d .jd{fill:var(--surface);stroke:var(--ink);stroke-width:2.5}
+ svg.s2d .bone{stroke:var(--ink);stroke-width:2.2;opacity:.55} svg.s2d .jd{fill:var(--surface);stroke:var(--ink);stroke-width:2.5}
  svg.s2d .ghost{fill:none;stroke:var(--accent);stroke-width:2.5;stroke-dasharray:14 10;opacity:.9}
  svg.s2d .arcA{fill:none;stroke:var(--accent);stroke-width:2.5} svg.s2d .accl{stroke:var(--accent);stroke-width:2.5} svg.s2d .accD{fill:var(--accent)}
- svg.s2d .arcI{fill:none;stroke:var(--ink);stroke-width:2;opacity:.6} svg.s2d .hair{stroke:var(--ink);stroke-width:2;opacity:.6}
- svg.s2d .faintl{stroke:var(--ink);stroke-width:1.6;opacity:.22} svg.s2d .dim{stroke:var(--ink);stroke-width:2;opacity:.55}`;
+ svg.s2d .arcI{fill:none;stroke:var(--ink);stroke-width:2;opacity:.6}
+ svg.s2d .hair{stroke:var(--ink);stroke-width:2;opacity:.6} svg.s2d .faintl{stroke:var(--ink);stroke-width:1.6;opacity:.22} svg.s2d .dim{stroke:var(--ink);stroke-width:2;opacity:.55}`;
 document.head.appendChild(st);
 document.fonts.ready.then(() => requestAnimationFrame(() => window.__done = true));
 </script></body></html>

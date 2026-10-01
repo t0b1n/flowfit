@@ -1,7 +1,6 @@
 // Clay mannequin, lathe-based (the earlier representation), refined to a toned male build.
 import * as THREE from 'three';
-import { buildHelmet } from './helmet.js';
-import { V, V2, lerp, bump, d2r, limb, tube, sphere, limbGeometry, between, helmetGeometry, helmetPoint, VENTS } from './kit.js';
+import { V, V2, lerp, bump, d2r, limb, tube, sphere, limbGeometry, between } from './kit.js';
 
 const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
 // lathe with a per-height lateral/depth scale (for V-taper torso)
@@ -38,28 +37,13 @@ export function headDeform(x, y, z) {
       if (X > 0) { const face = Math.max(0, x) ** 6; X -= 6 * face; }   // flatter face
       return [X, Y, Z];
 }
-export const HELMET = (() => {
-  const off = 16, A = 98 + off, B = 94 + 8, Cz = 77 + off + 4, cx = -8, cy = 18, RA = 1.1;
-  const rimY = x => { const u = (x - cx) / A; return u > 0 ? lerp(-6, 20, u) : lerp(-6, -44, (-u) ** 1.3); };
-  const q = 2.3;
-  const sect = (x, v, k = 1) => { // v ∈ [-1,1] across the section (0 = crown)
-    const u = (x - cx) / (x < cx ? A * RA : A), kk = Math.pow(Math.max(0, 1 - Math.abs(u) ** (x < cx ? 3 : 2.2)), 1 / (x < cx ? 3 : 2.2));
-    const vv = Math.max(-1, Math.min(1, (rimY(x) - cy) / (B * Math.max(kk, 1e-3)))), am = Math.acos(Math.sign(vv) * Math.abs(vv) ** (q / 2));
-    const a = v * am, ca = Math.cos(a), sa = Math.sin(a);
-    return V(x, cy + B * kk * Math.sign(ca) * Math.abs(ca) ** (2 / q) * k, Cz * kk * Math.sign(sa) * Math.abs(sa) ** (2 / q) * k);
-  };
-  const band = (d, w) => ss(w, w * .55, Math.abs(d));
-  const ventMask = () => 0; // option 2: clean shell, no vents
-  return { A, cx, cy, RA, sect, ventMask, x0: cx - A * RA + 1, x1: cx + A - 1 };
-})();
 // Per-station width calibration against the reference photo (multipliers at the measured stations; linear between, flat beyond).
 export const CAL = {thigh: [[0.25,0.976],[0.5,1.003],[0.75,1.018]],calf: [[0.25,1.333],[0.5,1.679],[0.75,1.842]],upperArm: [[0.25,1.317],[0.5,1.086],[0.75,1.13]],forearm: [[0.25,1.289],[0.5,1.436],[0.75,1.18]],torso: [[0.3,1.098],[0.5,1.204],[0.7,0.968]],neck: [[0.5,1.258]]};
 export const calAt = (seg, t) => { const c = CAL[seg]; if (t <= c[0][0]) return c[0][1]; for (let i = 0; i < c.length - 1; i++) if (t <= c[i + 1][0]) return c[i][1] + (c[i + 1][1] - c[i][1]) * (t - c[i][0]) / (c[i + 1][0] - c[i][0]); return c.at(-1)[1]; };
 const TAG = (m, seg) => { m.userData.seg = seg; return m; };
 export function buildRider(G, MAT) {
-  const T3 = MAT.T || { helmet: 0xEDEAE4 };
   const { J, C, R } = G, g = new THREE.Group();
-  const CL = MAT.clay, FO = MAT.focus || CL;
+  const CL = MAT.clay, FO = CL;
   const hs = R.shoulderW / 2 + 18, hh = R.hipW / 2, st = R.stance / 2, hw = C.hoodW / 2;
   const hip = V2(J.hip), sh = V2(J.shoulder), ax = sh.clone().sub(hip).normalize(), nrm = V(-ax.y, ax.x); // nrm = "up/back" side of torso
   const trunkA = Math.atan2(ax.y, ax.x);
@@ -123,22 +107,18 @@ export function buildRider(G, MAT) {
     const hEnd = hd.clone().add(hd.clone().sub(wr).normalize().multiplyScalar(28));
     g.add(limb(wr, hEnd, t => lerp(24, 21, t), MAT.glove, [.78, 1.3]));
   }
-  // neck (thick), head, jaw, glasses, helmet
+  // neck, plain clay head
   const headC = V2(J.head);
   g.add(tube(sh.clone().add(V(-12, -22)), headC.clone().add(V(-26, -44)), 44 * calAt('neck', .5), 40 * calAt('neck', .5), CL));
     g.children.at(-1).userData.seg = 'neck';
   const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gaze = na - d2r(78);
   const H = new THREE.Group(); H.position.copy(headC); H.rotation.z = gaze; g.add(H);
-  // head (head-local: +x gaze, +y up, +z left): one deformed ellipsoid — cranium, tapered jaw, subtle nose ridge
+  // head (head-local: +x gaze, +y up, +z left): one deformed ellipsoid with a gently tapered jaw
   const CR = { c: V(-8, 18, 0), r: V(98, 94, 77) };
   { const hg = new THREE.SphereGeometry(1, 64, 48), p = hg.attributes.position;
     for (let i = 0; i < p.count; i++) { const [X, Y, Z] = headDeform(p.getX(i), p.getY(i), p.getZ(i)); p.setXYZ(i, X, Y, Z); }
     hg.computeVertexNormals(); H.add(new THREE.Mesh(hg, CL)); }
   // no facial features or ears: plain clay head
-  // helmet — modelled on the S-Works Evade 4: compact, rounded, close to the head, short squared tail,
-  // mouth-port brow intake, 7 front vents curving rearward, diagonal side vent, wide rear exhaust.
-  const { A, cx, cy, RA, sect, ventMask } = HELMET;
-  // helmet removed for now (product decision)
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }

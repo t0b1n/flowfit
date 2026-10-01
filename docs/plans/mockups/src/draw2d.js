@@ -1,8 +1,6 @@
-import { headDeform, HELMET, calAt } from './rider3.js';
-import { helmetSide2D } from './helmet.js';
-// 2D side view (SVG, mm, y inverted) built from the SAME primitives as 3D: body SDF raster + bike + head/helmet.
-import { profiles, helmetPoint, VENTS, lerp, bump } from './kit.js';
-const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+import { headDeform, calAt } from './rider3.js';
+// 2D side view (SVG, mm, y inverted) built from the same profiles as 3D: bike layers + clay rider + plain head.
+import { lerp, bump } from './kit.js';
 
 const pts = arr => arr.map(([x, y]) => `${x.toFixed(1)},${(-y).toFixed(1)}`).join(' ');
 function seg(a, b, prof, n = 18) {
@@ -63,20 +61,6 @@ export function bikeLayers(G) {
     + `<path class="lever" d="M${hood.x + 44} ${-(hood.y + 4)} C ${hood.x + 58} ${-(hood.y - 40)} ${hood.x + 46} ${-(hood.y - 100)} ${hood.x + 20} ${-(hood.y - 130)}"/>`;
   return L;
 }
-export function headSVG(G) {
-  const { J, sex } = G, pr = profiles(sex), [hx, hy] = pr.head, k = hx / 96;
-  const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - 80 * Math.PI / 180;
-  const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
-  const ell = (cx, cy, rx, ry, n = 40) => { const o = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; o.push(R(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry)); } return pts(o); };
-  let s = '';
-  if (sex === 'f') s += P('hair', ell(-150 * k, -50 * k, 46, 30)) + P('hair', ell(-178 * k, -78 * k, 26, 44));
-  s += P('skin', ell(0, 0, hx, hy)) + P('skin', ell(26 * k, -60 * k, 56 * k, 44 * k)) + P('skin', ell(92 * k, -6 * k, 16 * k, 22 * k));
-  s += P('lens', pts([R(58 * k, 26 * k), R(104 * k, 24 * k), R(106 * k, 4 * k), R(96 * k, -2 * k), R(60 * k, 2 * k), R(20 * k, 14 * k)].map(([x, y]) => [x, y])));
-  const top = [], bot = []; for (let i = 0; i <= 90; i++) { const t = i / 90; const a = helmetPoint(t, 0, k), b = helmetPoint(t, 1, k); top.push(R(a.x, a.y)); bot.push(R(b.x, b.y)); }
-  s += P('helmet', pts([...top, ...bot.reverse()]));
-  for (const [s0, s1, pc] of VENTS) if (pc > .3) { const o = []; for (let i = 0; i <= 20; i++) { const q = helmetPoint(lerp(s0, s1, i / 20), pc, k); o.push(R(q.x, q.y)); } s += `<polyline class="vent" points="${pts(o)}"/>`; }
-  return s;
-}
 export function extremitiesSVG(G, side) {
   const { J, C, R, sex } = G, f = sex === 'f';
   const [cl, an] = side === 'near' ? [J.cleatL, J.ankle] : [J.cleatR, J.ankleR];
@@ -90,10 +74,6 @@ export function extremitiesSVG(G, side) {
 // ── Clay figure in 2D (same lathe profiles as the 3D mannequin) ──
 const bumpf = (t, c, w) => Math.exp(-((t - c) ** 2) / (2 * w * w));
 const ellP = (c, rx, ry, rot = 0, n = 36) => { const o = []; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, x = Math.cos(a) * rx, y = Math.sin(a) * ry; o.push([c.x + x * Math.cos(rot) - y * Math.sin(rot), c.y + x * Math.sin(rot) + y * Math.cos(rot)]); } return pts(o); };
-export function clayDefs(tok) {
-  const f = (id, col, r, op) => `<filter id="${id}" x="-5%" y="-5%" width="110%" height="110%" filterUnits="objectBoundingBox"><feMorphology in="SourceAlpha" operator="erode" radius="${r}" result="er"/><feComposite in="SourceAlpha" in2="er" operator="out" result="ring"/><feGaussianBlur in="ring" stdDeviation="${r * .45}" result="rb"/><feFlood flood-color="${col}" flood-opacity="${op}"/><feComposite in2="rb" operator="in" result="rim"/><feComposite in="rim" in2="SourceAlpha" operator="in" result="rim2"/><feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="rim2"/></feMerge></filter>`;
-  return `<defs>${f('fres', tok.rim, 7, tok.rimOp)}${f('fresA', tok.accent, 4, .6)}</defs>`;
-}
 export function clayFigure(G, part) {
   const { J } = G; const s = [];
   const Pg = p => `<polygon class="clay" points="${p}"/>`;
@@ -116,6 +96,6 @@ export function clayHead(G) {
   const { J } = G; const na = Math.atan2(J.head.y - J.neckBase.y, J.head.x - J.neckBase.x), gz = na - 78 * Math.PI / 180;
   const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
   const prof = []; for (let i = 0; i < 120; i++) { const a = i / 120 * Math.PI * 2; const [X, Y] = headDeform(Math.cos(a), Math.sin(a), 0); prof.push(R(X, Y)); }
-  let s = `<g filter="url(#fres)"><polygon class="clay" points="${pts(prof)}"/></g>`;
+  let s = `<polygon class="clay" points="${pts(prof)}"/>`;
   return s;
 }
