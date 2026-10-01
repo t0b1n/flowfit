@@ -1384,6 +1384,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const { focused, pinned, focus, togglePin, reset } = useMetricFocus();
   const [hovered, setHovered] = useState<MetricId | null>(null);
   const [specsOpen, setSpecsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [px, setPx] = useState<ProjectedMap<string>>({});
   const wrapRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -1659,6 +1660,51 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             {SADDLE_DETAIL[t].label}
           </button>
         ))}
+        {strokeLUT && (
+          <>
+          <button
+            className={`tab-pill ${playing ? "tab-pill--active" : ""}`}
+            onClick={() => setPlaying((v) => !v)}
+            title={playing ? "Pause pedaling" : "Play pedaling"}
+          >
+            {playing ? "⏸ Pause" : "▶ Pedal"}
+          </button>
+          </>
+        )}
+          <button
+            className={`tab-pill ${showAngles ? "tab-pill--active" : ""}`}
+            onClick={() => setShowAngles((v) => !v)}
+          >
+            Angles
+          </button>
+          <button
+            className={`tab-pill ${showDimensions ? "tab-pill--active" : ""}`}
+            onClick={() => setShowDimensions((v) => !v)}
+          >
+            Dimensions
+          </button>
+        {strokeLUT && (
+          <button
+            className={`tab-pill ${showKops ? "tab-pill--active" : ""}`}
+            onClick={() => setShowKops((v) => !v)}
+          >
+            KOPS
+          </button>
+        )}
+          <button
+            className={`tab-pill ${discWheels ? "tab-pill--active" : ""}`}
+            onClick={() => setDiscWheels((v) => !v)}
+            title="Rear aero disc wheel"
+          >
+            Disc
+          </button>
+        <button
+          className={`tab-pill ${toolsOpen ? "tab-pill--active" : ""}`}
+          onClick={() => setToolsOpen((v) => !v)}
+          title="Crank, cadence and aero tools"
+        >
+          Tools
+        </button>
         <button
           className={`tab-pill ${quality === "high" ? "tab-pill--active" : ""}`}
           style={{ marginLeft: "auto" }}
@@ -1676,15 +1722,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
       </div>
 
       {/* Pedaling animation + analytics layers */}
-      {strokeLUT && (
+      {toolsOpen && strokeLUT && (
         <div className="bike3d-toolbar bike3d-toolbar--anim">
-          <button
-            className={`tab-pill ${playing ? "tab-pill--active" : ""}`}
-            onClick={() => setPlaying((v) => !v)}
-            title={playing ? "Pause pedaling" : "Play pedaling"}
-          >
-            {playing ? "⏸ Pause" : "▶ Pedal"}
-          </button>
           <label className="bike3d-anim-control">
             <span>Crank {scrubDeg}°</span>
             <input
@@ -1723,35 +1762,11 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             3 o'clock
           </button>
           <span className="bike3d-layer-sep" />
-          <button
-            className={`tab-pill ${showAngles ? "tab-pill--active" : ""}`}
-            onClick={() => setShowAngles((v) => !v)}
-          >
-            Angles
-          </button>
-          <button
-            className={`tab-pill ${showDimensions ? "tab-pill--active" : ""}`}
-            onClick={() => setShowDimensions((v) => !v)}
-          >
-            Dimensions
-          </button>
-          <button
-            className={`tab-pill ${showKops ? "tab-pill--active" : ""}`}
-            onClick={() => setShowKops((v) => !v)}
-          >
-            KOPS
-          </button>
-          <button
-            className={`tab-pill ${discWheels ? "tab-pill--active" : ""}`}
-            onClick={() => setDiscWheels((v) => !v)}
-            title="Rear aero disc wheel"
-          >
-            Disc
-          </button>
         </div>
       )}
 
       {/* Aero tools */}
+      {toolsOpen && (
       <div className="bike3d-toolbar bike3d-toolbar--anim">
         <button
           className="tab-pill"
@@ -1802,6 +1817,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           </>
         )}
       </div>
+      )}
 
       {/* Canvas wrapper — explicit height so R3F gets a non-zero pixel size.
           The canvas is transparent; the wrapper carries a gradient backdrop. */}
