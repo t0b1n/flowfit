@@ -1,0 +1,305 @@
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  color: color-mix(in srgb, var(--ink) 75%, transparent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.legend-row span {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-md);
+  display: inline-block;
+}
+
+.legend-swatch--a {
+  background: var(--compare-a);
+}
+
+.legend-swatch--b {
+  background: var(--compare-b);
+}
+
+.legend-swatch--target {
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.geometry-svg {
+  display: block;
+  width: 100%;
+  height: min(68vh, 640px);
+}
+
+.geometry-layer--a .geometry-wheel,
+.geometry-layer--a .geometry-tyre,
+.geometry-layer--a .geometry-frame,
+.geometry-layer--a .geometry-guide {
+  stroke: var(--compare-a);
+}
+
+.geometry-layer--b .geometry-wheel,
+.geometry-layer--b .geometry-tyre,
+.geometry-layer--b .geometry-frame,
+.geometry-layer--b .geometry-guide {
+  stroke: var(--compare-b);
+}
+
+.geometry-tyre,
+.geometry-wheel,
+.geometry-frame,
+.geometry-guide,
+.geometry-target,
+.geometry-ground {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.geometry-ground {
+  stroke: color-mix(in srgb, var(--ink) 10%, transparent);
+  stroke-width: 2;
+  stroke-dasharray: 10 10;
+}
+
+.geometry-tyre {
+  opacity: 0.22;
+  stroke-width: 14;
+}
+
+.geometry-wheel {
+  opacity: 0.28;
+  stroke-width: 4;
+}
+
+/* Deliberate tube-weight hierarchy: main triangle heaviest, stays/front mid,
+   cockpit hardware lightest */
+
+.geometry-frame--main {
+  stroke-width: 7.5;
+}
+
+.geometry-frame--seat,
+.geometry-frame--front {
+  stroke-width: 6;
+}
+
+.geometry-frame--cockpit {
+  stroke-width: 5;
+}
+
+.geometry-frame--cockpit-thin {
+  stroke-width: 4;
+}
+
+.geometry-mannequin__line,
+.geometry-mannequin__head {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 68%, transparent);
+  stroke-linecap: round;
+}
+
+.geometry-mannequin__head {
+  fill: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.geometry-guide {
+  stroke-width: 2;
+  stroke-dasharray: 8 8;
+  opacity: 0.45;
+}
+
+.geometry-target {
+  stroke: color-mix(in srgb, var(--ink) 60%, transparent);
+  stroke-width: 3;
+}
+
+.geometry-node--contact {
+  fill: var(--surface);
+  stroke: color-mix(in srgb, var(--ink) 50%, transparent);
+  stroke-width: 2;
+}
+
+.geometry-label {
+  fill: color-mix(in srgb, var(--ink) 92%, transparent);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--surface) 75%, transparent);
+  stroke-width: 3px;
+}
+
+.geometry-label--target {
+  fill: color-mix(in srgb, var(--ink) 78%, transparent);
+}
+
+@media (max-width: 760px) {
+  .geometry-svg {
+    height: 440px;
+  }
+}
+
+/* ── Geometry annotations ─────────────────────────────────────────────────── */
+
+.ann-line {
+  stroke: color-mix(in srgb, var(--ink) 50%, transparent);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.ann-ext {
+  stroke: color-mix(in srgb, var(--ink) 25%, transparent);
+  stroke-width: 1;
+  fill: none;
+}
+
+.ann-label {
+  fill: color-mix(in srgb, var(--ink) 82%, transparent);
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--surface) 75%, transparent);
+  stroke-width: 3px;
+}
+
+/* Saddle silhouette */
+
+.geometry-saddle-body {
+  fill: color-mix(in srgb, var(--ink) 12%, transparent);
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.geometry-saddle-rail {
+  stroke: color-mix(in srgb, var(--ink) 45%, transparent);
+  stroke-width: 1.5;
+}
+
+.geometry-saddle-clamp {
+  fill: color-mix(in srgb, var(--ink) 65%, transparent);
+  stroke: color-mix(in srgb, var(--ink) 50%, transparent);
+  stroke-width: 1.5;
+}
+
+.geometry-layer--a .geometry-saddle-body {
+  stroke: var(--compare-a);
+  fill: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.geometry-layer--b .geometry-saddle-body {
+  stroke: var(--compare-b);
+  fill: color-mix(in srgb, var(--muted) 8%, transparent);
+}
+
+/* ── 2D bike detail: wheels, drivetrain, frame joints ─────────────────────── */
+
+.geometry-spoke {
+  fill: none;
+  stroke-width: 2;
+  opacity: 0.14;
+}
+
+.geometry-rim-inner {
+  fill: none;
+  stroke-width: 1.5;
+  opacity: 0.16;
+}
+
+.geometry-hub {
+  fill: color-mix(in srgb, var(--carbon) 35%, transparent);
+  stroke-width: 3;
+  opacity: 0.5;
+}
+
+.geometry-chainring {
+  fill: none;
+  stroke-width: 2.5;
+  opacity: 0.3;
+}
+
+.geometry-chainring--inner {
+  stroke-width: 1.5;
+  opacity: 0.18;
+}
+
+.geometry-crank {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+.geometry-pedal {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.geometry-layer--a .geometry-spoke,
+.geometry-layer--a .geometry-rim-inner,
+.geometry-layer--a .geometry-hub,
+.geometry-layer--a .geometry-chainring,
+.geometry-layer--a .geometry-crank,
+.geometry-layer--a .geometry-pedal {
+  stroke: var(--compare-a);
+}
+
+.geometry-layer--b .geometry-spoke,
+.geometry-layer--b .geometry-rim-inner,
+.geometry-layer--b .geometry-hub,
+.geometry-layer--b .geometry-chainring,
+.geometry-layer--b .geometry-crank,
+.geometry-layer--b .geometry-pedal {
+  stroke: var(--compare-b);
+}
+
+.geometry-joint {
+  stroke: color-mix(in srgb, var(--carbon) 35%, transparent);
+  stroke-width: 1.5;
+}
+
+.geometry-layer--a .geometry-joint {
+  fill: var(--compare-a);
+}
+
+.geometry-layer--b .geometry-joint {
+  fill: var(--compare-b);
+}
+
+/* Two-tone mannequin underlay — kept faint so overlapping limbs don't
+   stack into a blob */
+
+.geometry-mannequin__flesh {
+  fill: none;
+  stroke: color-mix(in srgb, var(--ink) 5.5%, transparent);
+  stroke-linecap: round;
+}
+
+/* Joint angle arcs */
+
+.joint-angle__label {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  paint-order: stroke;
+  stroke: color-mix(in srgb, var(--surface) 85%, transparent);
+  stroke-width: 5px;
+}

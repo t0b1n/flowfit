@@ -1,0 +1,69 @@
+/* FlowFit "Instrument" design tokens. The only CSS file (with tokens.ts) allowed to hold colour literals. */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #e6e1d8;
+  --surface: #ede9e2;
+  --surface-2: #f4f1ec;
+  --ink: #161616;
+  --muted: #6b655d;
+  --faint: rgba(22, 22, 22, 0.16);
+  --faint-2: rgba(22, 22, 22, 0.08);
+  --accent: #ff4f00;
+  --accent-text: #d94300;
+  --on-accent: #ffffff;
+  --band-in: #1e7d43;
+  --band-near: #b8860b;
+  --band-out: #c02828;
+  --frame: #4a5240;
+  --carbon: #141516;
+  --alloy: #2a2c2f;
+  --rotor: #9a9fa6;
+  --tyre: #1a1a1a;
+  --clay: #8c8276;
+  --bottle: #d6cfc2;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111213;
+  --surface: #18191b;
+  --surface-2: #1f2022;
+  --ink: #e8e6e1;
+  --muted: #8b8984;
+  --faint: rgba(232, 230, 225, 0.16);
+  --faint-2: rgba(232, 230, 225, 0.07);
+  --accent: #ff5a1f;
+  --accent-text: #ff6a33;
+  --on-accent: #ffffff;
+  --band-in: #3fb67a;
+  --band-near: #e0b341;
+  --band-out: #ff6b6b;
+  --frame: #8e9a7c;
+  --carbon: #141516;
+  --alloy: #2a2c2f;
+  --rotor: #9a9fa6;
+  --tyre: #1a1a1a;
+  --clay: #7d8085;
+  --bottle: #4b4d50;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+:root {
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-dot: "Doto", "Geist Mono", monospace;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 28px;
+  --s-8: 32px;
+
+  --radius: 0;
+}

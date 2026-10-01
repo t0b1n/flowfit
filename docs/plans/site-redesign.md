@@ -406,7 +406,7 @@ Every track **merges `main` into its branch** after each upstream merge (no reba
 | Tokens | DS | the CSS variable names in §4.1 and `TOKENS[theme].<name>` in TS |
 | `fitMetrics` | DS | `MetricId`, `MetricDef`, `METRICS`, `computeAll`, `formatMetric`, `formatDelta`, `DEFAULT_FOCUS` (3D plan §2.1 + §4.5 here) |
 | `useMetricFocus` | DS | `{ focused: MetricId; pinned: MetricId[]; focus(id); togglePin(id); reset() }`, max 3 pins |
-| `CalloutLayer` | DS | `props: { anchors: { id: MetricId; x: number; y: number; hot?: boolean }[]; width; height; prefer?: Partial<Record<MetricId, [dx, dy]>> }` |
+| `CalloutLayer` | DS | `props: { anchors: { id: MetricId; x: number; y: number; hot?: boolean }[]; width; height; prefer?: Partial<Record<MetricId, [dx, dy]>>; values?: Partial<Record<MetricId, number>> }` (`values` is an additive optional prop: label text `J3 KNEE EXT 150°`) |
 | `riderBody` | E (stubbed by DS) | `PROFILES` (segment radius functions + mass placements for the toned base), `headDeform(x, y, z)`, `CAL` / `calAt(segment, t)`; the 2D view draws the same profiles as polygons (§5.5). |
 | `bikeProfiles` | E (stubbed by DS) | `TUBE_PROFILE: Record<TubeName, [r0, r1]>`, `RIM`, `CHAINRING` |
 | 3D group names | C | `stage-root`, `analytics-root`, `ghost-root`, `mannequin-root`, `mannequin-legs` |

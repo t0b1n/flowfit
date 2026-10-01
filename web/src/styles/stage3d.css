@@ -1,0 +1,176 @@
+/* ── 3D viewer ─────────────────────────────────────────────────────────────── */
+
+.bike3d-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.bike3d-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 8px;
+}
+
+/* Override tab-pill colours inside the dark 3D toolbar */
+
+.bike3d-toolbar .tab-pill {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: color-mix(in srgb, var(--ink) 82%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.bike3d-toolbar .tab-pill:hover {
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  color: var(--ink);
+}
+
+.bike3d-toolbar .tab-pill--active {
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 55%, transparent);
+  color: var(--ink);
+}
+
+.bike3d-toolbar--anim {
+  padding-top: 0;
+  flex-wrap: wrap;
+}
+
+.bike3d-anim-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: color-mix(in srgb, var(--ink) 70%, transparent);
+  font-size: 12px;
+}
+
+.bike3d-anim-control span {
+  min-width: 72px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bike3d-anim-control input[type="range"] {
+  width: 140px;
+  accent-color: var(--ink);
+}
+
+.bike3d-aero-chip {
+  color: color-mix(in srgb, var(--ink) 85%, transparent);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+
+.bike3d-aero-chip em {
+  font-style: normal;
+  color: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.bike3d-layer-sep {
+  width: 1px;
+  height: 18px;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  margin: 0 4px;
+}
+
+/* Explicit height on the wrapper so R3F gets a real pixel size to measure.
+   The canvas renders with alpha; this gradient is the scene backdrop. */
+
+.bike3d-canvas-wrapper {
+  width: 100%;
+  height: min(65vh, 600px);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  position: relative;
+  background: var(--surface);
+}
+
+/* ── In-canvas metrics HUD ─────────────────────────────────────────────────── */
+
+.bike3d-hud {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-width: 168px;
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.bike3d-hud__title {
+  color: color-mix(in srgb, var(--ink) 55%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.bike3d-hud__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 0;
+  color: color-mix(in srgb, var(--ink) 85%, transparent);
+}
+
+.bike3d-hud__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bike3d-hud__label {
+  flex: 1;
+  color: color-mix(in srgb, var(--ink) 65%, transparent);
+}
+
+.bike3d-hud__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.visual-stage__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: min(65vh, 600px);
+  color: color-mix(in srgb, var(--ink) 50%, transparent);
+  font-size: 14px;
+  text-align: center;
+}
+
+.visual-stage__loading--error {
+  color: color-mix(in srgb, var(--ink) 85%, transparent);
+}
+
+/* ── 3D loading skeleton ──────────────────────────────────────────────────── */
+
+.viz-skeleton {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.viz-skeleton__pulse {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--ink) 15%, transparent);
+  border-top-color: color-mix(in srgb, var(--ink) 60%, transparent);
+  animation: viz-spin 0.9s linear infinite;
+}
+
+@keyframes viz-spin {
+  to { transform: rotate(360deg); }
+}

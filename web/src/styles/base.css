@@ -1,0 +1,113 @@
+:root {
+  /* Legacy names kept so existing rules keep working; all values come from design/tokens.css. */
+  --bg-2: var(--surface);
+  --panel: var(--surface);
+  --panel-strong: var(--surface-2);
+  --panel-dark: var(--surface);
+  --panel-dark-2: var(--surface-2);
+  --border: var(--faint);
+  --border-strong: color-mix(in srgb, var(--ink) 40%, transparent);
+  --text: var(--ink);
+  --accent-soft: color-mix(in srgb, var(--accent) 8%, transparent);
+  --teal: var(--ink);
+  --teal-soft: var(--faint-2);
+  --compare-a: var(--ink);
+  --compare-b: var(--muted);
+  --ok: var(--band-in);
+  --ok-soft: color-mix(in srgb, var(--band-in) 12%, transparent);
+  --warn: var(--band-near);
+  --warn-soft: color-mix(in srgb, var(--band-near) 14%, transparent);
+  --bad: var(--band-out);
+  --bad-soft: color-mix(in srgb, var(--band-out) 12%, transparent);
+  --shadow-1: var(--shadow-pop);
+  --radius-xl: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-md: var(--radius);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  padding: 28px 20px 40px;
+  border-top: 4px solid var(--accent);
+}
+
+.eyebrow {
+  font-size: 0.72rem;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.eyebrow--light {
+  color: color-mix(in srgb, var(--ink) 68%, transparent);
+}
+
+.panel-header h2,
+.panel-header h3 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.panel-header--compact {
+  margin-bottom: 12px;
+}
+
+.panel-header h2 {
+  margin-top: 4px;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1;
+}
+
+.panel-header h3 {
+  margin-top: 4px;
+  font-size: 1.3rem;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 18px 14px 28px;
+  }
+}

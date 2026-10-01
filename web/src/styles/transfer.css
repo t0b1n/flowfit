@@ -1,0 +1,252 @@
+.compare-picker--horizontal {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.bike-card {
+  padding: 14px;
+  background: var(--panel-strong);
+}
+
+.bike-card--a {
+  border-left: 3px solid var(--compare-a);
+}
+
+.bike-card--b {
+  border-left: 3px solid var(--compare-b);
+}
+
+.bike-card__header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.bike-card__header strong {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.bike-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.bike-card__meta span {
+  padding: 0.28rem 0.5rem;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 760px) {
+  .compare-picker--horizontal {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Fit Transfer: full-width stacked layout */
+
+.mode-layout--transfer {
+  position: relative;
+  z-index: 1;
+  max-width: 1500px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Fullscreen: collapse side panels, give all space to the visualisation */
+
+.mode-layout--fullscreen.mode-layout--builder {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.mode-layout--fullscreen.mode-layout--transfer {
+  gap: 0;
+}
+
+/* Compare picker in transfer mode gets more room */
+
+.mode-layout--transfer .compare-picker--horizontal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Transfer's overlay canvas owns the full row (metrics live below it now) */
+
+.mode-layout--transfer .workspace-grid {
+  grid-template-columns: 1fr;
+}
+
+/* Open contact node (Frame B in transfer mode) */
+
+.geometry-node--open {
+  fill: none !important;
+  stroke-width: 2.5 !important;
+}
+
+@media (max-width: 1100px) {
+  .mode-layout--transfer .compare-picker--horizontal {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Fit Transfer: solver controls, lock toggle, status bar ───────────────── */
+
+.solver-block {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1.5px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--muted) 5%, transparent);
+  display: grid;
+  gap: 8px;
+}
+
+.solver-block__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.solver-block__header > span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--compare-b);
+}
+
+.solver-slider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s, background 0.1s;
+}
+
+.lock-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lock-btn--locked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.state-chip {
+  padding: 0.14rem 0.4rem;
+  border-radius: var(--radius-md);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.state-chip--solver {
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  color: var(--compare-b);
+}
+
+.state-chip--pinned {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.state-chip--tweaked {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.reset-mini {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.reset-mini:hover {
+  color: var(--accent);
+}
+
+.solve-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font-size: 0.82rem;
+}
+
+.solve-status strong {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.solve-status__dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 40%, transparent);
+}
+
+.solve-status--live .solve-status__dot {
+  background: var(--accent);
+  animation: solve-pulse 1s ease-in-out infinite;
+}
+
+.solve-status--error .solve-status__dot {
+  background: var(--band-out);
+}
+
+.solve-status--error strong {
+  color: var(--band-out);
+}
+
+.solve-status__residuals {
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+@keyframes solve-pulse {
+  50% { opacity: 0.35; }
+}

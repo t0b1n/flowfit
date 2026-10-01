@@ -1,7 +1,15 @@
 import React from "react";
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 
-import "./App.css";
+import "./styles/base.css";
+import "./styles/shell.css";
+import "./styles/controls.css";
+import "./styles/builder.css";
+import "./styles/stage2d.css";
+import "./styles/stage3d.css";
+import "./styles/transfer.css";
+import "./styles/forms.css";
+import "./styles/profile.css";
 import { AddBikeMode } from "./AddBikeMode";
 import { FitBuilderMode } from "./FitBuilderMode";
 import { FitTransferMode } from "./FitTransferMode";
@@ -11,6 +19,7 @@ import { LoginPage } from "./auth/LoginPage";
 import { RegisterPage } from "./auth/RegisterPage";
 import { RequireAuth } from "./auth/RequireAuth";
 import { CatalogProvider } from "./catalog/CatalogContext";
+import { DesignRoute } from "./design/DesignRoute";
 
 const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -82,6 +91,7 @@ export const App: React.FC = () => (
     <AuthProvider>
       <CatalogProvider>
         <Routes>
+          {import.meta.env.DEV && <Route path="/design" element={<DesignRoute />} />}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route

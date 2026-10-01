@@ -15,12 +15,10 @@ export const CollapsibleSection: React.FC<{
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
       >
-        <div>
-          <div className="eyebrow">{eyebrow}</div>
-          <h3>{title}</h3>
-        </div>
+        <h3>{title}</h3>
         <span className="subpanel-toggle__aside">
           {badge}
+          <span>{eyebrow}</span>
           <span className={`subpanel-chevron${open ? "" : " subpanel-chevron--closed"}`} />
         </span>
       </button>
