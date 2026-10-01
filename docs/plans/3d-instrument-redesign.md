@@ -8,7 +8,7 @@
 > - The accent is `#FF4F00` (brand direction 01 "Contact", **decided**), via tokens.
 > - **Superseded by master plan §5.5:** this plan's §5.2 profile numbers. The rider stays a segmented lathe clay mannequin
 >   (as here), reshaped to a Freddy-Ovett-style toned build, with muscles deformed into the limb surfaces
->   (`muscleLimb`) and a tonal Fresnel rim. The §5.3 head and helmet are replaced by the fitted head/helmet in master plan §5.5.
+>   (`muscleLimb`) and a tonal Fresnel rim. The §5.3 head is replaced by master plan §5.5, and there is **no helmet** for now (decided).
 > - **Bike (Phase 6) additions:** a full disc road bike: 52/36 chainrings, front and rear derailleurs, 11-speed cassette,
 >   chain through the pulleys, flat-mount calipers, 160/140 rotors on the left, STI hoods + levers, dropped stays,
 >   sloping top tube, aero seatpost, bottle + cage. Carbon-black deep rims and black tyres; **no tan walls, no light rim bands**.

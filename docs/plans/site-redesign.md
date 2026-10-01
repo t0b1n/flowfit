@@ -51,8 +51,8 @@ of PNS, MAAP or Rapha). They care about details and exactness. They are nerdy ab
 | `00-brand-directions.png` | The three brand directions, in light and dark |
 | `01-app-fit-builder-2d-light.png` | **The canonical app screen:** nav, controls column, 2D side view, readout, Metric Rail, results column with fit history |
 | `10-helmet-vs-photos.png` | Helmet model vs Evade 4 product photos (side / front / rear) |
-| `09-head-helmet.png` | Head and fitted helmet, side / front / ¾ |
-| `06/07/08-rider-*.png` | **The current rider figure** (side, rear ¾ showing the calves, front ¾) with the earlier helmet |
+| `09-head.png` | Head (no helmet), side / front / ¾ |
+| `06/07/08-rider-*.png` | **The current rider figure** (side, rear ¾ showing the calves, front ¾) (older helmet shown; the helmet has since been removed) |
 | `05-fresnel-options.png` | **The rider figure and Fresnel options:** clay / tonal rim / focus rim + x-ray ghost / dark |
 | `02-view3d-light.png` | 3D view, light (default) |
 | `03-view3d-dark.png` | 3D view, dark |
@@ -113,7 +113,7 @@ values as JS for three.js and SVG (`TOKENS.light.accent`, …), plus a `useTheme
 | `--tyre` | `#1A1A1A` | `#1A1A1A` | tyres, bar tape |
 | `--clay` | `#8C8276` | `#7D8085` | rider mannequin (single clay tone) |
 | `--rim` | `#FFFBF3` | `#D6DDE6` | Fresnel rim tint |
-| `--kit-light` | `#EDEAE4` | `#D9D5CD` | helmet shell |
+| `--kit-light` | `#EDEAE4` | `#D9D5CD` | light kit accents (reserved; no helmet for now) |
 | `--bottle` | `#D6CFC2` | `#4B4D50` | bottle |
 
 3D-only material parameters (roughness, clearcoat, …) stay in `tokens.ts` under `material3d`. The values are in
@@ -252,7 +252,7 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
 | ground / `geometry-ground` | 1 px `--ink` @ 60% plus a **mm ruler** (25 mm minor ticks at 22% opacity, 100 mm major, accent ticks at R.AXLE / BB / F.AXLE, mono labels) |
 | wheels (`Wheel2D`) | tyre = `--tyre` stroke 28 mm; **carbon deep rim** = `--carbon` band 44 mm (solid, never light); spokes 2.2 mm `--alloy`; hub; near-side **disc rotor** ring + 6 spokes in `--rotor`; flat-mount caliper |
 | frame lines (`geometry-frame--*`) | **filled tapered polygons** in `--frame`, using the same radius table as the 3D tubes (shared `web/src/design/bikeProfiles.ts`: `down_tube 24→20`, …; see 3D plan §6). Curved fork = quadratic path. BB fillet circle. |
-| cockpit / seatpost / cranks / drivetrain | `--carbon` / `--alloy` fills: aero seatpost, stem, spacers, drop bar in `--tyre` (tape), STI hood + lever; **52/36 chainrings** (tooth outlines), cassette (11 rings), front derailleur, rear derailleur with two pulleys, chain routed through them; bottle + cage on the seat tube. Draw order for the left-side view: far wheel parts → far limbs → drivetrain (drive side is far) → frame → near hardware (rotors, calipers, near crank) → near body → head/helmet → bars/hoods → near glove. |
+| cockpit / seatpost / cranks / drivetrain | `--carbon` / `--alloy` fills: aero seatpost, stem, spacers, drop bar in `--tyre` (tape), STI hood + lever; **52/36 chainrings** (tooth outlines), cassette (11 rings), front derailleur, rear derailleur with two pulleys, chain routed through them; bottle + cage on the seat tube. Draw order for the left-side view: far wheel parts → far limbs → drivetrain (drive side is far) → frame → near hardware (rotors, calipers, near crank) → near body → head → bars/hoods → near glove. |
 | saddle (`SaddleShape`) | `--ink` fill |
 | mannequin (`geometry-mannequin__flesh/line/head`) | **SUPERSEDED, see §5.5 (clay polygons + rim filter).** Previously: the same body primitives as 3D (`web/src/design/riderBody.ts`, §5.5), evaluated in 2D: each primitive's distance at its own mid-plane z, smooth-min combined, then drawn as **anti-aliased per-kit-region fills** (skin / jersey / bib / sock; hems follow the split planes). Either rasterise to a canvas `<image>` at ≤2 mm/cell (as the mock-up does), or contour with marching squares into SVG paths. Far-side limbs at 62% opacity *behind* the bike; near body in front, with a thin darker edge. Head = ellipse + jaw + brow masses; helmet = the side silhouette of the §5.5 helmet recipe (top line φ=0, bottom edge φ=1) in `--kit-light`, with the side vent channels as dark strokes; wrap glasses; ponytail for the female base. Shoes in `--kit-light` with a `--carbon` sole. |
 | skeleton overlay (`__line`) | 2 mm `--ink` @ 55% bones; joints = `--surface` circles with ink stroke |
@@ -266,7 +266,7 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
 - **Front view:** the same language: rider in the §5.5 body projected front-on (skin/kit tokens), bike in `--frame` / `--carbon`, hairline measurements.
 - **Callouts in 2D:** anchors are converted mm → screen px with the SVG's `getScreenCTM()`, then passed to `CalloutLayer`.
 
-### 5.5 Rider figure, Fresnel shading and helmet (track E owns; the 2D and 3D views consume)
+### 5.5 Rider figure and Fresnel shading (track E owns; the 2D and 3D views consume)
 
 `mockups/src/{kit.js,rider3.js,fresnel.js,draw2d.js}` is the working reference (`05-fresnel-options.png` and `02/03` show the result).
 
@@ -292,28 +292,17 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
   - **Pending product decision:** level 2 (tonal rim only) vs level 2+3 (plus the focus rim and x-ray ghost). The recommendation is 2+3.
 - **2D:** the same profiles drawn as clay polygons, with an SVG filter that erodes the alpha and flood-fills the ring to give an
   inner rim (tonal), plus an accent ring on the focused limb (`draw2d.js#clayDefs`, `clayFigure`).
-- **Head + helmet** (`rider3.js`, head-local frame: +x gaze, +y up; gaze = neck angle − 78°):
+- **Head** (`rider3.js`, head-local frame: +x gaze, +y up; gaze = neck angle − 78°):
   - **Head:** one deformed ellipsoid (`headDeform`) rather than separate nose and chin blobs: a skull of 96×118×76, a
     flattened face plane, a squarer jaw that narrows gently below the equator, and a subtle nose ridge and chin built
     into the surface. Small ears.
-  - **Helmet: a simplified polygon model traced from Evade 4 product photos (decided)** (`mockups/src/buildloft.mjs` →
-    `helmet_geo.json`, loaded by `helmet.js`).
-    - The side profile (crown line) and the front-view arch are extracted automatically from the side and front photos.
-    - Every cross-section is the front arch, scaled to the local height from the side photo and to a rounded plan width
-      (half-width 105 mm). The plan **closes at the nose** (it wraps the brow; no open notch at the front) and is blunt at
-      the tail. Vertical side walls; a clean bottom edge traced by hand (low brow, ear cutout, raised rear).
-    - **Thickness:** an inner surface offset 18 mm (EPS liner thickness), joined to the outer by a rim band along the
-      bottom edge.
-    - Length ≈ 264 mm, crown ≈ 38 mm above the skull.
-    - **No vents, no black, no straps**: the silhouette carries the likeness. Pressing the photo vents in as recesses was
-      tried and came out noisy.
-    - Matte `--kit-light` (roughness 0.55, light clearcoat), with the tonal Fresnel rim.
-    - **2D:** the same traced outline.
-    - **For the app:** ship the generated geometry as a static asset (GLB or JSON), placed in the head frame. Don't regenerate it at runtime.
+  - **Helmet: none for now (decided).** The rider is shown bare-headed in both 2D and 3D, and no track builds a helmet.
+    For reference only: the last explored option (a lofted shell traced from Evade 4 photos, closed nose, 18 mm thickness)
+    is in `mockups/src/buildloft.mjs` and `mockups/10-helmet-vs-photos.png`, in case a helmet is revisited later.
   - **Future upgrade:** a professionally modelled (CC0 or licensed) generic aero-road helmet and athletic body as GLB assets,
     fitted to the IK joints. This is the route to a fully detailed, photoreal look. It must not be a replica of a branded
     product.
-  - **2D:** the head profile is the z=0 slice of `headDeform`. The helmet is the shell's crown line and rim, so 2D and 3D share one model.
+  - **2D:** the head profile is the z=0 slice of `headDeform`, so 2D and 3D share one model.
   - **Reference:** `mockups/09-head-helmet.png`.
 - **Build:** all limb profiles and muscle amplitudes are ×1.1, the torso ×1.08, glutes (64, 58, 58); a little fuller than a
   climber. **Calves:** gastrocnemius medial amp 36 (t 0.30) and lateral amp 28 (t 0.24), both spread 4 and angled 0.75
@@ -420,7 +409,7 @@ Every track **merges `main` into its branch** after each upstream merge (no reba
 | `fitMetrics` | DS | `MetricId`, `MetricDef`, `METRICS`, `computeAll`, `formatMetric`, `formatDelta`, `DEFAULT_FOCUS` (3D plan §2.1 + §4.5 here) |
 | `useMetricFocus` | DS | `{ focused: MetricId; pinned: MetricId[]; focus(id); togglePin(id); reset() }`, max 3 pins |
 | `CalloutLayer` | DS | `props: { anchors: { id: MetricId; x: number; y: number; hot?: boolean }[]; width; height; prefer?: Partial<Record<MetricId, [dx, dy]>> }` |
-| `riderBody` | E (stubbed by DS) | `PROFILES` (segment radius functions + mass placements for the toned base), `helmetPoint(s, φ)`, `VENTS`, `withFresnel(material, opts)`; the 2D view draws the same profiles as polygons (§5.5). |
+| `riderBody` | E (stubbed by DS) | `PROFILES` (segment radius functions + mass placements for the toned base), `headDeform(x, y, z)`, `withFresnel(material, opts)`; the 2D view draws the same profiles as polygons (§5.5). |
 | `bikeProfiles` | E (stubbed by DS) | `TUBE_PROFILE: Record<TubeName, [r0, r1]>`, `RIM`, `CHAINRING` |
 | 3D group names | C | `stage-root`, `analytics-root`, `ghost-root`, `mannequin-root`, `mannequin-legs` |
 | `CompareTarget` | D-ui | `{ label: string; metrics: Partial<Record<MetricId, number>>; points: Geometry3DPoint[] }` |
@@ -524,8 +513,8 @@ Follow §3 and §8. Open a PR into main. Do not merge.
 ```
 You are track E (rider + bike meshes) of the FlowFit redesign. Read docs/plans/site-redesign.md fully and
 docs/plans/3d-instrument-redesign.md Phases 0, 5 and 6, and §5.5 of the master plan (it supersedes 3D plan §5.2–5.3). Start after track C's Phase 1 is merged; branch
-claude/redesign-meshes from main. Implement the shared limb builder, the anatomical rider (head ellipsoid, helmet
-recipe, profiles) and the bike shapes. Fill web/src/design/riderBody.ts and bikeProfiles.ts (the 2D view consumes
+claude/redesign-meshes from main. Implement the shared limb builder, the anatomical rider (sculpted head, no helmet,
+profiles) and the bike shapes. Fill web/src/design/riderBody.ts and bikeProfiles.ts (the 2D view consumes
 them too). Add the elbow-direction regression test. Expose builders for BikeScene3D; do not edit BikeScene3D.tsx
 (request wiring from track C in your PR). Never change IK or point positions. Follow §3 and §8.
 Open a PR into main. Do not merge.

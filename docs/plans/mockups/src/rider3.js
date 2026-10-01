@@ -132,7 +132,7 @@ export function buildRider(G, MAT) {
   // helmet — modelled on the S-Works Evade 4: compact, rounded, close to the head, short squared tail,
   // mouth-port brow intake, 7 front vents curving rearward, diagonal side vent, wide rear exhaust.
   const { A, cx, cy, RA, sect, ventMask } = HELMET;
-  H.add(buildHelmet(MAT.helmet));
+  // helmet removed for now (product decision)
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }

@@ -4,6 +4,26 @@ import { helmetSide2D } from './helmet.js';
 import { profiles, helmetPoint, VENTS, lerp, bump } from './kit.js';
 const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
 
+// Anti-aliased raster of the body's side projection, coloured by kit region.
+export function rasterBody(G, cols, which, box, cell = 2, edge = null) {
+  const { prims, groups } = bodyPrims(G);
+  const sel = prims.filter(p => which === 'far' ? p.zc < -10 : p.zc >= -10);
+  const W = Math.ceil((box.x1 - box.x0) / cell), H = Math.ceil((box.y1 - box.y0) / cell);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d'); const im = ctx.createImageData(W, H);
+  const C = Object.fromEntries(Object.entries(cols).map(([k, v]) => [k, hex(v)])), E = edge ? hex(edge) : null;
+  for (let j = 0; j < H; j++) { const y = box.y1 - (j + .5) * cell;
+    for (let i = 0; i < W; i++) { const x = box.x0 + (i + .5) * cell;
+      let d = 1e9, best = 1e9, bp = null;
+      for (const p of sel) { const dd = p.d(x, y, p.zc); d = smin(d, dd, p.k); if (dd < best) { best = dd; bp = p; } }
+      const a = Math.min(1, Math.max(0, .5 - d / cell)); if (a <= 0) continue;
+      let cls = bp.cls; const gr = bp.grp != null ? groups[bp.grp] : null;
+      if (gr) { const t = ((x - gr.a[0]) * gr.nrm[0] + (y - gr.a[1]) * gr.nrm[1] + (bp.zc - gr.a[2]) * gr.nrm[2]) / gr.L0; cls = gr.cls; for (const [st, sc] of gr.splits) if (t >= st) cls = sc; }
+      let c = C[cls]; if (E && d > -cell * 1.1) { const m = .55; c = c.map((v, k) => v * (1 - m) + E[k] * m); }
+      const o = (j * W + i) * 4; im.data[o] = c[0]; im.data[o + 1] = c[1]; im.data[o + 2] = c[2]; im.data[o + 3] = a * 255;
+    } }
+  ctx.putImageData(im, 0, 0);
+  return `<image href="${cv.toDataURL()}" x="${box.x0}" y="${-box.y1}" width="${W * cell}" height="${H * cell}" preserveAspectRatio="none"/>`;
+}
 const pts = arr => arr.map(([x, y]) => `${x.toFixed(1)},${(-y).toFixed(1)}`).join(' ');
 function seg(a, b, prof, n = 18) {
   const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux, left = [], right = [];
@@ -117,8 +137,5 @@ export function clayHead(G) {
   const R = (x, y) => [J.head.x + x * Math.cos(gz) - y * Math.sin(gz), J.head.y + x * Math.sin(gz) + y * Math.cos(gz)];
   const prof = []; for (let i = 0; i < 120; i++) { const a = i / 120 * Math.PI * 2; const [X, Y] = headDeform(Math.cos(a), Math.sin(a), 0); prof.push(R(X, Y)); }
   let s = `<g filter="url(#fres)"><polygon class="clay" points="${pts(prof)}"/></g>`;
-  const HS = helmetSide2D();
-  s += `<polygon class="helmet" points="${pts(HS.outline.map(([x, y]) => R(x, y)))}"/>`;
-  s += `<g class="hvent">${HS.vents.map(([x, y]) => { const [a, b] = R(x, y); return `<rect x="${(a - 2.2).toFixed(1)}" y="${(-b - 2.2).toFixed(1)}" width="4.4" height="4.4"/>`; }).join('')}</g>`;
   return s;
 }
