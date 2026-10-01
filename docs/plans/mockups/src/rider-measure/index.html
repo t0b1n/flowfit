@@ -65,7 +65,7 @@ input[type=number] { font-family: var(--mono); font-size: 12px; width: 70px; bac
 <header>
   <h1>Rider Proportion Gauge</h1>
   <span class="meta">Scale <b id="scaleOut">not set</b></span>
-  <span class="meta"><label for="wheelMm">Wheel Ø</label> <input id="wheelMm" type="number" value="680" min="500" max="800"> mm</span>
+  <span class="meta"><label for="wheelMm">Rim Ø</label> <input id="wheelMm" type="number" value="630" min="500" max="800"> mm</span>
   <span class="meta" id="saveState">Not saved yet</span>
 </header>
 
@@ -208,7 +208,7 @@ function render() {
   $('skip').hidden = !(task && task.k === 'w');
   if (!img) { $('pk').textContent = 'Step'; $('pt').textContent = 'Load the photo to start'; }
   else if (!task) { $('pk').textContent = 'Done'; $('pt').textContent = 'All measurements are in'; $('ph').textContent = 'Click any row to redo it. Your measurements are saved for FlowFit.'; }
-  else if (task.k === 'scale') { $('pk').textContent = 'Scale'; $('pt').textContent = 'Click the outer edge of one wheel, then the opposite edge'; $('ph').textContent = 'Go straight through the hub, tyre edge to tyre edge. This sets mm per pixel from the wheel diameter.'; }
+  else if (task.k === 'scale') { $('pk').textContent = 'Scale'; $('pt').textContent = 'Click one edge of the rim (where the tyre meets it), then the opposite edge'; $('ph').textContent = 'Go straight through the hub. A 700c rim edge is about 630 mm across; use 680 if you click the outside of the tyre instead.'; }
   else if (task.k === 'bone') { const s = segOf(task.seg), n = (state.bones[task.seg] || []).length; $('pk').textContent = s.name + ' · bone line'; $('pt').textContent = 'Click the ' + (n ? s.b : s.a); $('ph').textContent = 'Click joint centres, not the outline. The widths are measured square to this line.'; }
   else { const s = segOf(task.seg), w = (state.widths[task.seg] || [])[task.i], n = Array.isArray(w) ? w.length : 0; $('pk').textContent = s.name + ' · ' + s.lab[task.i]; $('pt').textContent = n ? 'Click the other edge' : 'Click one edge where the orange guide crosses it'; $('ph').textContent = 'Zoom in for accuracy. If another limb or the bike hides the edge, skip this one.'; }
   const L = $('list'); L.textContent = '';

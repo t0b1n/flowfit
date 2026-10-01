@@ -306,23 +306,23 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
   - **Reference:** `mockups/09-head.png`.
 - **Build: calibrated to measured widths from a reference photo of a pro rider.**
   - **Method:** the product owner measured the photo in the Rider Proportion Gauge (a click-to-measure page).
-    - The scale comes from the wheel diameter (680 mm).
+    - The scale comes from the **rim** diameter: rim edge to rim edge ≈ 630 mm on 700c (680 mm is the outside of the tyre).
     - Each width is taken square to its bone, at 25%, 50% and 75% along it (torso at 30%, 50% and 70%), so the
       different poses don't matter.
     - Our model was measured the same way: the silhouette width of each limb's own mesh, square to the same bone.
   - **Fit:** `CAL` in `mockups/src/rider3.js` holds a multiplier per station: linear between stations, flat beyond.
     It scales both the base profile and the muscle bulges (torso: front-to-back depth only). Every station is within
-    1.3% of the reference.
+    1% of the reference.
   - **Reference widths (mm, side view):**
 
     | Part | 25% / 30% | 50% | 75% / 70% |
     |---|---|---|---|
-    | Thigh | 193 | 178 | 141 |
-    | Calf | 132 | 128 | 96 |
-    | Upper arm | 110 | 94 | 79 |
-    | Forearm | 87 | 76 | 55 |
-    | Torso (stomach / lower chest / chest) | 242 | 258 | 275 |
-    | Neck | — | 114 | — |
+    | Thigh | 179 | 165 | 131 |
+    | Calf | 122 | 119 | 89 |
+    | Upper arm | 102 | 87 | 74 |
+    | Forearm | 81 | 71 | 51 |
+    | Torso (stomach / lower chest / chest) | 224 | 239 | 255 |
+    | Neck | — | 106 | — |
   - **2D:** the side view applies the same `calAt(segment, t)` to its silhouette profiles.
   - The mock-up pose uses trunk 36°, so the elbows bend (~27°). Real poses come from the app's IK.
 

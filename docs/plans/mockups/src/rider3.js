@@ -56,7 +56,7 @@ export const HELMET = (() => {
   return { A, cx, cy, RA, sect, ventMask, x0: cx - A * RA + 1, x1: cx + A - 1 };
 })();
 // Per-station width calibration against the reference photo (multipliers at the measured stations; linear between, flat beyond).
-export const CAL = {thigh: [[0.25,1.055],[0.5,1.082],[0.75,1.102]],calf: [[0.25,1.435],[0.5,1.806],[0.75,1.978]],upperArm: [[0.25,1.412],[0.5,1.172],[0.75,1.219]],forearm: [[0.25,1.381],[0.5,1.549],[0.75,1.288]],torso: [[0.3,1.484],[0.5,1.3],[0.7,1.044]],neck: [[0.5,1.36]]};
+export const CAL = {thigh: [[0.25,0.976],[0.5,1.003],[0.75,1.018]],calf: [[0.25,1.333],[0.5,1.679],[0.75,1.842]],upperArm: [[0.25,1.317],[0.5,1.086],[0.75,1.13]],forearm: [[0.25,1.289],[0.5,1.436],[0.75,1.18]],torso: [[0.3,1.372],[0.5,1.204],[0.7,0.968]],neck: [[0.5,1.258]]};
 export const calAt = (seg, t) => { const c = CAL[seg]; if (t <= c[0][0]) return c[0][1]; for (let i = 0; i < c.length - 1; i++) if (t <= c[i + 1][0]) return c[i][1] + (c[i + 1][1] - c[i][1]) * (t - c[i][0]) / (c[i + 1][0] - c[i][0]); return c.at(-1)[1]; };
 const TAG = (m, seg) => { m.userData.seg = seg; return m; };
 export function buildRider(G, MAT) {
