@@ -6,6 +6,7 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import "@fontsource/doto/800.css";
 import "./design/tokens.css";
+import "./design/primitives.css";
 import { initTheme } from "./design/useTheme";
 import { App } from "./App";
 

@@ -5,8 +5,33 @@ const roundToStep = (value: number, step: number) => {
   return Number(value.toFixed(decimals));
 };
 
+// "1760 mm" / "10°" → number + muted unit. Anything else is rendered as-is.
+const renderValue = (value: React.ReactNode, unit?: string) => {
+  if (unit != null) {
+    return (
+      <>
+        {value}
+        <small>{unit}</small>
+      </>
+    );
+  }
+  if (typeof value === "string") {
+    const m = /^(-?[\d.,]+)\s*(\S.*)$/.exec(value);
+    if (m) {
+      return (
+        <>
+          {m[1]}
+          <small>{m[2]}</small>
+        </>
+      );
+    }
+  }
+  return value;
+};
+
 // Compact labelled range control with −/+ fine-adjust steppers.
 // `value` is the formatted display string; `sliderValue` drives the input.
+// `ticks` are optional values (in slider units) marked on the track, e.g. band edges.
 export const SliderCard: React.FC<{
   label: React.ReactNode;
   value: React.ReactNode;
@@ -20,6 +45,8 @@ export const SliderCard: React.FC<{
   onReset?: () => void;
   trailing?: React.ReactNode;
   children?: React.ReactNode;
+  unit?: string;
+  ticks?: number[];
 }> = ({
   label,
   value,
@@ -33,9 +60,13 @@ export const SliderCard: React.FC<{
   onReset,
   trailing,
   children,
+  unit,
+  ticks,
 }) => {
   const nudge = (dir: 1 | -1) =>
     onChange(roundToStep(Math.min(max, Math.max(min, sliderValue + dir * step)), step));
+  const span = max - min;
+  const pct = (v: number) => `${span > 0 ? Math.min(100, Math.max(0, ((v - min) / span) * 100)) : 0}%`;
   return (
     <label
       className={`slider-card${variant === "target" ? " slider-card--target" : ""}${
@@ -49,7 +80,7 @@ export const SliderCard: React.FC<{
             onDoubleClick={onReset}
             title={onReset ? "Double-click to reset" : undefined}
           >
-            {value}
+            {renderValue(value, unit)}
           </strong>
           {trailing}
         </span>
@@ -68,16 +99,26 @@ export const SliderCard: React.FC<{
         >
           −
         </button>
-        <input
-          className={`slider-card__input slider-card__input--${variant}`}
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={sliderValue}
-          disabled={disabled}
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
+        <div className="slider-card__track">
+          {ticks && (
+            <div className="slider-card__ticks" aria-hidden>
+              {ticks.map((t) => (
+                <i key={t} style={{ left: pct(t) }} />
+              ))}
+            </div>
+          )}
+          <input
+            className={`slider-card__input slider-card__input--${variant}`}
+            style={{ "--pct": pct(sliderValue) } as React.CSSProperties}
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={sliderValue}
+            disabled={disabled}
+            onChange={(e) => onChange(Number(e.target.value))}
+          />
+        </div>
         <button
           type="button"
           className="slider-card__step"

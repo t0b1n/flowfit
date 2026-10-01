@@ -1,0 +1,328 @@
+/* Instrument primitives. Specs: docs/plans/site-redesign.md §4.2; exact values from mockups/src/{ff,app}.css. */
+
+/* ── Slider (SliderCard) ───────────────────────────────────────────────────── */
+
+.slider-card {
+  display: block;
+  margin: 0 0 var(--s-3);
+}
+
+.slider-card--disabled {
+  opacity: 0.45;
+}
+
+.slider-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s-3);
+  font: 400 10.5px/1.3 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.slider-card__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+.slider-card__value strong {
+  font: 500 13px var(--font-mono);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-transform: none;
+}
+
+.slider-card__value strong small {
+  margin-left: 3px;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.slider-card__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+}
+
+.slider-card__track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 14px;
+}
+
+.slider-card__ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.slider-card__ticks i {
+  position: absolute;
+  top: 2px;
+  width: 1px;
+  height: 10px;
+  background: var(--faint);
+}
+
+.slider-card__input {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.slider-card__input:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.slider-card__input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ink) var(--pct, 0%), var(--faint) var(--pct, 0%));
+}
+
+.slider-card__input::-moz-range-track {
+  height: 1px;
+  background: linear-gradient(to right, var(--ink) var(--pct, 0%), var(--faint) var(--pct, 0%));
+}
+
+.slider-card__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 2px;
+  height: 12px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink);
+}
+
+.slider-card__input::-moz-range-thumb {
+  width: 2px;
+  height: 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--ink);
+}
+
+.slider-card__step {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 400 12px/1 var(--font-mono);
+  cursor: pointer;
+}
+
+.slider-card__step:hover:not(:disabled) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.slider-card__step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ── Collapsible section (CollapsibleSection) ──────────────────────────────── */
+
+.subpanel {
+  padding: var(--s-3) 0 var(--s-4);
+  border-top: 1px solid var(--faint);
+}
+
+.subpanel-toggle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.subpanel-toggle h3 {
+  margin: 0;
+  font: 600 13px var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.subpanel-toggle__aside {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  font: 400 10px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.subpanel-chevron {
+  width: 10px;
+  height: 10px;
+  display: inline-block;
+  position: relative;
+  color: var(--muted);
+  transition: transform 0.12s ease;
+}
+
+.subpanel-chevron::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 0;
+  width: 5px;
+  height: 5px;
+  border-right: 1px solid currentColor;
+  border-bottom: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.subpanel-chevron--closed {
+  transform: rotate(-90deg);
+}
+
+.subpanel-body {
+  margin-top: var(--s-3);
+}
+
+/* ── Preset pills (PresetPills) and ghost buttons: segmented, joined cells ─── */
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 0 var(--s-3);
+  padding-left: 1px;
+}
+
+.preset-row--inline {
+  margin: var(--s-1) 0 6px;
+}
+
+.preset-pill,
+.ghost-button {
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.preset-pill {
+  flex: 1 1 auto;
+  margin: 0 0 -1px -1px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.preset-pill--sm {
+  padding: 4px 6px;
+  font-size: 9.5px;
+}
+
+.preset-pill:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+  position: relative;
+}
+
+.preset-pill--active,
+.preset-pill--active:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.ghost-button {
+  width: 100%;
+  margin-top: var(--s-3);
+  padding: 6px 10px;
+  color: var(--ink);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+
+.ghost-button:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.ghost-button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* ── Metric card (MetricCard) ──────────────────────────────────────────────── */
+
+.metric-card {
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--faint-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-card__label {
+  font: 400 10.5px/1.3 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.metric-card__compare {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  margin-top: var(--s-1);
+}
+
+.metric-card__compare > div {
+  display: grid;
+  gap: 5px;
+}
+
+.metric-card__compare strong {
+  font: 500 13px/1.2 var(--font-mono);
+  color: var(--ink);
+}
+
+.metric-card__dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translateY(-1px);
+}
+
+.metric-card__delta {
+  margin-top: var(--s-1);
+  font: 400 11px var(--font-mono);
+  color: var(--accent-text);
+}
