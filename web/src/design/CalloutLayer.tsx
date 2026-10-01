@@ -1,16 +1,13 @@
 import React, { useMemo } from "react";
 import { PartCode } from "./PartCode";
+import { METRIC_BY_ID, formatMetric, type MetricId } from "../fitMetrics";
 
 export interface CalloutAnchor {
-  id: string;
+  id: MetricId;
   /** Screen px, relative to the layer's top-left. */
   x: number;
   y: number;
   hot?: boolean;
-  /** Part code, e.g. "J3". */
-  code?: string;
-  /** Label text after the code, e.g. "KNEE EXT 150°". */
-  text?: React.ReactNode;
 }
 
 export interface CalloutLayerProps {
@@ -18,11 +15,13 @@ export interface CalloutLayerProps {
   width: number;
   height: number;
   /** Preferred direction (dx, dy in px) of the diagonal leader segment, per id. */
-  prefer?: Partial<Record<string, [number, number]>>;
+  prefer?: Partial<Record<MetricId, [number, number]>>;
+  /** Metric values for the label text (`J3 KNEE EXT 150°`). Without a value only code + short name show. */
+  values?: Partial<Record<MetricId, number>>;
 }
 
 export interface CalloutPlacement {
-  id: string;
+  id: MetricId;
   /** anchor */
   x: number;
   y: number;
@@ -52,7 +51,7 @@ export function layoutCallouts(
   anchors: Pick<CalloutAnchor, "id" | "x" | "y">[],
   width: number,
   height: number,
-  prefer: Partial<Record<string, [number, number]>> = {},
+  prefer: Partial<Record<MetricId, [number, number]>> = {},
 ): CalloutPlacement[] {
   const placed: CalloutPlacement[] = anchors.map((a) => {
     const [dx, dy] = prefer[a.id] ?? DEFAULT_PREFER;
@@ -95,7 +94,7 @@ export function layoutCallouts(
  * DOM overlay shared by the 2D and 3D views. Anchors are in screen px; draws a dot, a leader
  * (diagonal then horizontal) and a `PartCode` label per anchor. Pointer events pass through.
  */
-export const CalloutLayer: React.FC<CalloutLayerProps> = ({ anchors, width, height, prefer }) => {
+export const CalloutLayer: React.FC<CalloutLayerProps> = ({ anchors, width, height, prefer, values }) => {
   const placements = useMemo(() => layoutCallouts(anchors, width, height, prefer), [anchors, width, height, prefer]);
   const byId = new Map(anchors.map((a) => [a.id, a]));
   return (
@@ -113,14 +112,25 @@ export const CalloutLayer: React.FC<CalloutLayerProps> = ({ anchors, width, heig
       </svg>
       {placements.map((p) => {
         const a = byId.get(p.id)!;
+        const def = METRIC_BY_ID[a.id];
+        const v = values?.[a.id];
         return (
           <div
             key={p.id}
             className={`ff-callout${a.hot ? " ff-callout--hot" : ""}${p.dir < 0 ? " ff-callout--left" : ""}`}
             style={{ left: p.lx, top: p.ly, width: LABEL_W }}
           >
-            {a.code && <PartCode hot={a.hot}>{a.code}</PartCode>}
-            {a.text}
+            <PartCode hot={a.hot}>{def.code}</PartCode>
+            <span>
+              {def.short}
+              {v != null && (
+                <>
+                  {" "}
+                  <b>{formatMetric(a.id, v)}</b>
+                  <span className="ff-callout__unit">{def.unit === "mm" ? " mm" : def.unit}</span>
+                </>
+              )}
+            </span>
           </div>
         );
       })}

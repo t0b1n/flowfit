@@ -796,3 +796,11 @@
   font: 700 18px var(--font-sans);
   letter-spacing: -0.03em;
 }
+
+.ff-callout b {
+  font-weight: 500;
+}
+
+.ff-callout__unit {
+  color: var(--muted);
+}
