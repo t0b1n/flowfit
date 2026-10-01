@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { type FrameMeasurementId, type FrameMeasurementVisibility } from "./BikeAnnotations";
 import { useCatalog } from "./catalog/CatalogContext";
 import { HOOD_PRESETS } from "./components/hoodPresets";
@@ -11,6 +12,11 @@ import { StageToolbar } from "./builder/StageToolbar";
 import { Stage2DSide } from "./builder/Stage2DSide";
 import { DEFAULT_COMPONENTS_BUILDER, RiderVisibility, DEFAULT_RIDER_VISIBILITY, DEFAULT_FRAME_MEASUREMENT_VISIBILITY, ViewKind, SHOE_PRESETS, SummaryTone, RiderVisibilityPart, PEDAL_PRESETS } from "./builder/shared";
 import { Stage2DFront } from "./builder/Stage2DFront";
+import { metricValues } from "./builder/StageOverlay";
+import { CompareMenu } from "./fits/CompareMenu";
+import { FitHistoryPanel } from "./fits/FitHistoryPanel";
+import { buildSnapshot, captureInputs, restoreInputs, type CompareTarget } from "./fits/capture";
+import { useFitHistory } from "./fits/useFitHistory";
 
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -201,6 +207,73 @@ export const FitBuilderMode: React.FC = () => {
   const bounds = expandBoundsForMannequins(baseBounds, [mannequin]);
 
   // In fullscreen, zoom to the frame+rider area (no wheel-radius padding)
+  // ── Fit history: capture / restore / compare (track D-ui) ───────────────────
+  const history = useFitHistory();
+  const [sessionSnapshot, setSessionSnapshot] = useState<CompareTarget | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const currentSnapshot = () =>
+    buildSnapshot({
+      metrics: metricValues(mannequin, bike, strokeMetrics),
+      points3d: geo3d.points,
+      components,
+      frameLabel: `${model.brand} ${model.model} ${sizeData.size}`,
+    });
+
+  const saveFit = async (name: string) => {
+    await history.save({
+      name,
+      inputs: captureInputs({
+        selection, components, tyreSize, riderFit, preset, trunkAngleOverride, backBendOverride, hoodPresetId,
+        bodyMeasurements, pedalPresetId, shoePresetId, fitMode, targetSaddleHeightMm,
+      }) as unknown as Record<string, unknown>,
+      snapshot: currentSnapshot(),
+    });
+  };
+
+  const loadFit = async (id: string) => {
+    const fit = await history.load(id);
+    restoreInputs(fit.inputs, {
+      selection: setSelection, components: setComponents, tyreSize: setTyreSize, riderFit: setRiderFit, preset: setPreset,
+      trunkAngleOverride: setTrunkAngleOverride, backBendOverride: setBackBendOverride, hoodPresetId: setHoodPresetId,
+      bodyMeasurements: setBodyMeasurements, pedalPresetId: setPedalPresetId, shoePresetId: setShoePresetId,
+      fitMode: setFitMode, targetSaddleHeightMm: setTargetSaddleHeightMm,
+    });
+  };
+
+  const takeSessionSnapshot = () =>
+    setSessionSnapshot({
+      label: "Snapshot",
+      metrics: metricValues(mannequin, bike, strokeMetrics),
+      points: geo3d.points.filter((p) => p.group === "mannequin").map((p) => ({ ...p, pos: [...p.pos] as [number, number, number] })),
+    });
+
+  // `?fit={id}` (from Profile → My fits) loads that fit once the user is known, then clears the param.
+  const fitParam = searchParams.get("fit");
+  useEffect(() => {
+    if (!fitParam || !history.signedIn) return;
+    void loadFit(fitParam)
+      .catch(() => undefined)
+      .finally(() => {
+        const next = new URLSearchParams(searchParams);
+        next.delete("fit");
+        setSearchParams(next, { replace: true });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitParam, history.signedIn]);
+
+  const historySlot = (
+    <FitHistoryPanel
+      history={history}
+      defaultName={`Fit ${history.fits.length + 1} · ${preset.charAt(0).toUpperCase()}${preset.slice(1)}`}
+      onSave={saveFit}
+      onLoad={(id) => void loadFit(id)}
+    />
+  );
+  const compareSlot = (
+    <CompareMenu history={history} sessionSnapshot={sessionSnapshot} onTakeSnapshot={takeSessionSnapshot} onLoad={(id) => void loadFit(id)} />
+  );
+
   const activeBounds = useMemo(() => {
     if (!fullscreen) return bounds;
     const pts = [
@@ -343,7 +416,7 @@ export const FitBuilderMode: React.FC = () => {
 
   const controlPanels = <ControlsColumn mobilePanel={mobilePanel} fullscreen={fullscreen} fitMode={fitMode} handleFitModeChange={handleFitModeChange} idealSaddleY={idealSaddleY} kneeFlex={kneeFlex} riderFit={riderFit} setRiderFit={setRiderFit} targetSaddleHeightMm={targetSaddleHeightMm} setTargetSaddleHeightMm={setTargetSaddleHeightMm} rider={rider} updateBodyMeasurement={updateBodyMeasurement} setBodyMeasurements={setBodyMeasurements} trunkAngleOverride={trunkAngleOverride} backBendOverride={backBendOverride} preset={preset} setPreset={setPreset} setTrunkAngleOverride={setTrunkAngleOverride} setBackBendOverride={setBackBendOverride} targetTrunkAngleDeg={targetTrunkAngleDeg} backBendDeg={backBendDeg} currentBrand={currentBrand} FRAME_CATALOG={FRAME_CATALOG} setSelection={setSelection} brands={brands} selection={selection} getModelById={getModelById} modelsForBrand={modelsForBrand} model={model} sizeData={sizeData} components={components} updateComponent={updateComponent} resetComponent={resetComponent} hoodPresetId={hoodPresetId} setHoodPresetId={setHoodPresetId} tyreSize={tyreSize} setTyreSize={setTyreSize} pedalPresetId={pedalPresetId} handlePedalPreset={handlePedalPreset} shoePresetId={shoePresetId} handleShoePreset={handleShoePreset} setPedalPresetId={setPedalPresetId} setShoePresetId={setShoePresetId} />;
 
-  const metricsPanel = <ResultsColumn mannequin={mannequin} mobilePanel={mobilePanel} fullscreen={fullscreen} issueCount={issueCount} actualSaddleY={actualSaddleY} saddleDelta={saddleDelta} idealSaddleY={idealSaddleY} saddleWarning={saddleWarning} severityTone={severityTone} kneeFlex={kneeFlex} fitMode={fitMode} riderFit={riderFit} kneeTone={kneeTone} hoodsWarning={hoodsWarning} barReachNeededValue={barReachNeededValue} barReachDelta={barReachDelta} components={components} barReachTone={barReachTone} bbToSaddleDistance={bbToSaddleDistance} seatpostExtension={seatpostExtension} strokeMetrics={strokeMetrics} targetTrunkAngleDeg={targetTrunkAngleDeg} preset={preset} warnings={warnings} bike={bike} seatpostRec={seatpostRec} frameGeometryRows={frameGeometryRows} />;
+  const metricsPanel = <ResultsColumn historySlot={historySlot} mannequin={mannequin} mobilePanel={mobilePanel} fullscreen={fullscreen} issueCount={issueCount} actualSaddleY={actualSaddleY} saddleDelta={saddleDelta} idealSaddleY={idealSaddleY} saddleWarning={saddleWarning} severityTone={severityTone} kneeFlex={kneeFlex} fitMode={fitMode} riderFit={riderFit} kneeTone={kneeTone} hoodsWarning={hoodsWarning} barReachNeededValue={barReachNeededValue} barReachDelta={barReachDelta} components={components} barReachTone={barReachTone} bbToSaddleDistance={bbToSaddleDistance} seatpostExtension={seatpostExtension} strokeMetrics={strokeMetrics} targetTrunkAngleDeg={targetTrunkAngleDeg} preset={preset} warnings={warnings} bike={bike} seatpostRec={seatpostRec} frameGeometryRows={frameGeometryRows} />;
 
   return (
     <div className={`mode-layout mode-layout--builder${fullscreen ? " mode-layout--fullscreen" : ""}`}>
@@ -352,7 +425,7 @@ export const FitBuilderMode: React.FC = () => {
 
       {/* ── Centre: visualization ── */}
       <section className="visual-panel builder-center">
-        <StageToolbar model={model} sizeData={sizeData} viewOptions={viewOptions} view={view} setView={setView} view3d={view3d} layersRef={layersRef} layersOpen={layersOpen} setLayersOpen={setLayersOpen} setAllRiderVisibility={setAllRiderVisibility} riderVisibility={riderVisibility} toggleRiderVisibility={toggleRiderVisibility} showJointAngles={showJointAngles} setShowJointAngles={setShowJointAngles} showFitPositions={showFitPositions} setShowFitPositions={setShowFitPositions} showFrameGeometry={showFrameGeometry} setShowFrameGeometry={setShowFrameGeometry} setAllFrameMeasurements={setAllFrameMeasurements} frameMeasurementVisibility={frameMeasurementVisibility} toggleFrameMeasurement={toggleFrameMeasurement} fullscreen={fullscreen} setFullscreen={setFullscreen} />
+        <StageToolbar compareSlot={compareSlot} model={model} sizeData={sizeData} viewOptions={viewOptions} view={view} setView={setView} view3d={view3d} layersRef={layersRef} layersOpen={layersOpen} setLayersOpen={setLayersOpen} setAllRiderVisibility={setAllRiderVisibility} riderVisibility={riderVisibility} toggleRiderVisibility={toggleRiderVisibility} showJointAngles={showJointAngles} setShowJointAngles={setShowJointAngles} showFitPositions={showFitPositions} setShowFitPositions={setShowFitPositions} showFrameGeometry={showFrameGeometry} setShowFrameGeometry={setShowFrameGeometry} setAllFrameMeasurements={setAllFrameMeasurements} frameMeasurementVisibility={frameMeasurementVisibility} toggleFrameMeasurement={toggleFrameMeasurement} fullscreen={fullscreen} setFullscreen={setFullscreen} />
 
         {!view3d && (
           <div className="legend-row">
@@ -372,8 +445,8 @@ export const FitBuilderMode: React.FC = () => {
               postureBands={POSTURE_PRESET}
             />
           ) : view === "side" ? (
-            <Stage2DSide viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
-          ) : <Stage2DFront weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
+            <Stage2DSide compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
+          ) : <Stage2DFront compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
         </div>
       </section>
 

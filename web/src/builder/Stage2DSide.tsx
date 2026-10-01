@@ -8,6 +8,7 @@ import { buildFigure, v, type V } from "./draw2d";
 import { StageOverlay } from "./StageOverlay";
 import { METRICS, useMetricFocus } from "../fitMetrics";
 import type { RiderVisibility } from "./shared";
+import type { CompareTarget } from "../fits/capture";
 
 export interface Stage2DSideProps {
   viewBox: string;
@@ -28,6 +29,8 @@ export interface Stage2DSideProps {
   showFrameGeometry: boolean;
   sizeData: SizeData;
   frameMeasurementVisibility: FrameMeasurementVisibility;
+  /** Fit to compare against (D-ui): drawn as an accent dashed ghost, and fed to the readout as deltas. */
+  compare?: CompareTarget | null;
 }
 
 /** mm ruler along the ground: 25 mm minor ticks, 100 mm major, accent ticks at the axles and BB. */
@@ -81,6 +84,27 @@ const MetricArcShape: React.FC<{ v: V; a: V; c: V; kind: "hot" | "pin" | "dim" }
   );
 };
 
+/** Drive-side leg and torso of the comparison fit (near-side points, sagittal x/y), `FIT 02 ┄` label at the hip. */
+const GhostLines: React.FC<{ compare: CompareTarget }> = ({ compare }) => {
+  const P = new Map(compare.points.map((p) => [p.name, p.pos]));
+  const chain = (names: string[]) => names.map((n) => P.get(n)).filter((p): p is [number, number, number] => !!p);
+  const leg = chain(["hip_l", "knee_l", "ankle_l", "cleat_l"]);
+  const torso = chain(["hip_l", "spine_joint", "shoulder_l", "neck_base_center", "head_center"]);
+  const pts = (l: Array<[number, number, number]>) => l.map((p) => `${p[0]},${-p[1]}`).join(" ");
+  const hip = P.get("hip_l");
+  return (
+    <g className="s2d-ghost">
+      {leg.length > 1 && <polyline points={pts(leg)} />}
+      {torso.length > 1 && <polyline points={pts(torso)} />}
+      {hip && (
+        <text x={hip[0] - 150} y={-hip[1] + 40} className="s2d-ghost__label">
+          {compare.label.toUpperCase()} ┄
+        </text>
+      )}
+    </g>
+  );
+};
+
 export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   viewBox,
   activeBounds,
@@ -100,6 +124,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   showFrameGeometry,
   sizeData,
   frameMeasurementVisibility,
+  compare,
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const { focused, pinned } = useMetricFocus();
@@ -178,6 +203,9 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         })}
       </g>
 
+      {/* comparison fit: the previous leg and torso as accent dashed hairlines */}
+      {compare && <GhostLines compare={compare} />}
+
       {/* ideal contacts: registration crosshairs */}
       {visibleParts.contactMarkers &&
         (["saddle", "hoods", "cleat"] as const).map((contact) => {
@@ -218,7 +246,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         />
       )}
     </svg>
-      <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} svgRef={svgRef} viewBox={viewBox} />
+      <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} svgRef={svgRef} viewBox={viewBox} was={compare?.metrics} />
     </div>
   );
 };
