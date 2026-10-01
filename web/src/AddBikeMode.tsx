@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "./auth/AuthContext";
+import { Segmented } from "./design/Segmented";
 import { createBike, fetchBrands, flagBike } from "./catalog/api";
 import { useCatalog } from "./catalog/CatalogContext";
 import type { FrameGeometry, FrameModel, SizeData } from "./frameCatalog";
@@ -91,24 +92,16 @@ export const AddBikeMode: React.FC = () => {
   return (
     <div className="add-bike-mode">
       <div className="add-bike-mode__tabs">
-        <button
-          className={`tab-pill ${tab === "form" ? "tab-pill--active" : ""}`}
-          onClick={() => setTab("form")}
-        >
-          Form
-        </button>
-        <button
-          className={`tab-pill ${tab === "json" ? "tab-pill--active" : ""}`}
-          onClick={() => setTab("json")}
-        >
-          JSON
-        </button>
-        <button
-          className={`tab-pill ${tab === "submissions" ? "tab-pill--active" : ""}`}
-          onClick={() => setTab("submissions")}
-        >
-          My submissions ({myBikes.length})
-        </button>
+        <Segmented
+          ariaLabel="Add bike mode"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { id: "form", label: "Form" },
+            { id: "json", label: "JSON" },
+            { id: "submissions", label: `My submissions (${myBikes.length})` },
+          ]}
+        />
       </div>
 
       {success ? <div className="auth-success">{success}</div> : null}

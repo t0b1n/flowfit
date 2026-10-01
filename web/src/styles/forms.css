@@ -183,7 +183,7 @@ ul.auth-error {
   border-color: var(--ink);
 }
 
-/* Add bike */
+/* ── Add bike ──────────────────────────────────────────────────────────────── */
 
 .add-bike-mode {
   max-width: 880px;
@@ -193,55 +193,55 @@ ul.auth-error {
 
 .add-bike-mode__tabs {
   display: flex;
-  gap: 2px;
-  margin-bottom: 20px;
+  margin-bottom: var(--s-5);
 }
 
 .add-bike-form,
 .add-bike-json {
   display: grid;
-  gap: 16px;
+  gap: var(--s-4);
 }
 
 .add-bike-form .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  gap: var(--s-3);
 }
 
 .add-bike-form h3 {
-  margin: 8px 0 0;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--accent);
+  margin: var(--s-2) 0 0;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--faint);
+  font: 600 13px var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
 }
 
+/* Size blocks read like a spec table: hairline top rule, mono legend, label/value grid */
 .size-block {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--panel);
-  padding: 16px;
   margin: 0;
+  padding: var(--s-3) 0 var(--s-4);
+  border: 0;
+  border-top: 1px solid var(--faint);
 }
 
 .size-block legend {
-  padding: 0 6px;
   display: flex;
-  gap: 12px;
   align-items: center;
-  font-size: 0.78rem;
-  font-weight: 700;
+  gap: var(--s-3);
+  padding: 0 var(--s-2) 0 0;
+  font: 500 10.5px var(--font-mono);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
+  letter-spacing: 0.16em;
+  color: var(--ink);
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--s-3);
+  margin-top: var(--s-3);
 }
 
 .form-actions {
@@ -250,70 +250,86 @@ ul.auth-error {
 }
 
 .add-bike-json textarea {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  font-weight: 400;
+  font: 400 12px/1.5 var(--font-mono);
 }
 
 .submissions-list {
   display: grid;
-  gap: 8px;
 }
 
 .submission-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--panel-strong);
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--faint-2);
+  font: 500 12.5px var(--font-sans);
 }
 
 .submission-row__id {
-  font-size: 0.75rem;
+  font: 400 10.5px var(--font-mono);
+  letter-spacing: 0.06em;
   color: var(--muted);
-  font-family: ui-monospace, monospace;
+}
+
+.field-error {
+  font: 400 10.5px var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--band-out);
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
 }
 
 .modal {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-1);
-  padding: 24px;
-  width: min(420px, 92vw);
   display: grid;
-  gap: 12px;
+  gap: var(--s-3);
+  width: min(420px, 92vw);
+  padding: var(--s-6);
+  background: var(--surface-2);
+  border: 1px solid var(--faint);
+  box-shadow: var(--shadow-pop);
 }
 
 .modal h3 {
   margin: 0;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--accent);
+  font: 600 15px var(--font-sans);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
 }
 
 .modal p {
   margin: 0;
+  font: 400 12.5px/1.5 var(--font-sans);
   color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
 }
 
 .modal__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--s-2);
+}
+
+.size-block,
+.form-grid > * {
+  min-width: 0;
+}
+
+.form-grid input {
+  width: 100%;
+  min-width: 0;
+}
+
+.add-bike-mode__tabs .ff-seg__cell {
+  white-space: nowrap;
 }
