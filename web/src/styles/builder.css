@@ -68,7 +68,7 @@
 .mode-layout--builder {
   position: relative;
   z-index: 1;
-  margin: 0 -20px;
+  margin: 0 calc(-1 * var(--shell-gutter, 20px));
   display: grid;
   grid-template-columns: 272px 1fr 292px;
   gap: 0;
