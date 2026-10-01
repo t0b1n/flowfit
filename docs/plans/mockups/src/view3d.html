@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts/all.css"><link rel="stylesheet" href="fonts/more.css"><link rel="stylesheet" href="ff.css">
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body><div class="stage3d"><div id="c"></div><div id="ov" class="ov"></div></div>
+<script type="module">
+const theme = new URLSearchParams(location.search).get('theme') || 'light';
+document.documentElement.dataset.theme = theme;
+import { renderOverlay } from './overlay.js';
+window.addEventListener('scene-ready', () => { renderOverlay(document.getElementById('ov'), { W: 1600, H: 1000, proj: window.__proj, G: window.__G, G0: window.__G0, METRICS: window.__METRICS, band: window.__band }); requestAnimationFrame(() => window.__done = true); });
+import('./scene3.js');
+</script></body></html>
