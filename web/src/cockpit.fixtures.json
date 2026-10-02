@@ -1,0 +1,119 @@
+[
+  {
+    "name": "legacy-default",
+    "clamp": [
+      500,
+      600
+    ],
+    "components": {},
+    "contact": [
+      603.5820399903683,
+      614.5575063604227
+    ]
+  },
+  {
+    "name": "legacy-steep-stem",
+    "clamp": [
+      480,
+      640
+    ],
+    "components": {
+      "stem_angle_deg": 10
+    },
+    "contact": [
+      580.5479733951481,
+      668.8316674184582
+    ]
+  },
+  {
+    "name": "rise-20",
+    "clamp": [
+      500,
+      600
+    ],
+    "components": {
+      "bar_rise": 20
+    },
+    "contact": [
+      603.5820399903683,
+      634.5575063604227
+    ]
+  },
+  {
+    "name": "roll-0",
+    "clamp": [
+      500,
+      600
+    ],
+    "components": {
+      "bar_roll_deg": 0
+    },
+    "contact": [
+      604.6,
+      600
+    ]
+  },
+  {
+    "name": "roll-12-slide-8",
+    "clamp": [
+      500,
+      600
+    ],
+    "components": {
+      "bar_roll_deg": 12,
+      "hood_slide_mm": 8
+    },
+    "contact": [
+      606.8236849055365,
+      613.7660677770624
+    ]
+  },
+  {
+    "name": "slide-negative",
+    "clamp": [
+      510,
+      590
+    ],
+    "components": {
+      "hood_slide_mm": -10,
+      "bar_rise": 15
+    },
+    "contact": [
+      608.51983112524,
+      629.8835693449964
+    ]
+  },
+  {
+    "name": "drop-offsets",
+    "clamp": [
+      500,
+      600
+    ],
+    "components": {
+      "bar_drop": -5,
+      "hood_drop_offset": 3,
+      "hood_reach_offset": 28
+    },
+    "contact": [
+      606.9489514240896,
+      613.030694903687
+    ]
+  },
+  {
+    "name": "gravel-riser",
+    "clamp": [
+      470,
+      620
+    ],
+    "components": {
+      "bar_rise": 50,
+      "bar_reach": 75,
+      "bar_roll_deg": 4,
+      "hood_slide_mm": 4
+    },
+    "contact": [
+      571.0468844890307,
+      672.6825041166688
+    ]
+  }
+]

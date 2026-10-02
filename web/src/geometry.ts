@@ -12,6 +12,7 @@ import type {
 } from "./types";
 import type { Geometry3DPoint, Geometry3DEdge, Geometry3DResponse } from "./bike3d";
 import { FrameGeometry } from "./frameCatalog";
+import { hoodContact } from "./cockpit";
 
 export const DEFAULT_TYRE_SIZE = 28;
 
@@ -594,12 +595,8 @@ export const synthesizeBike = (
     x: stemPivot.x + Math.cos(stemAngle) * components.stem_length,
     y: stemPivot.y + Math.sin(stemAngle) * components.stem_length,
   };
-  const hoodAngle = radiansFromDegrees(Math.max(8, components.stem_angle_deg + 6));
-  const hoodLength = components.bar_reach + components.hood_reach_offset;
-  const hoods = {
-    x: barClamp.x + Math.cos(hoodAngle) * hoodLength,
-    y: barClamp.y + Math.sin(hoodAngle) * hoodLength + components.hood_drop_offset,
-  };
+  // Hood contact from the shared cockpit model (mirrored in bikegeo_core/geometry.py).
+  const hoods = hoodContact(barClamp, components);
 
   return {
     bb,

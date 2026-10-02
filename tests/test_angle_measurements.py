@@ -7,7 +7,6 @@ Tests are parametrized over (kneeFlexDeg, trunkAngleDeg) and exercise both:
 
 Expected bugs:
   - ~4° knee flex error from saddle X offset (idealContactsFromRider ignores saddle_stack)
-  - hoods formula mismatch between frontend angular projection and backend additive offsets
 """
 from __future__ import annotations
 
@@ -434,7 +433,6 @@ def test_knee_flex_independent_of_trunk_angle(knee_flex_deg):
 
 @pytest.mark.parametrize("trunk_angle_deg", TRUNK_ANGLE_VALUES, ids=TRUNK_ANGLE_IDS)
 @pytest.mark.parametrize("knee_flex_deg", KNEE_FLEX_VALUES, ids=KNEE_FLEX_IDS)
-@pytest.mark.xfail(reason="BUG: frontend angular hoods vs backend additive hoods formula divergence", strict=False)
 def test_elbow_consistent_between_2d_view_and_overlay(knee_flex_deg, trunk_angle_deg):
     """Elbow flex should be the same whether hoods come from frontend or backend."""
     _, elbow_view, _, _, _ = _2d_view_pipeline(knee_flex_deg, trunk_angle_deg)

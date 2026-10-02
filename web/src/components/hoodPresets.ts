@@ -1,7 +1,6 @@
-export const HOOD_PRESETS = [
-  { id: "shimano", label: "Shimano DA", hoodReachOffset: 24 },
-  { id: "sram-red", label: "SRAM Red E1", hoodReachOffset: 28 },
-  { id: "sram-force", label: "SRAM Force E1", hoodReachOffset: 28 },
-] as const;
+import { HOOD_MODELS } from "../hoodModels";
+
+/** Hood presets = the hood models (shape + default reach offset). */
+export const HOOD_PRESETS = HOOD_MODELS.map((m) => ({ id: m.id, label: m.label, hoodReachOffset: m.hoodReachOffset }));
 
 export type HoodPresetId = (typeof HOOD_PRESETS)[number]["id"];
