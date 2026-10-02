@@ -31,6 +31,7 @@ import { AnimatedLegs } from "./AnimatedLegs";
 import { DebugProvider, useDbg, useDebugOn, DEBUG_ENABLED } from "./debug";
 import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
 import { MatsProvider, useMats } from "./scene3d/materials";
+import { buildBar, buildHoodMeshes } from "./cockpit3d";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
 import {
@@ -461,9 +462,20 @@ function BikeStatic({
   const debug = useDebugOn();
   const { bike, hoods } = useMemo(() => {
     const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape };
+    const ck = geo.cockpit;
+    const ckMats = { carbon: M.m.carbon, hood: M.m.hood, lever: M.m.lever, pad: M.m.tape, alloy: M.m.alloy };
+    const pivot = geo.points.find((p) => p.name === "stem_pivot")?.pos ?? null;
+    let cockpitGroup: THREE.Group;
+    if (ck) {
+      cockpitGroup = new THREE.Group();
+      cockpitGroup.add(buildBar(ck, pivot, ckMats, debug));
+      cockpitGroup.add(buildHoodMeshes(ck, ckMats, debug));
+    } else {
+      cockpitGroup = buildHoods(geo.points, mats, debug); // older JSON without a cockpit model
+    }
     return {
-      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug }),
-      hoods: buildHoods(geo.points, mats, debug),
+      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug, integratedStem: ck?.build === "integrated" }),
+      hoods: cockpitGroup,
     };
   }, [geo, tubes, wheelRadius, discRear, M, debug]);
   useEffect(
@@ -487,7 +499,7 @@ function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DRes
     const pts = new Map(geo.points.filter((p) => p.group === "mannequin").map((p) => [p.name, p.pos as P3]));
     const heightMm = geo.rider?.height ?? 1800;
     if (tPose) return buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { weightKg, heightMm, includeLegs: true, feet: true });
-    return buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs });
+    return buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs, handRollDeg: geo.cockpit?.hoodRollDeg ?? 0 });
   }, [geo, weightKg, includeLegs, M, tPose]);
   useEffect(
     () => () => group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()),
@@ -914,7 +926,7 @@ const SceneContent = React.memo(function SceneContent({
       {!tPose && <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discWheels} />}
 
       {/* Swept handlebar */}
-      {!tPose && <HandlebarMesh ptMap={framePtMap} />}
+      {!tPose && !geo.cockpit && <HandlebarMesh ptMap={framePtMap} />}
 
       {/* Clay rider (segmented lathe limbs; see riderMesh.ts). T-pose stands on the floor under the pelvis. */}
       {tPose ? (
@@ -1069,7 +1081,7 @@ const SceneContent = React.memo(function SceneContent({
 
 // ── Camera view presets ───────────────────────────────────────────────────────
 
-type CameraPresetKind = "side" | "front" | "threeq";
+type CameraPresetKind = "side" | "front" | "threeq" | "cockpit" | "rider";
 
 /** Frame-rate-independent exponential damp toward a target vector. */
 function damp3(current: THREE.Vector3, target: THREE.Vector3, lambda: number, dt: number) {
@@ -1080,16 +1092,31 @@ function CameraPresetRig({
   request,
   center,
   camDist,
+  points,
 }: {
   request: { kind: CameraPresetKind; nonce: number } | null;
   center: [number, number, number];
   camDist: number;
+  points: Map<string, [number, number, number]>;
 }) {
   const { camera, controls } = useThree();
   const goalRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
 
   useEffect(() => {
     if (!request) return;
+    if (request.kind === "cockpit" || request.kind === "rider") {
+      const l = points.get("hoods_l"), r = points.get("hoods_r"), clamp = points.get("bar_clamp"), head = points.get("head_center");
+      if (!l || !r || !clamp) return;
+      const mid = new THREE.Vector3((l[0] + r[0]) / 2, (l[1] + r[1]) / 2 - 30, 0);
+      if (request.kind === "rider" && head) {
+        // Rider's eye: from just in front of the head, looking down at the stem cap and bars.
+        goalRef.current = { pos: new THREE.Vector3(head[0] + 60, head[1] + 10, 0), target: new THREE.Vector3(clamp[0] + 40, clamp[1] - 20, 0) };
+      } else {
+        // Cockpit: three-quarter front view, close in on the bars and hoods.
+        goalRef.current = { pos: mid.clone().add(new THREE.Vector3(470, 210, 400)), target: mid };
+      }
+      return;
+    }
     const [cx, cy, cz] = center;
     const pos: [number, number, number] =
       request.kind === "side"
@@ -1152,6 +1179,8 @@ interface BikeScene3DProps {
   strokeLUT?: PedalStrokeLUT;
   stanceWidth?: number;
   postureBands?: PosturePreset;
+  /** cockpit focus: start on the cockpit camera and offer the rider's-eye view */
+  focus?: "cockpit";
 }
 
 function exportJson(geo: Geometry3DResponse) {
@@ -1180,7 +1209,7 @@ function exportCsv(geo: Geometry3DResponse) {
 
 export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   geo, mannequin2D, weightKg = 75,
-  strokeLUT, stanceWidth, postureBands, compare, debugParts = false,
+  strokeLUT, stanceWidth, postureBands, compare, debugParts = false, focus: sceneFocus,
 }) => {
   const [theme] = useTheme();
   const [quality, setQualityState] = useState<Quality>(readQuality);
@@ -1213,6 +1242,10 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [show2dOverlay, setShow2dOverlay] = useState(false);
   const [saddleType, setSaddleType] = useState<SaddleType>("power");
   const [cameraRequest, setCameraRequest] = useState<{ kind: CameraPresetKind; nonce: number } | null>(null);
+  // Cockpit focus opens on the cockpit camera.
+  useEffect(() => {
+    if (sceneFocus === "cockpit") setCameraRequest((r) => ({ kind: "cockpit", nonce: (r?.nonce ?? 0) + 1 }));
+  }, [sceneFocus]);
   // Pedaling animation: crank angle lives in a ref (mutated per frame inside
   // the canvas); scrub state mirrors it at low frequency for the slider thumb.
   // 0° puts the near-side (left) leg at BDC — the pose the 2D fit view shows.
@@ -1406,6 +1439,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             ["side", "Side"],
             ["threeq", "¾"],
             ["front", "Front"],
+            ...(sceneFocus === "cockpit" ? [["cockpit", "Cockpit"], ["rider", "Rider's eye"]] : []),
           ] as [CameraPresetKind, string][]).map(([kind, label]) => (
             <button
               key={kind}
@@ -1706,7 +1740,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
               <SMAA />
             </EffectComposer>
           )}
-          <CameraPresetRig request={cameraRequest} center={viewCenter} camDist={tPose ? camDist * 1.35 : camDist} />
+          <CameraPresetRig request={cameraRequest} center={viewCenter} camDist={tPose ? camDist * 1.35 : camDist} points={geoPtMap} />
         </Canvas>
         {/* Callouts (focused + pinned; hover previews at 60%) and the ground-ruler labels */}
         {box.w > 0 && !tPose && (

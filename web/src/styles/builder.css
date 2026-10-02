@@ -421,3 +421,57 @@
     flex: 0 0 auto;
   }
 }
+
+/* ── Cockpit focus (builder/CockpitPanels.tsx) ── */
+.cockpit-panel__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--faint);
+  margin-bottom: var(--s-3);
+}
+.cockpit-panel__head h3 {
+  margin: 0;
+}
+.cockpit-auto {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.cockpit-note {
+  margin: var(--s-2) 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.cockpit-note b {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+.cockpit-spec {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px var(--s-3);
+  margin: var(--s-3) 0 0;
+  font-size: 12px;
+}
+.cockpit-spec dt {
+  color: var(--muted);
+}
+.cockpit-spec dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.cockpit-panel .ff-seg + .ff-seg {
+  margin-top: var(--s-2);
+}
+
+.cockpit-open-link {
+  display: block;
+  margin-top: var(--s-2);
+  text-align: center;
+  text-decoration: none;
+}

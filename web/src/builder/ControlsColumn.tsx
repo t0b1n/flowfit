@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React from "react";
 import { Segmented } from "../design/Segmented";
 import { CollapsibleSection } from "../components/CollapsibleSection";
@@ -300,6 +301,9 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
                   }}
                 />
               </SliderCard>
+              <Link to="/cockpit" className="ff-pill ff-pill--ghost cockpit-open-link">
+                Open cockpit focus: bars, stem, hood angle &amp; rotation →
+              </Link>
             </div>
           </CollapsibleSection>
 

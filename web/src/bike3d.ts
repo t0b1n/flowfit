@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
 import { CHAINRING, RIM, SEATSTAY_DROP, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
+import type { Cockpit } from "./cockpit";
 
 export interface Geometry3DPoint {
   name: string;
@@ -34,6 +35,8 @@ export interface Geometry3DResponse {
   components: Record<string, number>;
   rider: Record<string, number>;
   constraints: Record<string, unknown>;
+  /** cockpit model (bar centreline, hood placement); absent in older JSON exports */
+  cockpit?: Cockpit;
 }
 
 export interface Tube3D {
@@ -359,7 +362,7 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
  * calipers), rear cassette, derailleurs and chain, bottle and cage. The swept handlebar and the saddle stay
  * in BikeScene3D. Named "bike-root".
  */
-export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], wheelRadius: number, mats: BikeMaterials, opts: { discRear: boolean; debug?: boolean }): THREE.Group {
+export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], wheelRadius: number, mats: BikeMaterials, opts: { discRear: boolean; debug?: boolean; integratedStem?: boolean }): THREE.Group {
   const g = new THREE.Group();
   g.name = "bike-root";
   const P = new Map(points.map((p) => [p.name, p.pos as V3]));
@@ -405,7 +408,8 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       // the stem is one object: this steerer clamp plus the arm below
       if (clamp) g.add(taper(clamp.bottom, clamp.top, 21, 21, pick("stem", mats.carbon)));
     } else if (t.name === "stem") {
-      g.add(taper(a, b, 19, 16, pick("stem", mats.carbon)));
+      // a one-piece bar-stem draws its own fused arm (cockpit3d.ts)
+      if (!opts.integratedStem) g.add(taper(a, b, 19, 16, pick("stem", mats.carbon)));
     } else {
       g.add(taper(a, b, t.radius, t.radius, pick(t.name, mats.frame)));
     }

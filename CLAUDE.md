@@ -14,7 +14,8 @@ make api           # FastAPI on :8000 (uvicorn --reload)
 make web-dev       # Vite on :5173 (proxies /solve to :8000)
 
 # Tests
-make test          # pytest (Python only; no frontend tests exist)
+make test          # pytest
+cd web && npm test # vitest (cockpit geometry; writes nothing unless UPDATE_FIXTURES=1)
 python -m pytest tests/test_geometry.py -v   # single test file
 python -m pytest tests/ -k "knee"            # filter by name
 
@@ -51,7 +52,7 @@ SetupInput → solver.py::solve_setup()
 ### Frontend (`web/src/`)
 
 **Two modes** switched in `App.tsx`:
-- `FitBuilderMode.tsx` — anthropometrics → contact points → optimized components
+- `FitBuilderMode.tsx` — anthropometrics → contact points → optimized components. `/cockpit` is the same builder instance (shared state) in **cockpit focus**: `builder/CockpitPanels.tsx` replaces the side columns, the 2D views zoom to the cockpit, the 3D view gets Cockpit / Rider's-eye cameras
 - `FitTransferMode.tsx` — maps one bike's fit to another frame
 
 **Key files:**
@@ -59,6 +60,8 @@ SetupInput → solver.py::solve_setup()
 - `geometry.ts` — frontend geometry: `synthesizeBike()` (SVG coordinate transform, Y-inverted), saddle targeting, mannequin construction, and `buildGeometry3D()` which builds the whole 3D point/edge graph (bike + bilateral mannequin) from the same `BikeSketch`/`MannequinSketch` the 2D view renders — 2D and 3D agree by construction
 - `bike3d.ts` — Three.js mesh builders; mannequin radii scale with rider weight via power law
 - `types.ts` — `Components`, `BikeSketch`, `MannequinSketch`, `RiderFit`, `SetupResult`
+- `cockpit.ts` — the single source of cockpit geometry: `hoodContact()` (the hand contact; mirrored line for line by `bikegeo_core/geometry.py::hood_contact`, parity pinned by `cockpit.fixtures.json`), `buildCockpit()` (bar centreline, hood station/pitch/rotation, UCI report) and `barCenterline3D()`. New cockpit fields on `Components` are optional; `bar_roll_deg: null` keeps the historical `max(8°, stem + 6°)` hood line
+- `hoodModels.ts` — Dura-Ace R9270 / Red E1 hood, lever and pad outlines edge-extracted from side photos (`tools/hood_trace/`); `cockpit3d.ts` extrudes them and sweeps the bar; `builder/Cockpit2D.tsx` draws the same shapes in 2D
 
 ### Data tools (`tools/`, `reference_data/`)
 

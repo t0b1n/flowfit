@@ -133,6 +133,8 @@ export function muscleLimbGeometry(
 // ── Rider ───────────────────────────────────────────────────────────────────
 
 export interface RiderMeshOpts {
+  /** inward hood rotation (deg): the hands roll with the hoods */
+  handRollDeg?: number;
   weightKg: number;
   /** rider height in mm; radii scale by height / 1800 */
   heightMm: number;
@@ -286,6 +288,8 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
       const hm = new THREE.Mesh(limbGeometry(v3(wr).distanceTo(v3(hd)) + 28, (t) => lerp(24, 21, t) * hs, 8, 24), mat);
       hm.scale.set(0.78, 1, 1.3);
       orientBetween(hm, v3(wr), v3(hd).add(v3(hd).sub(v3(wr)).normalize().multiplyScalar(28)));
+      // roll the flattened palm about its own axis with the hoods (top of the hand toward the centreline)
+      if (opts.handRollDeg) hm.rotateY((-s * opts.handRollDeg * Math.PI) / 180);
       g.add(hm);
     }
   }

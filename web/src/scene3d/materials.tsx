@@ -25,6 +25,10 @@ export interface Mats {
     alloy: THREE.Material;
     rotor: THREE.Material;
     bottle: THREE.Material;
+    /** matte rubber hood covers */
+    hood: THREE.Material;
+    /** gloss carbon brake blades */
+    lever: THREE.Material;
   };
   raw: THREE.Material[];
 }
@@ -43,10 +47,13 @@ export function buildMats(theme: Theme): Mats {
   const alloy = new THREE.MeshStandardMaterial({ color: t.alloy, roughness: m.alloy.roughness, metalness: m.alloy.metalness });
   const rotor = new THREE.MeshStandardMaterial({ color: t.rotor, roughness: 0.4, metalness: 0.8 });
   const bottle = new THREE.MeshStandardMaterial({ color: t.bottle, roughness: 0.6, metalness: 0 });
+  // Hood rubber: lifted slightly toward clay so the traced shape reads against the black bar.
+  const hood = new THREE.MeshStandardMaterial({ color: new THREE.Color(t.tyre).lerp(new THREE.Color(t.clay), 0.18), roughness: 0.88, metalness: 0 });
+  const lever = new THREE.MeshPhysicalMaterial({ color: t.carbon, roughness: 0.28, metalness: 0.1, clearcoat: 0.8, clearcoatRoughness: 0.2 });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever],
   };
 }
 
