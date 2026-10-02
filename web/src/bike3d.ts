@@ -386,7 +386,17 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     } else if (t.name === "steerer") {
       g.add(taper(a, b, 17, 17, mats.carbon));
     } else if (t.name === "stem_clamp") {
-      g.add(taper(a, b, 21, 21, mats.carbon));
+      // clamp along the head-tube axis, sitting flush on the head tube top (a vertical one would cut into it)
+      const hTop = vv(ht);
+      const hBot = vv(hb);
+      {
+        const axis = hTop.clone().sub(hBot).normalize();
+        const half = a.distanceTo(b) / 2;
+        const mid = a.clone().add(b).multiplyScalar(0.5);
+        const lift = Math.max(0, 2 - mid.clone().addScaledVector(axis, -half).sub(hTop).dot(axis));
+        mid.addScaledVector(axis, lift);
+        g.add(taper(mid.clone().addScaledVector(axis, -half), mid.clone().addScaledVector(axis, half), 21, 21, mats.carbon));
+      }
     } else if (t.name === "stem") {
       g.add(taper(a, b, 19, 16, mats.carbon));
     } else {

@@ -80,6 +80,14 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const stUp = norm(sub(cl, bb));
   const htDown = norm(sub(hb, ht));
   const T = TUBE_PROFILE;
+  // Steerer clamp of the stem, drawn along the head-tube axis so its flat bottom sits flush on the head tube top
+  // (a vertical clamp would cut into the leaning head tube). Slid up the axis if it would still overlap it.
+  const htUp = v(-htDown.x, -htDown.y);
+  const halfH = bike.stemPivot.y - bike.steererTop.y;
+  const rawBottom = add(bike.stemPivot, htUp, -halfH);
+  const lift = Math.max(0, 4 - ((rawBottom.x - ht.x) * htUp.x + (rawBottom.y - ht.y) * htUp.y));
+  const clampBottom = add(rawBottom, htUp, lift);
+  const clampTop = add(bike.stemPivot, htUp, halfH + lift);
   const stayTop = add(cl, stUp, -SEATSTAY_DROP);
   const perp = v(stUp.y, -stUp.x);
   const b0 = add(add(bb, sub(cl, bb), 0.22), perp, 60);
@@ -104,8 +112,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       <line className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
       {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]))}
       {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]))}
-      {poly("s2d-carbon", tube(ht, bike.steererTop, 17, 17))}
-      {poly("s2d-carbon", tube(bike.steererTop, bike.stemPivot, 21, 21))}
+      {poly("s2d-carbon", tube(ht, clampBottom, 17, 17))}
+      {poly("s2d-carbon", tube(clampBottom, clampTop, 21, 21))}
       {poly("s2d-carbon", tube(bike.stemPivot, bike.barClamp, 19, 16))}
       <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" />
     </g>

@@ -53,7 +53,11 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const ft = bike.frontAxle;
   const hb = bike.headTubeBottom;
   const ht = bike.headTubeTop;
-  const farCleatY = strokeMetrics.poses[0].cleat.y;
+  // Right leg is the far leg, a half-stroke ahead: its knee and ankle sit at that crank angle's heights (the left leg is at BDC).
+  const farPose = strokeMetrics.poses[0];
+  const farCleatY = farPose.cleat.y;
+  const kneeR = v(fm.kneeR.x, farPose.knee.y);
+  const ankleR = v(fm.ankleR.x, farPose.ankle.y);
   const thigh = (t: number) => wk(0.35) * (lerp(86, 50, t) + 8) * 0.95;
   const shin = (t: number) => wk(0.15) * (lerp(40, 20, t) + 6);
   const upper = (t: number) => wk(0.2) * lerp(36, 28, t) * 1.15;
@@ -101,10 +105,10 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         <g>
           {riderVisibility.legs && (
             <>
-              {poly("s2d-clay", seg(fm.hipR, fm.kneeR, thigh))}
-              {poly("s2d-clay", seg(fm.kneeR, fm.ankleR, shin))}
+              {poly("s2d-clay", seg(fm.hipR, kneeR, thigh))}
+              {poly("s2d-clay", seg(kneeR, v(ankleR.x, ankleR.y + 28 * hs), shin))}
               {poly("s2d-clay", seg(fm.hipL, fm.kneeL, thigh))}
-              {poly("s2d-clay", seg(fm.kneeL, fm.ankleL, shin))}
+              {poly("s2d-clay", seg(fm.kneeL, v(fm.ankleL.x, fm.ankleL.y + 28 * hs), shin))}
             </>
           )}
           {riderVisibility.feet && (
