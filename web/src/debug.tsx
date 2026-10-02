@@ -18,8 +18,7 @@ export const DEBUG_PARTS = [
   ["head_tube", "Head tube"],
   ["fork", "Fork"],
   ["bb_shell", "BB shell / seat cluster"],
-  ["steerer", "Steerer"],
-  ["stem_clamp", "Stem clamp"],
+  ["spacers", "Spacers"],
   ["stem", "Stem"],
   ["bar", "Handlebar"],
   ["hood", "Hood"],
@@ -44,7 +43,7 @@ const slot = (part: string) => DEBUG_PARTS.findIndex(([id]) => id === part) + 1;
 export const debugVar = (part: string) => `var(--debug-${slot(part) || 1})`;
 
 /** `tube.name` values from bike3d that differ from the part ids. */
-const TUBE_PART: Record<string, DebugPart> = { stem_clamp: "stem_clamp", bar_ramp: "bar", bar_drop: "bar" };
+const TUBE_PART: Record<string, DebugPart> = { stem_clamp: "stem", steerer: "spacers", bar_ramp: "bar", bar_drop: "bar" };
 export const partForTube = (name: string): string => TUBE_PART[name] ?? name;
 
 const matCache = new Map<string, THREE.Material>();
@@ -64,9 +63,10 @@ export function useDebugParts(): [boolean, () => void] {
   const [on, setOn] = useState<boolean>(() => {
     if (!DEBUG_ENABLED) return false;
     try {
-      return localStorage.getItem("flowfit.debug") === "1";
+      // On by default in dev builds until switched off ("0" is stored when toggled off)
+      return localStorage.getItem("flowfit.debug") !== "0";
     } catch {
-      return false;
+      return true;
     }
   });
   const toggle = useCallback(() => {

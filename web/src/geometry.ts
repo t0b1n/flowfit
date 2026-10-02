@@ -305,13 +305,13 @@ export const buildMannequin = (
 };
 
 export type FrontalMannequin = {
-  ankleL: ContactPoint; ankleR: ContactPoint;
-  kneeL: ContactPoint;  kneeR: ContactPoint;
-  hipL: ContactPoint;   hipR: ContactPoint;
-  shoulderL: ContactPoint; shoulderR: ContactPoint;
-  elbowL: ContactPoint; elbowR: ContactPoint;
-  wristL: ContactPoint; wristR: ContactPoint;
-  handsL: ContactPoint; handsR: ContactPoint;
+  ankleR: ContactPoint; ankleL: ContactPoint;
+  kneeR: ContactPoint;  kneeL: ContactPoint;
+  hipR: ContactPoint;   hipL: ContactPoint;
+  shoulderR: ContactPoint; shoulderL: ContactPoint;
+  elbowR: ContactPoint; elbowL: ContactPoint;
+  wristR: ContactPoint; wristL: ContactPoint;
+  handsR: ContactPoint; handsL: ContactPoint;
   head: ContactPoint;
   neckBase: ContactPoint;
   spineJoint: ContactPoint;
@@ -332,8 +332,8 @@ export const buildFrontalMannequin = (
   const halfWrist = halfElbow + (halfBar - halfElbow) * forearmNoPalmRatio;
 
   const mkLR = (lateral: number, y: number) => ({
-    L: { x: -lateral, y },
-    R: { x: lateral, y },
+    R: { x: -lateral, y }, // front view: the rider's right is on the viewer's left
+    L: { x: lateral, y },
   });
 
   const ankle    = mkLR(halfStance,        mannequin.ankle.y);
@@ -345,13 +345,13 @@ export const buildFrontalMannequin = (
   const hands    = mkLR(halfBar,           mannequin.hands.y);
 
   return {
-    ankleL: ankle.L,    ankleR: ankle.R,
-    kneeL:  knee.L,     kneeR:  knee.R,
-    hipL:   hip.L,      hipR:   hip.R,
-    shoulderL: shoulder.L, shoulderR: shoulder.R,
-    elbowL: elbow.L,    elbowR: elbow.R,
-    wristL: wrist.L,    wristR: wrist.R,
-    handsL: hands.L,    handsR: hands.R,
+    ankleR: ankle.R,    ankleL: ankle.L,
+    kneeR:  knee.R,     kneeL:  knee.L,
+    hipR:   hip.R,      hipL:   hip.L,
+    shoulderR: shoulder.R, shoulderL: shoulder.L,
+    elbowR: elbow.R,    elbowL: elbow.L,
+    wristR: wrist.R,    wristL: wrist.L,
+    handsR: hands.R,    handsL: hands.L,
     head: { x: 0, y: mannequin.head.y },
     neckBase: { x: 0, y: mannequin.neckBase.y },
     spineJoint: { x: 0, y: mannequin.spineJoint.y },
@@ -896,16 +896,16 @@ const _DEFAULT_HIP_WIDTH = 200;
 
 const _MANNEQUIN_EDGES: [string, string, string][] = [
   // Feet (tapered cylinder)
-  ["cleat_l", "ankle_l", "mannequin_foot"],
   ["cleat_r", "ankle_r", "mannequin_foot"],
+  ["cleat_l", "ankle_l", "mannequin_foot"],
   // Shins
-  ["ankle_l", "knee_l", "mannequin_shin"],
   ["ankle_r", "knee_r", "mannequin_shin"],
+  ["ankle_l", "knee_l", "mannequin_shin"],
   // Thighs
-  ["knee_l", "hip_l", "mannequin_thigh"],
   ["knee_r", "hip_r", "mannequin_thigh"],
+  ["knee_l", "hip_l", "mannequin_thigh"],
   // Hip bar
-  ["hip_l", "hip_r", "mannequin_hip_bar"],
+  ["hip_r", "hip_l", "mannequin_hip_bar"],
   // Torso — lower
   ["hip_center", "spine_joint", "mannequin_lower_torso"],
   // Torso — upper
@@ -913,16 +913,16 @@ const _MANNEQUIN_EDGES: [string, string, string][] = [
   // Neck
   ["neck_base_center", "head_center", "mannequin_neck"],
   // Shoulder bar
-  ["shoulder_l", "shoulder_r", "mannequin_shoulder_bar"],
+  ["shoulder_r", "shoulder_l", "mannequin_shoulder_bar"],
   // Upper arms
-  ["shoulder_l", "elbow_l", "mannequin_upper_arm"],
   ["shoulder_r", "elbow_r", "mannequin_upper_arm"],
+  ["shoulder_l", "elbow_l", "mannequin_upper_arm"],
   // Forearms
-  ["elbow_l", "wrist_l", "mannequin_forearm"],
   ["elbow_r", "wrist_r", "mannequin_forearm"],
+  ["elbow_l", "wrist_l", "mannequin_forearm"],
   // Hands (capsule)
-  ["wrist_l", "hand_l", "mannequin_hand"],
   ["wrist_r", "hand_r", "mannequin_hand"],
+  ["wrist_l", "hand_l", "mannequin_hand"],
 ];
 
 /**
@@ -960,9 +960,9 @@ export function buildMannequin3DPoints(
 
   // Left leg: the 2D fit pose (crank at bottom dead center — this is the leg
   // "knee flex at BDC" is measured on, matching the 2D side view).
-  p("cleat_l", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
-  p("ankle_l", mannequin.ankle.x - ankleSetback, mannequin.ankle.y, +halfStance);
-  p("knee_l", mannequin.knee.x, mannequin.knee.y, +halfStance);
+  p("cleat_r", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
+  p("ankle_r", mannequin.ankle.x - ankleSetback, mannequin.ankle.y, +halfStance);
+  p("knee_r", mannequin.knee.x, mannequin.knee.y, +halfStance);
 
   // Right leg: posed at the opposed crank position (top dead center) so the
   // rider isn't impossibly pedaling with both feet down. The pedal spindle
@@ -970,32 +970,32 @@ export function buildMannequin3DPoints(
   // at +crank_length; the cleat keeps its setback. Knee solved with the same
   // two-bone IK as the left leg, picking the forward (toward-the-bars)
   // candidate since a strongly bent knee must point ahead of the hip–ankle line.
-  const cleatR2d = { x: -components.cleat_setback, y: components.crank_length };
-  const ankleR2d = { x: cleatR2d.x, y: cleatR2d.y + pedalStack };
+  const cleatL2d = { x: -components.cleat_setback, y: components.crank_length };
+  const ankleL2d = { x: cleatL2d.x, y: cleatL2d.y + pedalStack };
   const hip2d = { x: mannequin.hip.x, y: mannequin.hip.y };
   const [kneeCandA, kneeCandB] = circleIntersections(
     hip2d,
-    ankleR2d,
+    ankleL2d,
     rider.thigh_length,
     rider.shank_length,
     true
   );
-  const kneeR2d = kneeCandA.x >= kneeCandB.x ? kneeCandA : kneeCandB;
-  p("cleat_r", cleatR2d.x, cleatR2d.y, -halfStance);
-  p("ankle_r", ankleR2d.x - ankleSetback, ankleR2d.y, -halfStance);
-  p("knee_r", kneeR2d.x, kneeR2d.y, -halfStance);
+  const kneeL2d = kneeCandA.x >= kneeCandB.x ? kneeCandA : kneeCandB;
+  p("cleat_l", cleatL2d.x, cleatL2d.y, -halfStance);
+  p("ankle_l", ankleL2d.x - ankleSetback, ankleL2d.y, -halfStance);
+  p("knee_l", kneeL2d.x, kneeL2d.y, -halfStance);
 
   // Hips at ±half_hip + centerline
-  p("hip_l", mannequin.hip.x, mannequin.hip.y, +halfHip);
-  p("hip_r", mannequin.hip.x, mannequin.hip.y, -halfHip);
+  p("hip_r", mannequin.hip.x, mannequin.hip.y, +halfHip);
+  p("hip_l", mannequin.hip.x, mannequin.hip.y, -halfHip);
   p("hip_center", mannequin.hip.x, mannequin.hip.y, 0);
 
   // Spine joint (centerline)
   p("spine_joint", mannequin.spineJoint.x, mannequin.spineJoint.y, 0);
 
   // Shoulders at ±half_shoulder + centerline
-  p("shoulder_l", mannequin.shoulder.x, mannequin.shoulder.y, +halfShoulder);
-  p("shoulder_r", mannequin.shoulder.x, mannequin.shoulder.y, -halfShoulder);
+  p("shoulder_r", mannequin.shoulder.x, mannequin.shoulder.y, +halfShoulder);
+  p("shoulder_l", mannequin.shoulder.x, mannequin.shoulder.y, -halfShoulder);
   p("shoulder_center", mannequin.shoulder.x, mannequin.shoulder.y, 0);
 
   // Neck base + head (centerline)
@@ -1003,16 +1003,16 @@ export function buildMannequin3DPoints(
   p("head_center", mannequin.head.x, mannequin.head.y, 0);
 
   // Elbows at ±half_shoulder
-  p("elbow_l", mannequin.elbow.x, mannequin.elbow.y, +halfShoulder);
-  p("elbow_r", mannequin.elbow.x, mannequin.elbow.y, -halfShoulder);
+  p("elbow_r", mannequin.elbow.x, mannequin.elbow.y, +halfShoulder);
+  p("elbow_l", mannequin.elbow.x, mannequin.elbow.y, -halfShoulder);
 
   // Wrists at ±half_hood
-  p("wrist_l", mannequin.wrist.x, mannequin.wrist.y, +halfHood);
-  p("wrist_r", mannequin.wrist.x, mannequin.wrist.y, -halfHood);
+  p("wrist_r", mannequin.wrist.x, mannequin.wrist.y, +halfHood);
+  p("wrist_l", mannequin.wrist.x, mannequin.wrist.y, -halfHood);
 
   // Hands at ±half_hood
-  p("hand_l", mannequin.hands.x, mannequin.hands.y, +halfHood);
-  p("hand_r", mannequin.hands.x, mannequin.hands.y, -halfHood);
+  p("hand_r", mannequin.hands.x, mannequin.hands.y, +halfHood);
+  p("hand_l", mannequin.hands.x, mannequin.hands.y, -halfHood);
 
   const edges: Geometry3DEdge[] = [];
   for (const [a, b, group] of _MANNEQUIN_EDGES) {
@@ -1037,26 +1037,26 @@ const _FRAME_EDGES: [string, string][] = [
   ["bb", "head_tube_bottom"],
   ["head_tube_top", "head_tube_bottom"],
   // Bilateral chainstays: BB centre → lateral rear-dropout points
-  ["bb", "chainstay_l"],
   ["bb", "chainstay_r"],
+  ["bb", "chainstay_l"],
   // Bilateral seatstays: seat-tube top → same lateral rear-dropout points
-  ["seat_cluster", "chainstay_l"],
   ["seat_cluster", "chainstay_r"],
+  ["seat_cluster", "chainstay_l"],
   // Bilateral fork blades: fork crown → lateral front-dropout points
-  ["head_tube_bottom", "fork_l"],
   ["head_tube_bottom", "fork_r"],
+  ["head_tube_bottom", "fork_l"],
   // Seatpost (straight along seat tube axis to clamp — saddle rendered separately)
   ["seat_tube_top", "seatpost_top"],
   // Cockpit: steerer/spacers follow head angle, then stem, then handlebar
   ["head_tube_top", "steerer_top"],
   ["steerer_top", "stem_pivot"],
   ["stem_pivot", "bar_clamp"],
-  ["bar_clamp", "bar_top_l"],
   ["bar_clamp", "bar_top_r"],
-  ["bar_top_l", "hoods_l"],
+  ["bar_clamp", "bar_top_l"],
   ["bar_top_r", "hoods_r"],
-  ["hoods_l", "bar_drop_l"],
+  ["bar_top_l", "hoods_l"],
   ["hoods_r", "bar_drop_r"],
+  ["hoods_l", "bar_drop_l"],
 ];
 
 /** Lateral half-spread of the rear dropouts / fork dropouts (mm). */
@@ -1114,21 +1114,21 @@ export function buildGeometry3D(
   });
 
   // Bilateral frame points (positive Z = rider's left)
-  p("hoods_l", bike.hoods, +halfHood);
-  p("hoods_r", bike.hoods, -halfHood);
-  p("cleat_l", bike.cleat, +halfStance);
-  p("cleat_r", bike.cleat, -halfStance);
-  p("chainstay_l", bike.rearAxle, +_CHAINSTAY_HALF_SPREAD);
-  p("chainstay_r", bike.rearAxle, -_CHAINSTAY_HALF_SPREAD);
-  p("fork_l", bike.frontAxle, +_FORK_HALF_SPREAD);
-  p("fork_r", bike.frontAxle, -_FORK_HALF_SPREAD);
-  p("bar_top_l", bike.barClamp, +halfBar);
-  p("bar_top_r", bike.barClamp, -halfBar);
-  p("bar_drop_l", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, +halfHood);
-  p("bar_drop_r", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, -halfHood);
+  p("hoods_r", bike.hoods, +halfHood);
+  p("hoods_l", bike.hoods, -halfHood);
+  p("cleat_r", bike.cleat, +halfStance);
+  p("cleat_l", bike.cleat, -halfStance);
+  p("chainstay_r", bike.rearAxle, +_CHAINSTAY_HALF_SPREAD);
+  p("chainstay_l", bike.rearAxle, -_CHAINSTAY_HALF_SPREAD);
+  p("fork_r", bike.frontAxle, +_FORK_HALF_SPREAD);
+  p("fork_l", bike.frontAxle, -_FORK_HALF_SPREAD);
+  p("bar_top_r", bike.barClamp, +halfBar);
+  p("bar_top_l", bike.barClamp, -halfBar);
+  p("bar_drop_r", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, +halfHood);
+  p("bar_drop_l", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, -halfHood);
 
   // Mannequin — the same bilateral expansion the 2D mannequin drives.
-  // Pushed after the frame points so duplicate names (cleat_l/cleat_r)
+  // Pushed after the frame points so duplicate names (cleat_r/cleat_l)
   // resolve to the mannequin pose in name→position maps.
   const mann = buildMannequin3DPoints(mannequin, rider, components);
   points.push(...mann.points);

@@ -92,10 +92,10 @@ const MetricArcShape: React.FC<{ v: V; a: V; c: V; kind: "hot" | "pin" | "dim" }
 const GhostLines: React.FC<{ compare: CompareTarget }> = ({ compare }) => {
   const P = new Map(compare.points.map((p) => [p.name, p.pos]));
   const chain = (names: string[]) => names.map((n) => P.get(n)).filter((p): p is [number, number, number] => !!p);
-  const leg = chain(["hip_l", "knee_l", "ankle_l", "cleat_l"]);
-  const torso = chain(["hip_l", "spine_joint", "shoulder_l", "neck_base_center", "head_center"]);
+  const leg = chain(["hip_r", "knee_r", "ankle_r", "cleat_r"]);
+  const torso = chain(["hip_r", "spine_joint", "shoulder_r", "neck_base_center", "head_center"]);
   const pts = (l: Array<[number, number, number]>) => l.map((p) => `${p[0]},${-p[1]}`).join(" ");
-  const hip = P.get("hip_l");
+  const hip = P.get("hip_r");
   return (
     <g className="s2d-ghost">
       {leg.length > 1 && <polyline points={pts(leg)} />}

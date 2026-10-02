@@ -20,6 +20,26 @@ export const norm = (a: V): V => {
 /** [x, y] pairs in bike coords → SVG `points` string (y flipped). */
 export const pts = (arr: Array<[number, number]>) => arr.map(([x, y]) => `${x.toFixed(1)},${(-y).toFixed(1)}`).join(" ");
 
+/** Convex hull of the points of several `pts()` polygon strings, as one polygon string (one object drawn as one shape). */
+export function hullOf(...polys: string[]): string {
+  const p: Array<[number, number]> = polys
+    .flatMap((s) => s.trim().split(/\s+/))
+    .map((t) => t.split(",").map(Number) as [number, number])
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: [number, number], a: [number, number], b: [number, number]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const build = (list: Array<[number, number]>) => {
+    const h: Array<[number, number]> = [];
+    for (const q of list) {
+      while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop();
+      h.push(q);
+    }
+    h.pop();
+    return h;
+  };
+  const hull = [...build(p), ...build([...p].reverse())];
+  return hull.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+}
+
 /** Outline of a tapered limb: radius `prof(t)` along a→b, with round caps. */
 export function seg(a: V, b: V, prof: (t: number) => number, n = 18): string {
   const dx = b.x - a.x;

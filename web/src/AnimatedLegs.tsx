@@ -54,8 +54,8 @@ const dist3 = (ax: number, ay: number, az: number, bx: number, by: number, bz: n
 interface AnimatedLegsProps {
   lut: PedalStrokeLUT;
   /** Hip joint world positions from the (overridden) mannequin point set. */
-  hipL: [number, number, number];
   hipR: [number, number, number];
+  hipL: [number, number, number];
   bb: [number, number, number];
   halfStance: number;
   weightKg: number;
@@ -67,7 +67,7 @@ interface AnimatedLegsProps {
   showLegs: boolean;
 }
 
-const CHAINRING_Z = 46;       // drive side = rider's right = +Z (x forward, y up ⇒ +Z is the right-hand side); crank arms sit outboard at 52
+const CHAINRING_Z = 46;       // drive side = rider's left = +Z (x forward, y up ⇒ +Z is the right-hand side); crank arms sit outboard at 52
 const CRANK_ROOT_Z = 52;      // crank arm root just outboard of the BB shell
 
 /** Gear-toothed ring outline as a thin extrusion. */
@@ -86,34 +86,34 @@ function ringGeometry(teeth: number, outer: number, root: number, hole: number, 
 }
 
 export function AnimatedLegs({
-  lut, hipL, hipR, bb, halfStance, weightKg, heightMm = 1800,
+  lut, hipR, hipL, bb, halfStance, weightKg, heightMm = 1800,
   crankAngleRef, playing, cadenceRpm, showLegs,
 }: AnimatedLegsProps) {
   const M = useMats();
   const dbg = useDbg();
-  const thighLRef = useRef<THREE.Group>(null);
   const thighRRef = useRef<THREE.Group>(null);
-  const calfLRef = useRef<THREE.Group>(null);
+  const thighLRef = useRef<THREE.Group>(null);
   const calfRRef = useRef<THREE.Group>(null);
-  const footLRef = useRef<THREE.Group>(null);
+  const calfLRef = useRef<THREE.Group>(null);
   const footRRef = useRef<THREE.Group>(null);
-  const kneeLRef = useRef<THREE.Group>(null);
+  const footLRef = useRef<THREE.Group>(null);
   const kneeRRef = useRef<THREE.Group>(null);
-  const ankleLRef = useRef<THREE.Group>(null);
+  const kneeLRef = useRef<THREE.Group>(null);
   const ankleRRef = useRef<THREE.Group>(null);
-  const crankLRef = useRef<THREE.Group>(null);
+  const ankleLRef = useRef<THREE.Group>(null);
   const crankRRef = useRef<THREE.Group>(null);
-  const pedalLRef = useRef<THREE.Group>(null);
+  const crankLRef = useRef<THREE.Group>(null);
   const pedalRRef = useRef<THREE.Group>(null);
-  const spindleLRef = useRef<THREE.Group>(null);
+  const pedalLRef = useRef<THREE.Group>(null);
   const spindleRRef = useRef<THREE.Group>(null);
+  const spindleLRef = useRef<THREE.Group>(null);
 
   // Lengths are constant through the stroke: geometry is built once per fit change.
   const dims = useMemo(() => {
     const p0 = lut.poses[0];
     const hs = heightMm / 1800;
     const drawnAnkleX = p0.ankle.x - lut.ankleSetbackMm;
-    const thighLen = dist3(hipL[0], hipL[1], hipL[2], p0.knee.x, p0.knee.y, halfStance);
+    const thighLen = dist3(hipR[0], hipR[1], hipR[2], p0.knee.x, p0.knee.y, halfStance);
     const calfLen = dist3(p0.knee.x, p0.knee.y, 0, drawnAnkleX, p0.ankle.y, 0);
     const footLen = shoeAxis(p0.cleat, lut.ankleSetbackMm, hs).len;
     const crankLen = dist3(bb[0], bb[1], 0, p0.spindle.x, p0.spindle.y, 0);
@@ -127,22 +127,22 @@ export function AnimatedLegs({
       const bulges = resolveBulges(prof.bulges, a, b, fwd, side).map((u) => ({ ...u, amp: u.amp * k }));
       return muscleLimbGeometry(len, (t) => prof.radius(t) * k, bulges, (t) => calAt(seg, t), prof.scale);
     };
-    const thighA: P3 = [hipL[0], hipL[1], halfStance];
+    const thighA: P3 = [hipR[0], hipR[1], halfStance];
     const kneeP: P3 = [p0.knee.x, p0.knee.y, halfStance];
     const ankP: P3 = [drawnAnkleX, p0.ankle.y, halfStance];
     // Shoe: heel→toe lathe, flattened laterally (mockup bike3.js)
     const shoe = limbGeometry(footLen, (t) => shoeRadius(t, hs), 20, 28);
     shoe.scale(1, 1, 0.82);
     return {
-      thigh: { L: mk("thigh", thighLen, thighA, kneeP, 1), R: mk("thigh", thighLen, [hipR[0], hipR[1], -halfStance], [p0.knee.x, p0.knee.y, -halfStance], -1), len: thighLen },
-      calf: { L: mk("calf", calfLen, kneeP, ankP, 1), R: mk("calf", calfLen, [p0.knee.x, p0.knee.y, -halfStance], [drawnAnkleX, p0.ankle.y, -halfStance], -1), len: calfLen },
+      thigh: { R: mk("thigh", thighLen, thighA, kneeP, 1), L: mk("thigh", thighLen, [hipL[0], hipL[1], -halfStance], [p0.knee.x, p0.knee.y, -halfStance], -1), len: thighLen },
+      calf: { R: mk("calf", calfLen, kneeP, ankP, 1), L: mk("calf", calfLen, [p0.knee.x, p0.knee.y, -halfStance], [drawnAnkleX, p0.ankle.y, -halfStance], -1), len: calfLen },
       shoe,
       footLen,
       crankLen,
       kneeR: MASSES.knee.radius * hs,
       ankleR: MASSES.ankle.radius * hs,
     };
-  }, [lut, hipL, hipR, bb, halfStance, weightKg, heightMm]);
+  }, [lut, hipR, hipL, bb, halfStance, weightKg, heightMm]);
   useEffect(() => () => {
     dims.thigh.L.dispose(); dims.thigh.R.dispose(); dims.calf.L.dispose(); dims.calf.R.dispose(); dims.shoe.dispose();
   }, [dims]);
@@ -159,38 +159,38 @@ export function AnimatedLegs({
       crankAngleRef.current = (crankAngleRef.current + cadenceRpm * 6 * dt) % 360;
     }
     const theta = crankAngleRef.current;
-    // Crank angle refers to the drive-side crank (rider's right, +Z); the other crank is +180°.
-    const right = legPoseAt(lut, theta);
-    const left = legPoseAt(lut, theta + 180);
-    const zL = +halfStance;
-    const zR = -halfStance;
+    // Crank angle refers to the left crank (−Z); the right (drive-side, +Z) crank is +180°.
+    const left = legPoseAt(lut, theta);
+    const right = legPoseAt(lut, theta + 180);
+    const zR = +halfStance;
+    const zL = -halfStance;
     const setback = lut.ankleSetbackMm;
-    const lAnkleX = left.ankle.x - setback;
     const rAnkleX = right.ankle.x - setback;
+    const lAnkleX = left.ankle.x - setback;
 
-    setSegment(thighLRef.current, hipL[0], hipL[1], hipL[2], left.knee.x, left.knee.y, zL);
     setSegment(thighRRef.current, hipR[0], hipR[1], hipR[2], right.knee.x, right.knee.y, zR);
-    setSegment(calfLRef.current, left.knee.x, left.knee.y, zL, lAnkleX, left.ankle.y, zL, dims.calf.len);
+    setSegment(thighLRef.current, hipL[0], hipL[1], hipL[2], left.knee.x, left.knee.y, zL);
     setSegment(calfRRef.current, right.knee.x, right.knee.y, zR, rAnkleX, right.ankle.y, zR, dims.calf.len);
+    setSegment(calfLRef.current, left.knee.x, left.knee.y, zL, lAnkleX, left.ankle.y, zL, dims.calf.len);
     // Shoes: flat, ball of the foot over the cleat point with the sole on the pedal body (design/foot.ts)
     const hsF = heightMm / 1800;
-    const shL = shoeAxis(left.cleat, setback, hsF);
     const shR = shoeAxis(right.cleat, setback, hsF);
-    setSegment(footLRef.current, shL.heel.x, shL.heel.y, zL, shL.toe.x, shL.toe.y, zL, dims.footLen);
+    const shL = shoeAxis(left.cleat, setback, hsF);
     setSegment(footRRef.current, shR.heel.x, shR.heel.y, zR, shR.toe.x, shR.toe.y, zR, dims.footLen);
+    setSegment(footLRef.current, shL.heel.x, shL.heel.y, zL, shL.toe.x, shL.toe.y, zL, dims.footLen);
 
-    kneeLRef.current?.position.set(left.knee.x, left.knee.y, zL);
     kneeRRef.current?.position.set(right.knee.x, right.knee.y, zR);
-    ankleLRef.current?.position.set(lAnkleX, left.ankle.y, zL);
+    kneeLRef.current?.position.set(left.knee.x, left.knee.y, zL);
     ankleRRef.current?.position.set(rAnkleX, right.ankle.y, zR);
+    ankleLRef.current?.position.set(lAnkleX, left.ankle.y, zL);
 
     // Crank arms stay in a plane parallel to the frame (offset from the BB); the pedal spindle runs outboard to the pedal under the shoe
-    setSegment(crankLRef.current, bb[0], bb[1], +CRANK_ROOT_Z, left.spindle.x, left.spindle.y, +CRANK_ROOT_Z);
-    setSegment(crankRRef.current, bb[0], bb[1], -CRANK_ROOT_Z, right.spindle.x, right.spindle.y, -CRANK_ROOT_Z);
-    pedalLRef.current?.position.set(left.spindle.x, left.spindle.y, zL);
+    setSegment(crankRRef.current, bb[0], bb[1], +CRANK_ROOT_Z, right.spindle.x, right.spindle.y, +CRANK_ROOT_Z);
+    setSegment(crankLRef.current, bb[0], bb[1], -CRANK_ROOT_Z, left.spindle.x, left.spindle.y, -CRANK_ROOT_Z);
     pedalRRef.current?.position.set(right.spindle.x, right.spindle.y, zR);
-    spindleLRef.current?.position.set(left.spindle.x, left.spindle.y, (CRANK_ROOT_Z + zL) / 2);
-    spindleRRef.current?.position.set(right.spindle.x, right.spindle.y, (-CRANK_ROOT_Z + zR) / 2);
+    pedalLRef.current?.position.set(left.spindle.x, left.spindle.y, zL);
+    spindleRRef.current?.position.set(right.spindle.x, right.spindle.y, (CRANK_ROOT_Z + zR) / 2);
+    spindleLRef.current?.position.set(left.spindle.x, left.spindle.y, (-CRANK_ROOT_Z + zL) / 2);
   });
 
   const crank = (ref: React.RefObject<THREE.Group>) => (
@@ -219,16 +219,16 @@ export function AnimatedLegs({
     <group>
       {showLegs && (
         <group name="mannequin-legs">
-          {limb(thighLRef, dims.thigh.L, dbg("leg", M.clay))}
-          {limb(thighRRef, dims.thigh.R, dbg("leg", M.clay))}
-          {limb(calfLRef, dims.calf.L, dbg("leg", M.clay))}
-          {limb(calfRRef, dims.calf.R, dbg("leg", M.clay))}
-          {limb(footLRef, dims.shoe, dbg("shoe", M.tape))}
+          {limb(thighRRef, dims.thigh.L, dbg("leg", M.clay))}
+          {limb(thighLRef, dims.thigh.R, dbg("leg", M.clay))}
+          {limb(calfRRef, dims.calf.L, dbg("leg", M.clay))}
+          {limb(calfLRef, dims.calf.R, dbg("leg", M.clay))}
           {limb(footRRef, dims.shoe, dbg("shoe", M.tape))}
-          {mass(kneeLRef, dims.kneeR, MASSES.knee.depthScale)}
+          {limb(footLRef, dims.shoe, dbg("shoe", M.tape))}
           {mass(kneeRRef, dims.kneeR, MASSES.knee.depthScale)}
-          {mass(ankleLRef, dims.ankleR)}
+          {mass(kneeLRef, dims.kneeR, MASSES.knee.depthScale)}
           {mass(ankleRRef, dims.ankleR)}
+          {mass(ankleLRef, dims.ankleR)}
         </group>
       )}
 
@@ -249,10 +249,10 @@ export function AnimatedLegs({
           </group>
         ))}
       </group>
-      {crank(crankLRef)}
       {crank(crankRRef)}
+      {crank(crankLRef)}
       {/* pedal spindles: crank end → pedal body, along z */}
-      {[spindleLRef, spindleRRef].map((r, i) => (
+      {[spindleRRef, spindleLRef].map((r, i) => (
         <group key={i} ref={r}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[7, 7, Math.abs(halfStance - CRANK_ROOT_Z) + 2, 12]} />
@@ -260,13 +260,13 @@ export function AnimatedLegs({
           </mesh>
         </group>
       ))}
-      <group ref={pedalLRef}>
+      <group ref={pedalRRef}>
         <mesh>
           <boxGeometry args={PEDAL_BODY} />
           {dbg("pedal", M.tape)}
         </mesh>
       </group>
-      <group ref={pedalRRef}>
+      <group ref={pedalLRef}>
         <mesh>
           <boxGeometry args={PEDAL_BODY} />
           {dbg("pedal", M.tape)}

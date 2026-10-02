@@ -73,22 +73,22 @@ const EDGE_TUBE_NAME: Record<string, string> = {
   "seat_cluster→head_tube_top": "top_tube",
   "bb→head_tube_bottom": "down_tube",
   "head_tube_top→head_tube_bottom": "head_tube",
-  "bb→chainstay_l": "chainstay",
   "bb→chainstay_r": "chainstay",
-  "seat_cluster→chainstay_l": "seatstay",
+  "bb→chainstay_l": "chainstay",
   "seat_cluster→chainstay_r": "seatstay",
-  "head_tube_bottom→fork_l": "fork",
+  "seat_cluster→chainstay_l": "seatstay",
   "head_tube_bottom→fork_r": "fork",
+  "head_tube_bottom→fork_l": "fork",
   "seat_tube_top→seatpost_top": "seatpost",
   "head_tube_top→steerer_top": "steerer",
   "steerer_top→stem_pivot": "stem_clamp",
   "stem_pivot→bar_clamp": "stem",
-  "bar_clamp→bar_top_l": "bar",
   "bar_clamp→bar_top_r": "bar",
-  "bar_top_l→hoods_l": "bar_ramp",
+  "bar_clamp→bar_top_l": "bar",
   "bar_top_r→hoods_r": "bar_ramp",
-  "hoods_l→bar_drop_l": "bar_drop",
+  "bar_top_l→hoods_l": "bar_ramp",
   "hoods_r→bar_drop_r": "bar_drop",
+  "hoods_l→bar_drop_l": "bar_drop",
 };
 
 function edgeKey(a: string, b: string): string {
@@ -189,18 +189,18 @@ export const MANNEQUIN_EDGE_SPEC: Record<string, PartSpec> = {
 export const MANNEQUIN_JOINT_SPEC: Record<string, PartSpec> = {
   head_center:      { type: "sphere", baseRadius: 88, sensitivity: 0.05 },
   spine_joint:      { type: "sphere", baseRadius: 80, sensitivity: 0.45 },
-  shoulder_l:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
   shoulder_r:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
-  elbow_l:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
+  shoulder_l:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
   elbow_r:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
-  wrist_l:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
+  elbow_l:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
   wrist_r:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
-  hip_l:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
+  wrist_l:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
   hip_r:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
-  knee_l:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
+  hip_l:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
   knee_r:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
-  ankle_l:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
+  knee_l:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
   ankle_r:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
+  ankle_l:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
 };
 
 /** Fraction of segment length to trim from EACH end to reveal joint spheres */
@@ -214,7 +214,7 @@ export function scaleRadius(base: number, weightKg: number, sensitivity: number)
 // Leg points/edges are excluded from the declarative mannequin when the
 // pedaling animation owns them (AnimatedLegs mutates their transforms per frame).
 export const LEG_POINT_NAMES = new Set([
-  "cleat_l", "cleat_r", "ankle_l", "ankle_r", "knee_l", "knee_r",
+  "cleat_r", "cleat_l", "ankle_r", "ankle_l", "knee_r", "knee_l",
 ]);
 export const LEG_EDGE_GROUPS = new Set([
   "mannequin_foot", "mannequin_shin", "mannequin_thigh",
@@ -373,6 +373,18 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const seatDir = vv(cl).sub(vv(bb)).normalize();
   const htDown = vv(hb).sub(vv(ht)).normalize();
 
+  // Stem steerer clamp: centred on stem_pivot, along the head-tube axis, bottom flush on the head tube top
+  const sTop = P.get("steerer_top");
+  const sPiv = P.get("stem_pivot");
+  let clamp: { bottom: THREE.Vector3; top: THREE.Vector3 } | null = null;
+  if (sTop && sPiv) {
+    const axis = vv(ht).sub(vv(hb)).normalize();
+    const half = vv(sPiv).distanceTo(vv(sTop)); // stem_pivot sits half the clamp height above steerer_top
+    const raw = vv(sPiv).addScaledVector(axis, -half);
+    const lift = Math.max(0, 2 - raw.clone().sub(vv(ht)).dot(axis));
+    clamp = { bottom: raw.addScaledVector(axis, lift), top: vv(sPiv).addScaledVector(axis, half + lift) };
+  }
+
   // Frame tubes (tapered), seatpost, steerer, stem
   for (const t of tubes) {
     const a = vv(t.start);
@@ -387,19 +399,11 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     } else if (t.name === "seatpost") {
       g.add(taper(a, b, TUBE_PROFILE.seatpost[0], TUBE_PROFILE.seatpost[1], pick("seatpost", mats.carbon)));
     } else if (t.name === "steerer") {
-      g.add(taper(a, b, 17, 17, pick("steerer", mats.carbon)));
+      // spacer stack: the steerer between the head tube top and the stem, along the head-tube axis (none at 0 spacers)
+      if (clamp && clamp.bottom.distanceTo(vv(ht)) > 1) g.add(taper(vv(ht), clamp.bottom, 17, 17, pick("spacers", mats.carbon)));
     } else if (t.name === "stem_clamp") {
-      // clamp along the head-tube axis, sitting flush on the head tube top (a vertical one would cut into it)
-      const hTop = vv(ht);
-      const hBot = vv(hb);
-      {
-        const axis = hTop.clone().sub(hBot).normalize();
-        const half = a.distanceTo(b) / 2;
-        const mid = a.clone().add(b).multiplyScalar(0.5);
-        const lift = Math.max(0, 2 - mid.clone().addScaledVector(axis, -half).sub(hTop).dot(axis));
-        mid.addScaledVector(axis, lift);
-        g.add(taper(mid.clone().addScaledVector(axis, -half), mid.clone().addScaledVector(axis, half), 21, 21, pick("stem_clamp", mats.carbon)));
-      }
+      // the stem is one object: this steerer clamp plus the arm below
+      if (clamp) g.add(taper(clamp.bottom, clamp.top, 21, 21, pick("stem", mats.carbon)));
     } else if (t.name === "stem") {
       g.add(taper(a, b, 19, 16, pick("stem", mats.carbon)));
     } else {
@@ -418,11 +422,11 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const curve = new THREE.QuadraticBezierCurve3(crown, ctrl, vv(drop));
     g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, TUBE_PROFILE.fork_blade[0], 12, false), pick("fork", mats.frame)));
   }
-  const forkL = P.get("fork_l");
   const forkR = P.get("fork_r");
-  if (forkL && forkR) {
-    const c1 = vv(hb); c1.z = forkL[2];
-    const c2 = vv(hb); c2.z = forkR[2];
+  const forkL = P.get("fork_l");
+  if (forkR && forkL) {
+    const c1 = vv(hb); c1.z = forkR[2];
+    const c2 = vv(hb); c2.z = forkL[2];
     g.add(taper(c1, c2, TUBE_PROFILE.fork_crown[0], TUBE_PROFILE.fork_crown[1], pick("fork", mats.frame)));
   }
 

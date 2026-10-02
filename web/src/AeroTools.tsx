@@ -244,7 +244,7 @@ export function GhostMannequin({
   }, [snapshot, current, weightKg, hairlineOnly]);
 
   const chain = (names: string[]) => names.map((n) => P.get(n)).filter((p): p is P3 => !!p);
-  const leg = chain(["hip_r", "knee_r", "ankle_r", "cleat_r"]);
+  const leg = chain(["hip_l", "knee_l", "ankle_l", "cleat_l"]);
   const torso = chain(["hip_center", "spine_joint", "shoulder_center", "neck_base_center", "head_center"]);
 
   return (
