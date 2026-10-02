@@ -73,7 +73,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         <line className="s2d-gap" x1={0} y1={groundY} x2={0} y2={svgTop} />
 
         {/* frame behind the rider: down tube, BB shell, cranks, saddle */}
-        {poly("s2d-frame", tube(v(0, 0), hb, 24, 22))}
+        {poly("s2d-frame", tube(v(0, 0), v(0, hb.y), 24, 22))}
         <ellipse className="s2d-frame" cx={0} cy={0} rx={34} ry={30} />
         {poly("s2d-carbon", tube(v(0, 0), v(fm.ankleL.x, bike.cleat.y), 13, 9))}
         {poly("s2d-carbon", tube(v(0, 0), v(fm.ankleR.x, farCleatY), 13, 9))}
