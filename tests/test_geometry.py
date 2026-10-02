@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from bikegeo_core import Components, FrameGeometry
 from bikegeo_core.geometry import synthesize_bike
 
@@ -40,10 +42,27 @@ def _components(**overrides: float) -> Components:
 
 
 def test_stack_and_reach_anchor_the_steerer_top() -> None:
-    points = synthesize_bike(_frame(), _components())
+    points = synthesize_bike(_frame(), _components(spacer_stack=0.0))
 
     assert points.steerer_top.x == 380.0
-    assert points.steerer_top.y == 560.0
+    assert points.steerer_top.y == 550.0
+
+
+def test_spacers_stack_along_the_steerer() -> None:
+    points = synthesize_bike(_frame(), _components(spacer_stack=10.0))
+    ha = math.radians(73.0)
+
+    assert math.isclose(points.steerer_top.x, 380.0 - 10.0 * math.cos(ha))
+    assert math.isclose(points.steerer_top.y, 550.0 + 10.0 * math.sin(ha))
+
+
+def test_stem_angle_is_measured_from_the_steerer_normal() -> None:
+    # On a 73° head tube a -17° stem is level, and its pivot is half the clamp height up the steerer.
+    points = synthesize_bike(_frame(), _components(spacer_stack=0.0, stem_angle_deg=-17.0, stem_height=40.0))
+    ha = math.radians(73.0)
+
+    assert math.isclose(points.bar_clamp.y, 550.0 + 20.0 * math.sin(ha))
+    assert math.isclose(points.bar_clamp.x, 380.0 - 20.0 * math.cos(ha) + 100.0)
 
 
 def test_axles_sit_on_the_same_ground_line_using_bb_drop() -> None:
@@ -74,9 +93,12 @@ def test_spacers_raise_the_cockpit() -> None:
     low = synthesize_bike(_frame(), _components(spacer_stack=0.0))
     high = synthesize_bike(_frame(), _components(spacer_stack=20.0))
 
-    assert high.steerer_top.y - low.steerer_top.y == 20.0
-    assert high.bar_clamp.y - low.bar_clamp.y == 20.0
-    assert high.hoods.y - low.hoods.y == 20.0
+    rise = 20.0 * math.sin(math.radians(73.0))
+    assert math.isclose(high.steerer_top.y - low.steerer_top.y, rise)
+    assert math.isclose(high.bar_clamp.y - low.bar_clamp.y, rise)
+    assert math.isclose(high.hoods.y - low.hoods.y, rise)
+    # the steerer leans back, so spacers also pull the cockpit towards the rider
+    assert high.bar_clamp.x < low.bar_clamp.x
 
 
 def test_cleat_setback_moves_cleat_behind_pedal_spindle() -> None:

@@ -31,6 +31,11 @@ def _head_tube_direction(frame: FrameGeometry) -> Vec2:
     return Vec2(cos(angle_rad), -sin(angle_rad))
 
 
+def stem_angle_from_horizontal(stem_angle_deg, head_angle_deg: float):
+    """Stem rating (degrees from the steerer normal, as printed on the stem) -> angle above horizontal."""
+    return stem_angle_deg + (90.0 - head_angle_deg)
+
+
 def pedal_spindle_at_angle(bb: Vec2, crank_length: float, crank_angle_deg: float) -> Vec2:
     """Pedal spindle position for a crank at the given angle.
 
@@ -75,24 +80,34 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         saddle_clamp.y + components.saddle_stack,
     )
 
+    # Spacers and the stem clamp stack along the steerer (the head-tube axis, leaning back), not straight up.
+    head_dir = _head_tube_direction(frame)
+    steerer_up = Vec2(-head_dir.x, -head_dir.y)
     steerer_top = Vec2(
-        bb.x + frame.reach,
-        bb.y + frame.stack + components.spacer_stack,
+        bb.x + frame.reach + steerer_up.x * components.spacer_stack,
+        bb.y + frame.stack + steerer_up.y * components.spacer_stack,
+    )
+    # The clamp's bottom sits on the spacer stack; its pivot is half the stem height further up the steerer.
+    stem_pivot = Vec2(
+        steerer_top.x + steerer_up.x * components.stem_height / 2.0,
+        steerer_top.y + steerer_up.y * components.stem_height / 2.0,
     )
 
+    # stem_angle_deg is the manufacturer rating, measured from the normal to the steerer.
     # numpy trig so array-valued stem parameters (the solver's component
     # grid) broadcast through; identical doubles for plain floats.
-    stem_angle_rad = np.radians(components.stem_angle_deg)
+    stem_angle_rad = np.radians(stem_angle_from_horizontal(components.stem_angle_deg, frame.head_angle_deg))
     stem_dir = Vec2(np.cos(stem_angle_rad), np.sin(stem_angle_rad))
-    # The stem's bottom sits on the spacer stack; its clamp pivot is half the stem height above it.
     bar_clamp = Vec2(
-        steerer_top.x + stem_dir.x * components.stem_length,
-        steerer_top.y + components.stem_height / 2.0 + stem_dir.y * components.stem_length,
+        stem_pivot.x + stem_dir.x * components.stem_length,
+        stem_pivot.y + stem_dir.y * components.stem_length,
     )
 
+    # Bar reach is horizontal from the clamp centre and the bar is rotated to the rider's setup independently of the
+    # stem angle, so the hoods sit straight ahead of the clamp. bar_drop describes the drops, not the hoods.
     hoods = Vec2(
         bar_clamp.x + components.bar_reach + components.hood_reach_offset,
-        bar_clamp.y + components.bar_drop + components.hood_drop_offset,
+        bar_clamp.y + components.hood_drop_offset,
     )
 
     # BDC = crank pointing straight down (crank angle 180°)

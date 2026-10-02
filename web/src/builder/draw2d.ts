@@ -73,6 +73,18 @@ export function seg(a: V, b: V, prof: (t: number) => number, n = 18): string {
 
 export const tube = (a: V, b: V, r0: number, r1: number) => seg(a, b, (t) => lerp(r0, r1, t), 6);
 
+/** Flat-ended tube outline (no round caps): exactly |a→b| long, radius r0 at a and r1 at b. */
+export function slab(a: V, b: V, r0: number, r1 = r0): string {
+  const u = norm(sub(b, a));
+  const n = v(-u.y, u.x);
+  return pts([
+    [a.x + n.x * r0, a.y + n.y * r0],
+    [b.x + n.x * r1, b.y + n.y * r1],
+    [b.x - n.x * r1, b.y - n.y * r1],
+    [a.x - n.x * r0, a.y - n.y * r0],
+  ]);
+}
+
 export function ellipse(c: V, rx: number, ry: number, rot = 0, n = 36): string {
   const o: Array<[number, number]> = [];
   for (let i = 0; i < n; i++) {

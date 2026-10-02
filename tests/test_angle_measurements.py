@@ -180,23 +180,24 @@ def _auto_seatpost(ideal_saddle_y: float, saddle_stack: float, seat_angle_deg: f
 
 
 def _frontend_hoods(bar_clamp_x: float, bar_clamp_y: float, comp: Components) -> ContactPoint:
-    """Replica of frontend hoods formula (geometry.ts:371-376)."""
-    hood_angle = math.radians(max(8, comp.stem_angle_deg + 6))
-    hood_length = comp.bar_reach + comp.hood_reach_offset
+    """Replica of frontend hoods formula (geometry.ts synthesizeBike): horizontal bar reach from the clamp."""
     return ContactPoint(
-        bar_clamp_x + math.cos(hood_angle) * hood_length,
-        bar_clamp_y + math.sin(hood_angle) * hood_length + comp.hood_drop_offset,
+        bar_clamp_x + comp.bar_reach + comp.hood_reach_offset,
+        bar_clamp_y + comp.hood_drop_offset,
     )
 
 
 def _frontend_bar_clamp(frame: FrameGeometry, comp: Components) -> ContactPoint:
-    """Replica of frontend bar_clamp calculation."""
-    steerer_top_x = frame.reach
-    steerer_top_y = frame.stack + comp.spacer_stack + comp.stem_height / 2.0
-    stem_angle = math.radians(comp.stem_angle_deg)
+    """Replica of frontend bar_clamp calculation: spacers and clamp along the steerer, stem angle from its normal."""
+    ha = math.radians(frame.head_angle_deg)
+    up_x, up_y = -math.cos(ha), math.sin(ha)
+    along = comp.spacer_stack + comp.stem_height / 2.0
+    pivot_x = frame.reach + up_x * along
+    pivot_y = frame.stack + up_y * along
+    stem_angle = math.radians(comp.stem_angle_deg + (90.0 - frame.head_angle_deg))
     return ContactPoint(
-        steerer_top_x + math.cos(stem_angle) * comp.stem_length,
-        steerer_top_y + math.sin(stem_angle) * comp.stem_length,
+        pivot_x + math.cos(stem_angle) * comp.stem_length,
+        pivot_y + math.sin(stem_angle) * comp.stem_length,
     )
 
 
@@ -434,7 +435,6 @@ def test_knee_flex_independent_of_trunk_angle(knee_flex_deg):
 
 @pytest.mark.parametrize("trunk_angle_deg", TRUNK_ANGLE_VALUES, ids=TRUNK_ANGLE_IDS)
 @pytest.mark.parametrize("knee_flex_deg", KNEE_FLEX_VALUES, ids=KNEE_FLEX_IDS)
-@pytest.mark.xfail(reason="BUG: frontend angular hoods vs backend additive hoods formula divergence", strict=False)
 def test_elbow_consistent_between_2d_view_and_overlay(knee_flex_deg, trunk_angle_deg):
     """Elbow flex should be the same whether hoods come from frontend or backend."""
     _, elbow_view, _, _, _ = _2d_view_pipeline(knee_flex_deg, trunk_angle_deg)

@@ -1,10 +1,10 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
-import { CHAINRING, RIM, SEATSTAY_DROP, TUBE_PROFILE } from "../design/bikeProfiles";
+import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
 import { lerp, bump } from "../design/riderBody";
 import type { BikeSketch } from "../types";
 import { SaddleShape } from "../components/SaddleShape";
-import { add, gear, hullOf, norm, seg, sub, tube, v, type V } from "./draw2d";
+import { add, ellipse, gear, hullOf, norm, seg, slab, sub, tube, v, type V } from "./draw2d";
 
 const P = (x: number, y: number) => `${x.toFixed(1)} ${(-y).toFixed(1)}`;
 const poly = (cls: string, points: string, part?: string) => <polygon className={cls} points={points} data-part={part} />;
@@ -86,15 +86,9 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const stUp = norm(sub(cl, bb));
   const htDown = norm(sub(hb, ht));
   const T = TUBE_PROFILE;
-  // Steerer clamp of the stem, drawn along the head-tube axis so its flat bottom sits flush on the head tube top
-  // (a vertical clamp would cut into the leaning head tube). Slid up the axis if it would still overlap it.
-  const htUp = v(-htDown.x, -htDown.y);
-  const htTop = add(ht, htUp, 4); // where the drawn head tube ends
-  const halfH = bike.stemPivot.y - bike.steererTop.y;
-  const rawBottom = add(bike.stemPivot, htUp, -halfH);
-  const lift = Math.max(0, 4 - ((rawBottom.x - ht.x) * htUp.x + (rawBottom.y - ht.y) * htUp.y));
-  const clampBottom = add(rawBottom, htUp, lift);
-  const clampTop = add(bike.stemPivot, htUp, halfH + lift);
+  // Spacers and the stem's steerer clamp stack along the head-tube axis (synthesizeBike puts steererTop and
+  // stemPivot on it). Both are flat-ended so their drawn length is exactly spacer_stack and stem_height.
+  const clampTop = add(bike.stemPivot, sub(bike.stemPivot, bike.steererTop));
   const stayTop = add(cl, stUp, -SEATSTAY_DROP);
   const perp = v(stUp.y, -stUp.x);
   const b0 = add(add(bb, sub(cl, bb), 0.22), perp, 60);
@@ -107,7 +101,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]), "seat_tube")}
       {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube), "top_tube")}
       {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube), "down_tube")}
-      {poly("s2d-frame", tube(add(hb, htDown, 16), add(ht, htDown, -4), ...T.head_tube), "head_tube")}
+      {/* head tube: round at the fork crown, flat on top where the spacers / stem sit */}
+      {poly("s2d-frame", hullOf(slab(add(hb, htDown, 16), ht, ...T.head_tube), ellipse(add(hb, htDown, 16), T.head_tube[0], T.head_tube[0], 0, 18)), "head_tube")}
       <path
         className="s2d-fork"
         data-part="fork"
@@ -120,10 +115,10 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       <line data-part="bottle" className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
       {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]), "seatpost")}
       {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]), "seatpost")}
-      {/* spacer stack: only the bit of steerer showing between the head tube and the stem (none at 0 spacers) */}
-      {Math.hypot(clampBottom.x - htTop.x, clampBottom.y - htTop.y) > 0.5 && poly("s2d-carbon", tube(htTop, clampBottom, 17, 17), "spacers")}
-      {/* the stem is one object: steerer clamp + arm */}
-      {poly("s2d-carbon", hullOf(tube(clampBottom, clampTop, 21, 21), tube(v(bike.barClamp.x, bike.barClamp.y - 19), v(bike.barClamp.x, bike.barClamp.y + 19), 13, 13)), "stem")}
+      {/* spacer stack: the steerer between the head tube and the stem (none at 0 spacers) */}
+      {bike.steererTop.y - ht.y > 0.5 && poly("s2d-carbon", slab(ht, bike.steererTop, STEM.spacerR), "spacers")}
+      {/* the stem is one object: flat steerer clamp (stem_height tall) + arm + rounded bar clamp around the bar */}
+      {poly("s2d-carbon", hullOf(slab(bike.steererTop, clampTop, STEM.clampR), ellipse(bike.barClamp, STEM.barClampR, STEM.barClampR, 0, 24)), "stem")}
       <g data-part="saddle"><SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" /></g>
     </g>
   );
