@@ -179,9 +179,9 @@ def _auto_seatpost(ideal_saddle_y: float, saddle_stack: float, seat_angle_deg: f
     return max(400.0, min(950.0, offset))
 
 
-def _frontend_hoods(bar_clamp_x: float, bar_clamp_y: float, comp: Components) -> ContactPoint:
-    """Replica of frontend hoods formula (geometry.ts:371-376)."""
-    hood_angle = math.radians(max(8, comp.stem_angle_deg + 6))
+def _frontend_hoods(bar_clamp_x: float, bar_clamp_y: float, comp: Components, head_angle_deg: float) -> ContactPoint:
+    """Replica of frontend hoods formula (geometry.ts synthesizeBike)."""
+    hood_angle = math.radians(max(8, comp.stem_angle_deg + (90.0 - head_angle_deg) + 6))
     hood_length = comp.bar_reach + comp.hood_reach_offset
     return ContactPoint(
         bar_clamp_x + math.cos(hood_angle) * hood_length,
@@ -190,13 +190,16 @@ def _frontend_hoods(bar_clamp_x: float, bar_clamp_y: float, comp: Components) ->
 
 
 def _frontend_bar_clamp(frame: FrameGeometry, comp: Components) -> ContactPoint:
-    """Replica of frontend bar_clamp calculation."""
-    steerer_top_x = frame.reach
-    steerer_top_y = frame.stack + comp.spacer_stack + comp.stem_height / 2.0
-    stem_angle = math.radians(comp.stem_angle_deg)
+    """Replica of frontend bar_clamp calculation: spacers and clamp along the steerer, stem angle from its normal."""
+    ha = math.radians(frame.head_angle_deg)
+    up_x, up_y = -math.cos(ha), math.sin(ha)
+    along = comp.spacer_stack + comp.stem_height / 2.0
+    pivot_x = frame.reach + up_x * along
+    pivot_y = frame.stack + up_y * along
+    stem_angle = math.radians(comp.stem_angle_deg + (90.0 - frame.head_angle_deg))
     return ContactPoint(
-        steerer_top_x + math.cos(stem_angle) * comp.stem_length,
-        steerer_top_y + math.sin(stem_angle) * comp.stem_length,
+        pivot_x + math.cos(stem_angle) * comp.stem_length,
+        pivot_y + math.sin(stem_angle) * comp.stem_length,
     )
 
 
@@ -304,7 +307,7 @@ def _2d_view_pipeline(knee_flex_deg: float, trunk_angle_deg: float):
 
     # Frontend hoods
     bar_clamp = _frontend_bar_clamp(frame, comp)
-    actual_hoods = _frontend_hoods(bar_clamp.x, bar_clamp.y, comp)
+    actual_hoods = _frontend_hoods(bar_clamp.x, bar_clamp.y, comp, frame.head_angle_deg)
 
     # Measure knee extension via buildMannequin
     knee_ext = _build_mannequin_knee_ext(

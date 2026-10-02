@@ -28,6 +28,23 @@ export const TUBE_PROFILE: Record<TubeName, [r0: number, r1: number]> = {
   fork_crown: [20, 20],
 };
 
+/**
+ * Stem and spacer sizes (mm), shared by the 2D and 3D drawings. The clamp's length along the steerer is
+ * `stem_height`; these are the cross-section radii. A 1⅛" steerer is 28.6 mm, a road bar clamp 31.8 mm.
+ */
+export const STEM = {
+  /** spacer outer radius (≈ 34 mm spacers) */
+  spacerR: 17,
+  /** steerer clamp half-depth fore-aft (≈ 38 mm clamp body) */
+  clampR: 19,
+  /** arm radius at the steerer clamp and at the bar clamp (3D) */
+  armR: [17, 15] as [number, number],
+  /** outer radius of the bar clamp around a 31.8 mm bar (≈ 5 mm wall) */
+  barClampR: 21,
+  /** bar clamp width across the bike (3D) */
+  barClampWidth: 44,
+};
+
 /** Seatstay upper end is moved this far down the seat tube. */
 export const SEATSTAY_DROP = 35;
 
