@@ -85,6 +85,10 @@ export type MannequinSketch = {
   head: ContactPoint;
   neckBase: ContactPoint;
   spineJoint: ContactPoint;
+  /** How far the foot stops short of the pedal at this crank position (0 = on the pedal). */
+  pedalGapMm?: number;
+  /** How far the hands stop short of the hoods with the arms straight (0 = on the hoods). */
+  handGapMm?: number;
 };
 
 export type RiderFit = {
@@ -103,6 +107,8 @@ export type HoodPreset = {
 
 export type FitWarning = {
   contact: "saddle" | "hoods" | "cleat";
+  /** Plain-language explanation shown instead of the generic "N mm off". */
+  message?: string;
   deltaX: number;
   deltaY: number;
   distance: number;

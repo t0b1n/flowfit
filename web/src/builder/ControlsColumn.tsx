@@ -1,3 +1,4 @@
+import { StatusDot } from "../design/StatusDot";
 import React from "react";
 import { Segmented } from "../design/Segmented";
 import { CollapsibleSection } from "../components/CollapsibleSection";
@@ -20,6 +21,10 @@ export interface ControlsColumnProps {
   setRiderFit: (value: React.SetStateAction<RiderFit>) => void;
   targetSaddleHeightMm: number;
   setTargetSaddleHeightMm: (value: React.SetStateAction<number>) => void;
+  /** Largest foot-to-pedal gap over the stroke (mm); > 0 means the saddle is above leg reach. */
+  pedalGapMm: number;
+  /** Highest saddle (mm above BB) at which the foot still reaches the pedal. */
+  maxSaddleHeightMm: number;
   rider: ReturnType<typeof buildRider>;
   updateBodyMeasurement: (key: keyof BodyMeasurements, value: number) => void;
   setBodyMeasurements: (value: React.SetStateAction<Partial<BodyMeasurements>>) => void;
@@ -55,7 +60,7 @@ export interface ControlsColumnProps {
   setShoePresetId: (value: React.SetStateAction<string>) => void;
 }
 
-export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, fullscreen, fitMode, handleFitModeChange, idealSaddleY, kneeFlex, riderFit, setRiderFit, targetSaddleHeightMm, setTargetSaddleHeightMm, rider, updateBodyMeasurement, setBodyMeasurements, trunkAngleOverride, backBendOverride, preset, setPreset, setTrunkAngleOverride, setBackBendOverride, targetTrunkAngleDeg, backBendDeg, currentBrand, FRAME_CATALOG, setSelection, brands, selection, getModelById, modelsForBrand, model, sizeData, components, updateComponent, resetComponent, hoodPresetId, setHoodPresetId, tyreSize, setTyreSize, pedalPresetId, handlePedalPreset, shoePresetId, handleShoePreset, setPedalPresetId, setShoePresetId }) => {
+export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, fullscreen, fitMode, handleFitModeChange, idealSaddleY, kneeFlex, riderFit, setRiderFit, targetSaddleHeightMm, setTargetSaddleHeightMm, pedalGapMm, maxSaddleHeightMm, rider, updateBodyMeasurement, setBodyMeasurements, trunkAngleOverride, backBendOverride, preset, setPreset, setTrunkAngleOverride, setBackBendOverride, targetTrunkAngleDeg, backBendDeg, currentBrand, FRAME_CATALOG, setSelection, brands, selection, getModelById, modelsForBrand, model, sizeData, components, updateComponent, resetComponent, hoodPresetId, setHoodPresetId, tyreSize, setTyreSize, pedalPresetId, handlePedalPreset, shoePresetId, handleShoePreset, setPedalPresetId, setShoePresetId }) => {
   return (
     (
     <>
@@ -81,6 +86,17 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
                 ? `Saddle height follows knee flex → ${idealSaddleY.toFixed(0)} mm`
                 : `Knee flex follows saddle height → ${kneeFlex.toFixed(1)}°`}
             </p>
+            {pedalGapMm > 0.5 && (
+              <div className="warn-note warn-note--out" role="alert">
+                <b className="warn-note__eyebrow">
+                  <StatusDot status="out" /> SADDLE TOO HIGH
+                </b>
+                <div>
+                  Leg fully straight — the foot lifts {pedalGapMm.toFixed(0)} mm off the pedal at the bottom of the stroke.
+                </div>
+                <div className="warn-note__delta">Highest reachable saddle ≈ {Math.floor(maxSaddleHeightMm)} mm</div>
+              </div>
+            )}
             <div className="slider-grid slider-grid--compact">
               <SliderCard
                 label="Height"

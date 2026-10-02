@@ -78,7 +78,7 @@ export function ArcHairline({
   );
 }
 
-/** Knee arc that follows the pedalling near-side (left) leg. Hairline, ink 35%. */
+/** Knee arc that follows the pedalling near-side (right, +Z) leg. Hairline, ink 35%. */
 export function KneeArcLive({
   lut, crankAngleRef, hip, z, theme, radius = 80,
 }: {

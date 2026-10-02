@@ -22,7 +22,7 @@ import type { V } from "./draw2d";
 /** Where each metric's callout points on the 2D side view, in bike mm. */
 export function metricAnchors2D(m: MannequinSketch, bike: BikeSketch, lut: PedalStrokeLUT): Record<MetricId, V> {
   return {
-    knee_ext_bdc: m.knee,
+    knee_ext_bdc: lut.poses[lut.maxExtensionIndex].knee,
     knee_flex_tdc: lut.poses[0].knee,
     hip: m.hip,
     trunk: m.spineJoint,

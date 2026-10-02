@@ -57,7 +57,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const ft = bike.frontAxle;
   const hb = bike.headTubeBottom;
   const ht = bike.headTubeTop;
-  // Right leg is the far leg, a half-stroke ahead: its knee and ankle sit at that crank angle's heights (the left leg is at BDC).
+  // Left leg is the far leg, a half-stroke ahead: its knee and ankle sit at that crank angle's heights (the right leg is at BDC).
   const farPose = strokeMetrics.poses[0];
   const farCleatY = farPose.cleat.y;
   const kneeL = v(fm.kneeL.x, farPose.knee.y);

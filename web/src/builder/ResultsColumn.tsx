@@ -100,7 +100,7 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
       <CollapsibleSection eyebrow="Fit Analysis" title="Ideal vs actual" defaultOpen={false}>
         <div className="metric-grid">
           <MetricCard
-            title="Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface. This is the height that gives your target knee flex angle at bottom dead centre."
+            title="Measured vertically from the centre of the bottom bracket axle to the top of the saddle surface. This is the height that gives your target knee flex angle at the most extended point of the pedal stroke."
             label={fitMode === "saddle_height" ? "Target saddle height" : "Ideal saddle height"}
             value={`${idealSaddleY.toFixed(0)} mm`}
           />
@@ -121,7 +121,8 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
             value={`${seatpostExtension.toFixed(0)} mm`}
           />
           <MetricCard
-            label="Knee flex at BDC"
+            title="Knee flexion at the most extended point of the pedal stroke (≈ 5 o'clock, where the pedal is farthest from the hip)."
+            label="Knee flex at max ext."
             value={`${kneeFlex.toFixed(1)}°`}
             delta={fitMode === "contact" ? `Target ${riderFit.targetKneeFlexDeg}°` : undefined}
           />
@@ -162,10 +163,10 @@ export const ResultsColumn: React.FC<ResultsColumnProps> = ({ mobilePanel, fulls
           return (
             <div key={w.contact} className={`warn-note warn-note--${st}`}>
               <b className="warn-note__eyebrow">
-                <StatusDot status={st} /> {st === "in" ? "ON TARGET" : st === "near" ? "NEAR" : "OUT"} · {w.contact}
+                <StatusDot status={st} /> {st === "in" ? "ON TARGET" : st === "near" ? "NEAR" : "OUT"} · {w.contact === "cleat" ? "pedal" : w.contact}
               </b>
-              <div>{w.severity === "ok" ? `On target (${w.distance.toFixed(0)} mm)` : `${w.distance.toFixed(0)} mm off`}</div>
-              {w.severity !== "ok" && (
+              <div>{w.message ?? (w.severity === "ok" ? `On target (${w.distance.toFixed(0)} mm)` : `${w.distance.toFixed(0)} mm off`)}</div>
+              {w.severity !== "ok" && !w.message && (
                 <div className="warn-note__delta">ΔX {w.deltaX.toFixed(0)} mm · ΔY {w.deltaY.toFixed(0)} mm</div>
               )}
             </div>
