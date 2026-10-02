@@ -103,9 +103,11 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         stem_pivot.y + stem_dir.y * components.stem_length,
     )
 
+    # Bar reach is horizontal from the clamp centre and the bar is rotated to the rider's setup independently of the
+    # stem angle, so the hoods sit straight ahead of the clamp. bar_drop describes the drops, not the hoods.
     hoods = Vec2(
         bar_clamp.x + components.bar_reach + components.hood_reach_offset,
-        bar_clamp.y + components.bar_drop + components.hood_drop_offset,
+        bar_clamp.y + components.hood_drop_offset,
     )
 
     # BDC = crank pointing straight down (crank angle 180°)

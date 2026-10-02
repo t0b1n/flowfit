@@ -179,13 +179,11 @@ def _auto_seatpost(ideal_saddle_y: float, saddle_stack: float, seat_angle_deg: f
     return max(400.0, min(950.0, offset))
 
 
-def _frontend_hoods(bar_clamp_x: float, bar_clamp_y: float, comp: Components, head_angle_deg: float) -> ContactPoint:
-    """Replica of frontend hoods formula (geometry.ts synthesizeBike)."""
-    hood_angle = math.radians(max(8, comp.stem_angle_deg + (90.0 - head_angle_deg) + 6))
-    hood_length = comp.bar_reach + comp.hood_reach_offset
+def _frontend_hoods(bar_clamp_x: float, bar_clamp_y: float, comp: Components) -> ContactPoint:
+    """Replica of frontend hoods formula (geometry.ts synthesizeBike): horizontal bar reach from the clamp."""
     return ContactPoint(
-        bar_clamp_x + math.cos(hood_angle) * hood_length,
-        bar_clamp_y + math.sin(hood_angle) * hood_length + comp.hood_drop_offset,
+        bar_clamp_x + comp.bar_reach + comp.hood_reach_offset,
+        bar_clamp_y + comp.hood_drop_offset,
     )
 
 
@@ -307,7 +305,7 @@ def _2d_view_pipeline(knee_flex_deg: float, trunk_angle_deg: float):
 
     # Frontend hoods
     bar_clamp = _frontend_bar_clamp(frame, comp)
-    actual_hoods = _frontend_hoods(bar_clamp.x, bar_clamp.y, comp, frame.head_angle_deg)
+    actual_hoods = _frontend_hoods(bar_clamp.x, bar_clamp.y, comp)
 
     # Measure knee extension via buildMannequin
     knee_ext = _build_mannequin_knee_ext(
@@ -437,7 +435,6 @@ def test_knee_flex_independent_of_trunk_angle(knee_flex_deg):
 
 @pytest.mark.parametrize("trunk_angle_deg", TRUNK_ANGLE_VALUES, ids=TRUNK_ANGLE_IDS)
 @pytest.mark.parametrize("knee_flex_deg", KNEE_FLEX_VALUES, ids=KNEE_FLEX_IDS)
-@pytest.mark.xfail(reason="BUG: frontend angular hoods vs backend additive hoods formula divergence", strict=False)
 def test_elbow_consistent_between_2d_view_and_overlay(knee_flex_deg, trunk_angle_deg):
     """Elbow flex should be the same whether hoods come from frontend or backend."""
     _, elbow_view, _, _, _ = _2d_view_pipeline(knee_flex_deg, trunk_angle_deg)

@@ -42,7 +42,7 @@ SetupInput → solver.py::solve_setup()
 
 **Coordinate system:** Origin = bottom bracket. X = forward (positive away from rider), Y = up.
 
-**`synthesize_bike(frame, components)`** builds `BikePoints` in this order: BB → wheel axles → saddle (along seat tube + rail offset) → steerer top (frame.reach, frame.stack + spacer_stack) → bar clamp (stem vector) → hoods (bar reach + drop) → cleat (below BB by crank_length).
+**`synthesize_bike(frame, components)`** builds `BikePoints` in this order: BB → wheel axles → saddle (along seat tube + rail offset) → steerer top (frame.reach, frame.stack + spacer_stack) → bar clamp (stem vector) → hoods (horizontal: bar_reach + hood_reach_offset ahead of the clamp, hood_drop_offset up; independent of stem angle) → cleat (below BB by crank_length).
 
 **`solve_pose_2d_full()`** runs 6-step IK: hip (above saddle) → ankle (above cleat) → knee (circle intersection) → shoulder (circle intersection) → elbow → derived joints. All joints solved in 2D sagittal plane.
 

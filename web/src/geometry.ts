@@ -606,11 +606,11 @@ export const synthesizeBike = (
     x: stemPivot.x + Math.cos(stemAngle) * components.stem_length,
     y: stemPivot.y + Math.sin(stemAngle) * components.stem_length,
   };
-  const hoodAngle = radiansFromDegrees(Math.max(8, stemAngleAbsDeg + 6));
-  const hoodLength = components.bar_reach + components.hood_reach_offset;
+  // Bar reach is a horizontal distance from the clamp centre, and the bar is rotated to the rider's setup (drops /
+  // hood platform roughly level) independently of the stem angle, so the hoods sit straight ahead of the clamp.
   const hoods = {
-    x: barClamp.x + Math.cos(hoodAngle) * hoodLength,
-    y: barClamp.y + Math.sin(hoodAngle) * hoodLength + components.hood_drop_offset,
+    x: barClamp.x + components.bar_reach + components.hood_reach_offset,
+    y: barClamp.y + components.hood_drop_offset,
   };
 
   return {
@@ -884,19 +884,18 @@ export const BAR_REACH_MAX_MM = 130;
 
 /**
  * Given a target hoods position and the current bar clamp location, compute
- * the bar reach needed to position the hoods there.
+ * the bar reach needed to position the hoods there. Bar reach is horizontal
+ * (see synthesizeBike), so only the x gap counts; a height gap needs stem or
+ * spacer changes instead.
  *
  * Returns null if the result is outside [BAR_REACH_MIN_MM, BAR_REACH_MAX_MM].
- *
- * Approximation: ignores hood_drop_offset (usually 0). Error is typically <2mm.
  */
 export const barReachNeeded = (
   targetHoods: ContactPoint,
   barClamp: ContactPoint,
   hoodReachOffset: number
 ): number | null => {
-  const hoodLength = Math.hypot(targetHoods.x - barClamp.x, targetHoods.y - barClamp.y);
-  const reach = hoodLength - hoodReachOffset;
+  const reach = targetHoods.x - barClamp.x - hoodReachOffset;
   if (reach < BAR_REACH_MIN_MM || reach > BAR_REACH_MAX_MM) return null;
   return reach;
 };
