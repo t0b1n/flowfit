@@ -136,9 +136,11 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   const { focused, pinned } = useMetricFocus();
   const R = effectiveFrame.wheel_radius;
   const farPose = strokeMetrics.poses[0];
+  // The near foot sits on the pedal unless the leg can't reach it, then it hangs above (cleat = IK ankle − stack).
+  const nearFootCleat = v(mannequin.ankle.x, mannequin.ankle.y - components.pedal_stack_height);
   const fig = buildFigure({
     ...mannequin,
-    cleat: bike.cleat,
+    cleat: nearFootCleat,
     far: { knee: farPose.knee, ankle: farPose.ankle, cleat: farPose.cleat },
     riderHeightMm: rider.height,
     footLengthMm: rider.foot_length,
@@ -172,7 +174,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
       <Wheel axle={bike.rearAxle} radius={R} />
       <Wheel axle={bike.frontAxle} radius={R} />
       <DiscBrakes bike={bike} />
-      <FarCrank bike={bike} farSpindle={visibleParts.legs ? v(farPose.cleat.x + components.cleat_setback, farPose.cleat.y) : null} />
+      <FarCrank bike={bike} farSpindle={visibleParts.legs ? farPose.spindle : null} />
       <FrameDrawing bike={bike} />
       <DriveSide bike={bike} />
       <NearCrank bike={bike} cleatCrankEnd={v(bike.cleat.x + components.cleat_setback, bike.cleat.y)} />
@@ -238,7 +240,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
               <line x1={pt.x - 18} y1={-pt.y} x2={pt.x + 18} y2={-pt.y} className="geometry-target" />
               <line x1={pt.x} y1={-pt.y - 18} x2={pt.x} y2={-pt.y + 18} className="geometry-target" />
               <text x={pt.x + 12} y={-pt.y - 12} className="geometry-label geometry-label--target">
-                IDEAL {contact.toUpperCase()}
+                {contact === "cleat" ? "PEDAL" : `IDEAL ${contact.toUpperCase()}`}
               </text>
             </g>
           );
@@ -247,13 +249,14 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
       {warnings
         .filter((w) => w.severity !== "ok")
         .map((w) => {
-          const actual = w.contact === "saddle" ? bike.saddle : w.contact === "hoods" ? bike.hoods : bike.cleat;
+          // Pedal: the gap is between the lifted foot and the pedal it can't reach.
+          const actual = w.contact === "saddle" ? bike.saddle : w.contact === "hoods" ? bike.hoods : nearFootCleat;
           const ideal = idealContacts[w.contact];
           return (
             <g key={w.contact}>
               <line className="s2d-gap" x1={actual.x} y1={-actual.y} x2={ideal.x} y2={-ideal.y} />
               <text className="geometry-label s2d-gap-label" x={(actual.x + ideal.x) / 2 + 8} y={-((actual.y + ideal.y) / 2)}>
-                {w.distance.toFixed(0)} mm
+                {w.contact === "cleat" ? `FOOT OFF PEDAL · ${w.distance.toFixed(0)} mm` : `${w.distance.toFixed(0)} mm`}
               </text>
             </g>
           );

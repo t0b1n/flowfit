@@ -55,7 +55,9 @@ export const DEFAULT_RIDER_FIT: RiderFit = {
   height: 1760,
   inseam: 860, // floor-to-crotch inseam, mm
   weight: 75,  // kg — drives anatomical radius scaling
-  targetKneeFlexDeg: 10,
+  // Knee flexion at max extension of the stroke: 35° is the middle of the
+  // knee_extension band (140–150°), i.e. the dynamic 30–40° fitting range.
+  targetKneeFlexDeg: 35,
 };
 
 export const DEFAULT_TARGETS = {
@@ -180,6 +182,49 @@ export const circleIntersections = (
   return preferUpper ? (p1.y > p2.y ? [p1, p2] : [p2, p1]) : p1.y < p2.y ? [p1, p2] : [p2, p1];
 };
 
+/**
+ * Two-bone leg IK from the hip joint to the pedal target (the IK "ankle": the
+ * pedal spindle plus the shoe/pedal stack). The knee is the anterior solution.
+ *
+ * When the target is beyond thigh + shank the leg cannot stretch: it locks
+ * straight along the hip→target line and the foot stops short of the pedal.
+ * `pedalGapMm` is how far short (0 when the foot reaches).
+ */
+export const solveLeg = (
+  hip: ContactPoint,
+  target: ContactPoint,
+  thigh: number,
+  shank: number,
+): { knee: ContactPoint; ankle: ContactPoint; pedalGapMm: number } => {
+  const dx = target.x - hip.x;
+  const dy = target.y - hip.y;
+  const distance = Math.max(Math.hypot(dx, dy), 1e-6);
+  const legLength = thigh + shank;
+  if (distance >= legLength) {
+    const ux = dx / distance;
+    const uy = dy / distance;
+    return {
+      knee: { x: hip.x + ux * thigh, y: hip.y + uy * thigh },
+      ankle: { x: hip.x + ux * legLength, y: hip.y + uy * legLength },
+      pedalGapMm: distance - legLength,
+    };
+  }
+  const [kneeA, kneeB] = circleIntersections(hip, target, thigh, shank, true);
+  // Anterior side: with the chord running hip→ankle, a positive cross product places the knee forward.
+  const crossA = dx * (kneeA.y - hip.y) - dy * (kneeA.x - hip.x);
+  return { knee: crossA >= 0 ? kneeA : kneeB, ankle: target, pedalGapMm: 0 };
+};
+
+/** Interior knee angle (°) for a hip→ankle distance; 180 when the leg is straight or short of the pedal. */
+const kneeAngleForDistance = (distance: number, thigh: number, shank: number) => {
+  const cos = (thigh ** 2 + shank ** 2 - distance ** 2) / (2 * thigh * shank);
+  return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
+};
+
+/** Hip→ankle distance that gives an interior knee angle (°). */
+const distanceForKneeAngle = (angleDeg: number, thigh: number, shank: number) =>
+  Math.sqrt(thigh ** 2 + shank ** 2 - 2 * thigh * shank * Math.cos(radiansFromDegrees(angleDeg)));
+
 export const buildMannequin = (
   bike: BikeSketch,
   rider: ReturnType<typeof buildRider>,
@@ -196,8 +241,8 @@ export const buildMannequin = (
     y: saddleContact.y + rider.hip_joint_offset,
   };
 
-  const ankle = { x: bike.cleat.x, y: bike.cleat.y + pedalStackHeight };
-  const [knee] = circleIntersections(hipJoint, ankle, rider.thigh_length, rider.shank_length, true);
+  const pedalTarget = { x: bike.cleat.x, y: bike.cleat.y + pedalStackHeight };
+  const { knee, ankle, pedalGapMm } = solveLeg(hipJoint, pedalTarget, rider.thigh_length, rider.shank_length);
 
   const targetHands = bike.hoods;
 
@@ -251,6 +296,7 @@ export const buildMannequin = (
   const maxReach2D = upperArm2D + forearm2D;
   const toHands = { x: targetHands.x - shoulder.x, y: targetHands.y - shoulder.y };
   const toHandsDist = Math.hypot(toHands.x, toHands.y);
+  const handGapMm = Math.max(0, toHandsDist - maxReach2D);
   const hands: ContactPoint = (toHandsDist > maxReach2D && toHandsDist > 1e-6)
     ? {
         x: shoulder.x + (toHands.x / toHandsDist) * maxReach2D,
@@ -301,7 +347,7 @@ export const buildMannequin = (
     y: shoulder.y + (head.y - shoulder.y) * 0.15,
   };
 
-  return { hip: hipJoint, knee, ankle, shoulder, elbow, wrist, hands, head, neckBase, spineJoint };
+  return { hip: hipJoint, knee, ankle, shoulder, elbow, wrist, hands, head, neckBase, spineJoint, pedalGapMm, handGapMm };
 };
 
 export type FrontalMannequin = {
@@ -417,6 +463,7 @@ export const bandStatus = (value: number, band: AngleBand): BandStatus => {
 
 export type LegPose = {
   spindle: ContactPoint;
+  /** Shoe cleat; lifts off the spindle when the leg can't reach it (see pedalGapMm). */
   cleat: ContactPoint;
   ankle: ContactPoint;
   knee: ContactPoint;
@@ -426,10 +473,17 @@ export interface PedalStrokeLUT {
   samples: number;
   poses: LegPose[];
   kneeExtensionDeg: number[];
+  /** Foot-to-pedal gap per sample (0 = foot on the pedal). */
+  pedalGapMm: number[];
+  /** Largest foot-to-pedal gap over the stroke; > 0 means the saddle is too high to reach the pedals. */
+  maxPedalGapMm: number;
   kopsOffsetMm: number;
   kneeFlexionTdcDeg: number;
   kneeFlexionBdcDeg: number;
+  /** Knee extension at the most extended point of the stroke (where fit targets are measured). */
   kneeExtensionMaxDeg: number;
+  /** Sample index of kneeExtensionMaxDeg. */
+  maxExtensionIndex: number;
   crankLength: number;
   hip: ContactPoint;
   /** Anatomical ankle-joint setback behind the pedal spindle (drawn geometry
@@ -448,6 +502,7 @@ export function solvePedalStroke(
 ): PedalStrokeLUT {
   const poses: LegPose[] = [];
   const kneeExtensionDeg: number[] = [];
+  const pedalGapMm: number[] = [];
 
   for (let i = 0; i < samples; i++) {
     const theta = (i / samples) * 2 * Math.PI;
@@ -455,34 +510,38 @@ export function solvePedalStroke(
       x: bb.x + crankLength * Math.sin(theta),
       y: bb.y + crankLength * Math.cos(theta),
     };
-    const cleat = { x: spindle.x - cleatSetback, y: spindle.y };
-    const ankle = { x: cleat.x, y: cleat.y + pedalStackHeight };
-    const [kneeA, kneeB] = circleIntersections(
-      hip, ankle, rider.thigh_length, rider.shank_length, true
-    );
-    // Anterior-side selection (same rule as the backend): with the chord
-    // running hip→ankle, a positive cross product places the knee forward.
-    const dx = ankle.x - hip.x;
-    const dy = ankle.y - hip.y;
-    const crossA = dx * (kneeA.y - hip.y) - dy * (kneeA.x - hip.x);
-    const knee = crossA >= 0 ? kneeA : kneeB;
+    const target = { x: spindle.x - cleatSetback, y: spindle.y + pedalStackHeight };
+    const leg = solveLeg(hip, target, rider.thigh_length, rider.shank_length);
+    const cleat = { x: leg.ankle.x, y: leg.ankle.y - pedalStackHeight };
 
-    poses.push({ spindle, cleat, ankle, knee });
-    kneeExtensionDeg.push(angleAtPoint(hip, knee, ankle));
+    poses.push({ spindle, cleat, ankle: leg.ankle, knee: leg.knee });
+    kneeExtensionDeg.push(angleAtPoint(hip, leg.knee, leg.ankle));
+    pedalGapMm.push(leg.pedalGapMm);
   }
 
   const quarter = Math.round(samples / 4);       // 90° — crank forward
   const half = Math.round(samples / 2);          // 180° — BDC
-  const kneeExtensionMaxDeg = Math.max(...kneeExtensionDeg);
+  // The most extended point is where the pedal is farthest from the hip (≈ 5 o'clock); fall back to the
+  // largest gap when the leg is straight over a range of samples.
+  let maxExtensionIndex = 0;
+  for (let i = 1; i < samples; i++) {
+    const better =
+      kneeExtensionDeg[i] > kneeExtensionDeg[maxExtensionIndex] + 1e-9 ||
+      (Math.abs(kneeExtensionDeg[i] - kneeExtensionDeg[maxExtensionIndex]) <= 1e-9 && pedalGapMm[i] > pedalGapMm[maxExtensionIndex]);
+    if (better) maxExtensionIndex = i;
+  }
 
   return {
     samples,
     poses,
     kneeExtensionDeg,
+    pedalGapMm,
+    maxPedalGapMm: Math.max(...pedalGapMm),
     kopsOffsetMm: poses[quarter].knee.x - poses[quarter].spindle.x,
     kneeFlexionTdcDeg: 180 - kneeExtensionDeg[0],
     kneeFlexionBdcDeg: 180 - kneeExtensionDeg[half],
-    kneeExtensionMaxDeg,
+    kneeExtensionMaxDeg: kneeExtensionDeg[maxExtensionIndex],
+    maxExtensionIndex,
     crankLength,
     hip,
     ankleSetbackMm: rider.foot_length * 0.19 * (rider.height / 1800),
@@ -691,9 +750,58 @@ export const expandBoundsForMannequins = (
 // ── Mode 1: Fit Builder helpers ──────────────────────────────────────────────
 
 /**
- * Find the saddle_clamp_offset (along the seat tube) that gives the target
- * knee extension angle. Uses bisection on the circle-intersection IK.
+ * Saddle contact point (on the seat-tube line, shifted by saddleXOffset) that gives
+ * `targetKneeExtensionDeg` at the most extended point of the pedal stroke.
+ *
+ * The IK ankle runs on a circle of radius crankLength centred at
+ * (−cleatSetback, pedalStackHeight), so the largest hip→ankle distance is
+ * |hip − centre| + crankLength (≈ 5 o'clock, on the hip–BB line). Bisects the
+ * clamp offset so that distance matches the target knee angle.
  */
+export const saddleForKneeExtension = (
+  rider: ReturnType<typeof buildRider>,
+  targetKneeExtensionDeg: number,
+  crankLength: number,
+  seatAngleDeg: number,
+  pedalStackHeight: number = 0,
+  saddleStack: number = 0,
+  cleatSetback: number = 0,
+  saddleXOffset: number = 0,
+): ContactPoint => {
+  const seatAngle = radiansFromDegrees(seatAngleDeg);
+  const centre: ContactPoint = { x: -cleatSetback, y: pedalStackHeight };
+  const targetDistance =
+    distanceForKneeAngle(Math.min(targetKneeExtensionDeg, 180), rider.thigh_length, rider.shank_length) - crankLength;
+  const saddleAt = (offset: number): ContactPoint => ({
+    x: -Math.cos(seatAngle) * offset + saddleXOffset,
+    y: Math.sin(seatAngle) * offset + saddleStack,
+  });
+  let lo = 300;
+  let hi = 1100;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    const saddle = saddleAt(mid);
+    const hip = { x: saddle.x, y: saddle.y + rider.hip_joint_offset };
+    if (distanceBetweenPoints(hip, centre) < targetDistance) lo = mid; // saddle too low → raise
+    else hi = mid;
+  }
+  return saddleAt((lo + hi) / 2);
+};
+
+/** Max knee extension (°) over the stroke for a hip joint position (no IK needed). */
+export const maxKneeExtensionForHip = (
+  rider: ReturnType<typeof buildRider>,
+  hip: ContactPoint,
+  crankLength: number,
+  pedalStackHeight: number = 0,
+  cleatSetback: number = 0,
+) =>
+  kneeAngleForDistance(
+    distanceBetweenPoints(hip, { x: -cleatSetback, y: pedalStackHeight }) + crankLength,
+    rider.thigh_length,
+    rider.shank_length,
+  );
+
 export const idealContactsFromRider = (
   rider: ReturnType<typeof buildRider>,
   targetKneeExtensionDeg: number,
@@ -702,42 +810,14 @@ export const idealContactsFromRider = (
   seatAngleDeg: number,
   barWidth: number = 0,
   pedalStackHeight: number = 0,
-  saddleStack: number = 0
+  saddleStack: number = 0,
+  cleatSetback: number = 0,
+  saddleXOffset: number = 0,
 ): IdealContacts => {
-  const seatAngle = radiansFromDegrees(seatAngleDeg);
-  const cleat: ContactPoint = { x: 0, y: -crankLength };
-  // Ankle IK point is above the pedal axle by the foot stack
-  const ankle: ContactPoint = { x: 0, y: -crankLength + pedalStackHeight };
-
-  // Bisect saddle_clamp_offset so that knee extension (measured at the hip joint
-  // centre, not the saddle surface) matches the target.
-  // Cap at 179.9° — 180° is physically unachievable (circleIntersections always
-  // returns 180°−ε when the leg is over-extended), which causes the bisection to
-  // diverge to the upper bound instead of converging.
-  const clampedTargetExt = Math.min(targetKneeExtensionDeg, 179.9);
-  let lo = 400;
-  let hi = 950;
-  for (let i = 0; i < 50; i++) {
-    const mid = (lo + hi) / 2;
-    const saddleMid: ContactPoint = {
-      x: -Math.cos(seatAngle) * mid,
-      y: Math.sin(seatAngle) * mid + saddleStack,
-    };
-    const hipMid: ContactPoint = { x: saddleMid.x, y: saddleMid.y + rider.hip_joint_offset };
-    const [knee] = circleIntersections(hipMid, ankle, rider.thigh_length, rider.shank_length, true);
-    const ext = angleAtPoint(hipMid, knee, ankle);
-    if (ext < clampedTargetExt) {
-      lo = mid; // saddle too low → raise
-    } else {
-      hi = mid; // saddle too high → lower
-    }
-  }
-
-  const saddleOffset = (lo + hi) / 2;
-  const saddle: ContactPoint = {
-    x: -Math.cos(seatAngle) * saddleOffset,
-    y: Math.sin(seatAngle) * saddleOffset + saddleStack,
-  };
+  const cleat: ContactPoint = { x: -cleatSetback, y: -crankLength };
+  const saddle = saddleForKneeExtension(
+    rider, targetKneeExtensionDeg, crankLength, seatAngleDeg, pedalStackHeight, saddleStack, cleatSetback, saddleXOffset,
+  );
   const hipJoint: ContactPoint = {
     x: saddle.x,
     y: saddle.y + rider.hip_joint_offset,
@@ -777,14 +857,16 @@ export const idealContactsFromSaddleHeight = (
   crankLength: number,
   seatAngleDeg: number,
   barWidth: number = 0,
-  saddleStack: number = 0
+  saddleStack: number = 0,
+  cleatSetback: number = 0,
+  saddleXOffset: number = 0,
 ): IdealContacts => {
   const seatAngle = radiansFromDegrees(seatAngleDeg);
-  const cleat: ContactPoint = { x: 0, y: -crankLength };
+  const cleat: ContactPoint = { x: -cleatSetback, y: -crankLength };
 
   const clampOffset = (saddleHeightMm - saddleStack) / Math.sin(seatAngle);
   const saddle: ContactPoint = {
-    x: -Math.cos(seatAngle) * clampOffset,
+    x: -Math.cos(seatAngle) * clampOffset + saddleXOffset,
     y: saddleHeightMm,
   };
   const hipJoint: ContactPoint = {
@@ -817,22 +899,133 @@ export const idealContactsFromSaddleHeight = (
 /** Severity thresholds in mm */
 const FIT_WARN_OK = 15;
 const FIT_WARN_BAD = 30;
+/** Foot-to-pedal gap (mm) below which the foot counts as on the pedal (numerical noise). */
+const PEDAL_GAP_TOLERANCE_MM = 0.5;
 
-export const fitWarnings = (ideal: IdealContacts, actual: BikeSketch): FitWarning[] => {
-  const pairs: Array<["saddle" | "hoods" | "cleat", ContactPoint, ContactPoint]> = [
-    ["saddle", ideal.saddle, actual.saddle],
-    ["hoods", ideal.hoods, actual.hoods],
-    ["cleat", ideal.cleat, actual.cleat],
-  ];
+const severityForDistance = (distance: number): FitWarning["severity"] =>
+  distance < FIT_WARN_OK ? "ok" : distance < FIT_WARN_BAD ? "warning" : "bad";
 
-  return pairs.map(([contact, idealPt, actualPt]) => {
-    const deltaX = actualPt.x - idealPt.x;
-    const deltaY = actualPt.y - idealPt.y;
-    const distance = Math.hypot(deltaX, deltaY);
-    const severity: "ok" | "warning" | "bad" =
-      distance < FIT_WARN_OK ? "ok" : distance < FIT_WARN_BAD ? "warning" : "bad";
-    return { contact, deltaX, deltaY, distance, severity };
-  });
+const worse = (a: FitWarning["severity"], b: FitWarning["severity"]): FitWarning["severity"] => {
+  const rank = { ok: 0, warning: 1, bad: 2 } as const;
+  return rank[a] >= rank[b] ? a : b;
+};
+
+/**
+ * Hood target from the rider's actual shoulder: the hands should sit on the
+ * hoods with elbow flexion inside the posture band. Returns the closest point
+ * on the shoulder→hoods line that satisfies the band (the hoods themselves when
+ * they already do) and how far the hoods are from it.
+ */
+export const hoodFit = (
+  mannequin: MannequinSketch,
+  hoods: ContactPoint,
+  rider: ReturnType<typeof buildRider>,
+  barWidth: number,
+  bands: PosturePreset = POSTURE_PRESET,
+) => {
+  // Same sagittal projection of the arm segments as buildMannequin.
+  const lateralOffset = barWidth / 2;
+  const totalArm = rider.upper_arm_length + rider.forearm_length;
+  const upper = Math.sqrt(Math.max(0, rider.upper_arm_length ** 2 - (lateralOffset * rider.upper_arm_length / totalArm) ** 2));
+  const fore = Math.sqrt(Math.max(0, rider.forearm_length ** 2 - (lateralOffset * rider.forearm_length / totalArm) ** 2));
+  const reachAtFlex = (flexDeg: number) =>
+    Math.sqrt(upper ** 2 + fore ** 2 - 2 * upper * fore * Math.cos(radiansFromDegrees(180 - flexDeg)));
+  const minReach = reachAtFlex(bands.elbow_flexion.max_deg);
+  const maxReach = reachAtFlex(bands.elbow_flexion.min_deg);
+
+  const dx = hoods.x - mannequin.shoulder.x;
+  const dy = hoods.y - mannequin.shoulder.y;
+  const d = Math.max(Math.hypot(dx, dy), 1e-6);
+  const targetReach = Math.min(maxReach, Math.max(minReach, d));
+  const target: ContactPoint = {
+    x: mannequin.shoulder.x + (dx / d) * targetReach,
+    y: mannequin.shoulder.y + (dy / d) * targetReach,
+  };
+  return {
+    target,
+    /** + = hoods too far from the shoulder, − = too close (mm, along the shoulder→hoods line). */
+    excessReachMm: d - targetReach,
+    handGapMm: mannequin.handGapMm ?? 0,
+    elbowFlexDeg: 180 - angleAtPoint(mannequin.shoulder, mannequin.elbow, mannequin.hands),
+    shoulderDeg: angleAtPoint(mannequin.hip, mannequin.shoulder, mannequin.elbow),
+  };
+};
+
+export type FitWarningInputs = {
+  ideal: IdealContacts;
+  bike: BikeSketch;
+  hood: ReturnType<typeof hoodFit>;
+  stroke: PedalStrokeLUT;
+  /** Highest saddle (mm above BB) at which the foot still reaches the pedal. */
+  maxSaddleHeightMm: number;
+  bands?: PosturePreset;
+};
+
+export const fitWarnings = ({ ideal, bike, hood, stroke, maxSaddleHeightMm, bands = POSTURE_PRESET }: FitWarningInputs): FitWarning[] => {
+  // Saddle: distance from the target saddle point.
+  const sdx = bike.saddle.x - ideal.saddle.x;
+  const sdy = bike.saddle.y - ideal.saddle.y;
+  const saddleDistance = Math.hypot(sdx, sdy);
+  const saddle: FitWarning = {
+    contact: "saddle",
+    deltaX: sdx,
+    deltaY: sdy,
+    distance: saddleDistance,
+    severity: severityForDistance(saddleDistance),
+  };
+
+  // Hoods: the hands must reach them, with elbow (and shoulder) inside their bands.
+  const elbowBand = bands.elbow_flexion;
+  const shoulderBand = bands.shoulder_flexion;
+  const hdx = bike.hoods.x - hood.target.x;
+  const hdy = bike.hoods.y - hood.target.y;
+  const hoodDistance = Math.abs(hood.excessReachMm);
+  let hoodSeverity: FitWarning["severity"];
+  let hoodMessage: string;
+  if (hood.handGapMm > PEDAL_GAP_TOLERANCE_MM) {
+    hoodSeverity = "bad";
+    hoodMessage = `Hands ${hood.handGapMm.toFixed(0)} mm short of the hoods with straight arms. Bring the hoods ~${hoodDistance.toFixed(0)} mm closer or raise the trunk.`;
+  } else {
+    // Inside the band = on target; the "near" margin used for colouring would flag fits that are fine.
+    const st = bandStatus(hood.elbowFlexDeg, elbowBand);
+    const inBand = hood.elbowFlexDeg >= elbowBand.min_deg && hood.elbowFlexDeg <= elbowBand.max_deg;
+    hoodSeverity = inBand ? "ok" : st === "near" ? "warning" : "bad";
+    const flex = `elbow flex ${hood.elbowFlexDeg.toFixed(0)}° (band ${elbowBand.min_deg}–${elbowBand.max_deg}°)`;
+    hoodMessage =
+      hood.excessReachMm > 0.5
+        ? `Hands on the hoods, ${flex}. Hoods ~${hoodDistance.toFixed(0)} mm too far.`
+        : hood.excessReachMm < -0.5
+        ? `Hands on the hoods, ${flex}. Hoods ~${hoodDistance.toFixed(0)} mm too close.`
+        : `Hands on the hoods, ${flex}.`;
+  }
+  if (hood.shoulderDeg < shoulderBand.min_deg || hood.shoulderDeg > shoulderBand.max_deg) {
+    hoodSeverity = worse(hoodSeverity, "warning");
+    hoodMessage += ` Shoulder angle ${hood.shoulderDeg.toFixed(0)}° (band ${shoulderBand.min_deg}–${shoulderBand.max_deg}°).`;
+  }
+  const hoods: FitWarning = {
+    contact: "hoods",
+    deltaX: hdx,
+    deltaY: hdy,
+    distance: hoodDistance,
+    severity: hoodSeverity,
+    message: hoodMessage,
+  };
+
+  // Pedal: does the foot stay on it through the whole stroke?
+  const gap = stroke.maxPedalGapMm;
+  const reaches = gap <= PEDAL_GAP_TOLERANCE_MM;
+  const cleat: FitWarning = {
+    contact: "cleat",
+    deltaX: 0,
+    deltaY: reaches ? 0 : gap,
+    distance: reaches ? 0 : gap,
+    severity: reaches ? "ok" : "bad",
+    message: reaches
+      ? "Foot stays on the pedal through the whole stroke."
+      : `Saddle too high: the leg is fully straight and the foot lifts ${gap.toFixed(0)} mm off the pedal at the bottom of the stroke. Highest reachable saddle ≈ ${Math.floor(maxSaddleHeightMm)} mm.`,
+  };
+
+  return [saddle, hoods, cleat];
 };
 
 /** Delta of solver-adjustable components. */
@@ -969,30 +1162,22 @@ export function buildMannequin3DPoints(
   // unshifted ankle in both views.
   const ankleSetback = rider.foot_length * 0.19 * (rider.height / 1800);
 
-  // Left leg: the 2D fit pose (crank at bottom dead center — this is the leg
-  // "knee flex at BDC" is measured on, matching the 2D side view).
+  // Right leg (+Z, drive side): the 2D fit pose, crank at bottom dead center,
+  // matching the near leg of the 2D side view.
   p("cleat_r", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
   p("ankle_r", mannequin.ankle.x - ankleSetback, mannequin.ankle.y, +halfStance);
   p("knee_r", mannequin.knee.x, mannequin.knee.y, +halfStance);
 
-  // Right leg: posed at the opposed crank position (top dead center) so the
+  // Left leg (−Z): posed at the opposed crank position (top dead center) so the
   // rider isn't impossibly pedaling with both feet down. The pedal spindle
   // sits at (0, −crank_length) from the BB (origin), so the opposed spindle is
-  // at +crank_length; the cleat keeps its setback. Knee solved with the same
-  // two-bone IK as the left leg, picking the forward (toward-the-bars)
-  // candidate since a strongly bent knee must point ahead of the hip–ankle line.
-  const cleatL2d = { x: -components.cleat_setback, y: components.crank_length };
-  const ankleL2d = { x: cleatL2d.x, y: cleatL2d.y + pedalStack };
+  // at +crank_length; the cleat keeps its setback. Same leg IK as the 2D view.
+  const pedalL2d = { x: -components.cleat_setback, y: components.crank_length + pedalStack };
   const hip2d = { x: mannequin.hip.x, y: mannequin.hip.y };
-  const [kneeCandA, kneeCandB] = circleIntersections(
-    hip2d,
-    ankleL2d,
-    rider.thigh_length,
-    rider.shank_length,
-    true
-  );
-  const kneeL2d = kneeCandA.x >= kneeCandB.x ? kneeCandA : kneeCandB;
-  p("cleat_l", cleatL2d.x, cleatL2d.y, -halfStance);
+  const legL = solveLeg(hip2d, pedalL2d, rider.thigh_length, rider.shank_length);
+  const ankleL2d = legL.ankle;
+  const kneeL2d = legL.knee;
+  p("cleat_l", ankleL2d.x, ankleL2d.y - pedalStack, -halfStance);
   p("ankle_l", ankleL2d.x - ankleSetback, ankleL2d.y, -halfStance);
   p("knee_l", kneeL2d.x, kneeL2d.y, -halfStance);
 

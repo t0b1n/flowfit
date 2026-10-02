@@ -67,7 +67,7 @@ interface AnimatedLegsProps {
   showLegs: boolean;
 }
 
-const CHAINRING_Z = 46;       // drive side = rider's left = +Z (x forward, y up ⇒ +Z is the right-hand side); crank arms sit outboard at 52
+const CHAINRING_Z = 46;       // drive side = rider's right = +Z (x forward, y up ⇒ +Z is the right-hand side); crank arms sit outboard at 52
 const CRANK_ROOT_Z = 52;      // crank arm root just outboard of the BB shell
 
 /** Gear-toothed ring outline as a thin extrusion. */
@@ -219,10 +219,10 @@ export function AnimatedLegs({
     <group>
       {showLegs && (
         <group name="mannequin-legs">
-          {limb(thighRRef, dims.thigh.L, dbg("leg", M.clay))}
-          {limb(thighLRef, dims.thigh.R, dbg("leg", M.clay))}
-          {limb(calfRRef, dims.calf.L, dbg("leg", M.clay))}
-          {limb(calfLRef, dims.calf.R, dbg("leg", M.clay))}
+          {limb(thighRRef, dims.thigh.R, dbg("leg", M.clay))}
+          {limb(thighLRef, dims.thigh.L, dbg("leg", M.clay))}
+          {limb(calfRRef, dims.calf.R, dbg("leg", M.clay))}
+          {limb(calfLRef, dims.calf.L, dbg("leg", M.clay))}
           {limb(footRRef, dims.shoe, dbg("shoe", M.tape))}
           {limb(footLRef, dims.shoe, dbg("shoe", M.tape))}
           {mass(kneeRRef, dims.kneeR, MASSES.knee.depthScale)}

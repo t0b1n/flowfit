@@ -40,7 +40,7 @@ export interface MetricDef {
   id: MetricId;
   /** Part code shown in chips: J1..J6 joints, C1..C5 contact/components. */
   code: string;
-  /** "Knee extension · BDC" */
+  /** "Knee extension · max" */
   label: string;
   /** "KNEE EXT" */
   short: string;
@@ -72,15 +72,17 @@ export const METRICS: MetricDef[] = [
   {
     id: "knee_ext_bdc",
     code: "J3",
-    label: "Knee extension · BDC",
+    label: "Knee extension · max",
     short: "KNEE EXT",
     unit: "°",
     bandKey: "knee_extension",
-    compute: ({ lut }) => (lut ? 180 - lut.kneeFlexionBdcDeg : null),
+    // Measured at the most extended point of the stroke (≈ 5 o'clock), not at 6 o'clock.
+    // The id keeps its old name so saved fits stay comparable.
+    compute: ({ lut }) => (lut ? lut.kneeExtensionMaxDeg : null),
     anchor: (ctx) => pt(ctx, "knee_r"),
     arc: ({ lut }) => {
       if (!lut) return null;
-      const p = lut.poses[Math.round(lut.samples / 2)];
+      const p = lut.poses[lut.maxExtensionIndex];
       return { v: p.knee, a: lut.hip, c: p.ankle };
     },
   },
