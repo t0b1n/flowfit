@@ -1,3 +1,4 @@
+import { PEDAL_BODY } from "../design/foot";
 import React from "react";
 import { CHAINRING, RIM, SEATSTAY_DROP, TUBE_PROFILE } from "../design/bikeProfiles";
 import { lerp, bump } from "../design/riderBody";
@@ -66,7 +67,7 @@ export const DrivetrainFar: React.FC<{ bike: BikeSketch; farSpindle: V | null }>
       {farSpindle && (
         <>
           {poly("s2d-carbon", tube(bb, farSpindle, 14, 10))}
-          <rect className="s2d-carbon" x={farSpindle.x - 40} y={-farSpindle.y - 2} width={80} height={12} />
+          <rect className="s2d-carbon" x={farSpindle.x - PEDAL_BODY[0] / 2} y={-farSpindle.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} />
         </>
       )}
     </g>
@@ -104,7 +105,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]))}
       {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]))}
       {poly("s2d-carbon", tube(ht, bike.steererTop, 17, 17))}
-      {poly("s2d-carbon", tube(add(bike.steererTop, htDown, 14), bike.barClamp, 19, 16))}
+      {poly("s2d-carbon", tube(bike.steererTop, bike.stemPivot, 21, 21))}
+      {poly("s2d-carbon", tube(bike.stemPivot, bike.barClamp, 19, 16))}
       <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" />
     </g>
   );
@@ -135,7 +137,7 @@ export const NearHardware: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({
       />
       {poly("s2d-carbon", tube(bb, cleatCrankEnd, 15, 10))}
       <circle className="s2d-carbon" cx={bb.x} cy={-bb.y} r={22} />
-      <rect className="s2d-carbon" x={cleatCrankEnd.x - 40} y={-cleatCrankEnd.y - 2} width={80} height={12} />
+      <rect className="s2d-carbon" x={cleatCrankEnd.x - PEDAL_BODY[0] / 2} y={-cleatCrankEnd.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} />
     </g>
   );
 };

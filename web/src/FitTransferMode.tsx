@@ -51,6 +51,7 @@ const COCKPIT_SLIDERS = (comps: Components, tyreSize: number): readonly SliderRo
   ["Stem length", comps.stem_length, 50, 180, 1, "stem_length", "mm"],
   ["Stem angle", comps.stem_angle_deg, -20, 20, 1, "stem_angle_deg", "°"],
   ["Spacers", comps.spacer_stack, 0, 60, 1, "spacer_stack", "mm"],
+  ["Stem height", comps.stem_height, 20, 60, 1, "stem_height", "mm"],
   ["Saddle offset", comps.saddle_clamp_offset, 550, 900, 5, "saddle_clamp_offset", "mm"],
   ["Saddle stack", comps.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
   ["Seatpost offset", comps.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],

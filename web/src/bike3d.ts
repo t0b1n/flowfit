@@ -80,7 +80,8 @@ const EDGE_TUBE_NAME: Record<string, string> = {
   "head_tube_bottom→fork_r": "fork",
   "seat_tube_top→seatpost_top": "seatpost",
   "head_tube_top→steerer_top": "steerer",
-  "steerer_top→bar_clamp": "stem",
+  "steerer_top→stem_pivot": "stem_clamp",
+  "stem_pivot→bar_clamp": "stem",
   "bar_clamp→bar_top_l": "bar",
   "bar_clamp→bar_top_r": "bar",
   "bar_top_l→hoods_l": "bar_ramp",
@@ -384,6 +385,8 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       g.add(taper(a, b, TUBE_PROFILE.seatpost[0], TUBE_PROFILE.seatpost[1], mats.carbon));
     } else if (t.name === "steerer") {
       g.add(taper(a, b, 17, 17, mats.carbon));
+    } else if (t.name === "stem_clamp") {
+      g.add(taper(a, b, 21, 21, mats.carbon));
     } else if (t.name === "stem") {
       g.add(taper(a, b, 19, 16, mats.carbon));
     } else {

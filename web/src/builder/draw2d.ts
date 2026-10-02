@@ -3,6 +3,7 @@
  * converted to SVG (y down) when a point string is produced. Shapes come from the same profile tables as
  * the 3D meshes: `design/riderBody.ts` and `design/bikeProfiles.ts`.
  */
+import { shoeAxis, shoeRadius } from "../design/foot";
 import { HEAD_GAZE_OFFSET_DEG, bump, calAt, headDeform, lerp, torsoDepth, type SegmentName } from "../design/riderBody";
 import type { ContactPoint } from "../types";
 
@@ -141,13 +142,9 @@ export function buildFigure(f: FigureInput): FigurePolys {
   const footLen = f.footLengthMm * hs;
   const visAnkle = (an: V, cleat: V): V => v(cleat.x - footLen * 0.19, an.y);
 
-  const shoe = (an: V, cleat: V): string => {
-    const dx = cleat.x - an.x;
-    const dy = cleat.y - an.y;
-    const L = Math.hypot(dx, dy) || 1;
-    const heel = v(cleat.x - footLen * 0.19 - 38 * hs, an.y - 18 * hs);
-    const toe = v(cleat.x + (dx / L) * 70 * hs + 20 * hs, cleat.y + (dy / L) * 70 * hs - 4 * hs);
-    return seg(heel, toe, (t) => (lerp(38, 24, t) + 6 * bump(t, 0.3, 0.2)) * hs);
+  const shoe = (_an: V, cleat: V): string => {
+    const a = shoeAxis(cleat, footLen * 0.19, hs);
+    return seg(v(a.heel.x, a.heel.y), v(a.toe.x, a.toe.y), (t) => shoeRadius(t, hs));
   };
 
   const ax = Math.atan2(f.shoulder.y - f.hip.y, f.shoulder.x - f.hip.x);

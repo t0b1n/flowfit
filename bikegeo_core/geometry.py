@@ -84,9 +84,10 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
     # grid) broadcast through; identical doubles for plain floats.
     stem_angle_rad = np.radians(components.stem_angle_deg)
     stem_dir = Vec2(np.cos(stem_angle_rad), np.sin(stem_angle_rad))
+    # The stem's bottom sits on the spacer stack; its clamp pivot is half the stem height above it.
     bar_clamp = Vec2(
         steerer_top.x + stem_dir.x * components.stem_length,
-        steerer_top.y + stem_dir.y * components.stem_length,
+        steerer_top.y + components.stem_height / 2.0 + stem_dir.y * components.stem_length,
     )
 
     hoods = Vec2(

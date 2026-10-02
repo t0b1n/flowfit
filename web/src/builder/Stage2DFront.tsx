@@ -1,4 +1,5 @@
 import React from "react";
+import { PEDAL_BODY, SOLE_ABOVE_SPINDLE } from "../design/foot";
 import { lerp } from "../design/riderBody";
 import { buildFrontalMannequin, buildRider } from "../geometry";
 import type { PedalStrokeLUT } from "../geometry";
@@ -21,6 +22,9 @@ export interface Stage2DFrontProps {
   compare?: import("../fits/capture").CompareTarget | null;
 }
 
+
+/** Crank arm lateral offset from the BB centreline (matches the 3D crank root). */
+const CRANK_Z = 52;
 
 const poly = (cls: string, points: string, key?: React.Key) => <polygon key={key} className={cls} points={points} />;
 
@@ -75,8 +79,22 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         {/* frame behind the rider: down tube, BB shell, cranks, saddle */}
         {poly("s2d-frame", tube(v(0, 0), v(0, hb.y), 24, 22))}
         <ellipse className="s2d-frame" cx={0} cy={0} rx={34} ry={30} />
-        {poly("s2d-carbon", tube(v(0, 0), v(fm.ankleL.x, bike.cleat.y), 13, 9))}
-        {poly("s2d-carbon", tube(v(0, 0), v(fm.ankleR.x, farCleatY), 13, 9))}
+        {/* BB axle; each crank arm is seen end-on as a vertical bar offset from the BB, the pedal spindle runs outboard to the pedal under the shoe */}
+        <rect className="s2d-carbon" x={-CRANK_Z} y={-9} width={CRANK_Z * 2} height={18} />
+        {[
+          [fm.ankleL.x, bike.cleat.y],
+          [fm.ankleR.x, farCleatY],
+        ].map(([ax, py], i) => {
+          const sx = ax < 0 ? -1 : 1;
+          const cx = sx * CRANK_Z;
+          return (
+            <g key={i}>
+              {poly("s2d-carbon", tube(v(cx, 0), v(cx, py), 15, 11))}
+              <rect className="s2d-carbon" x={Math.min(cx, ax)} y={-py - 6} width={Math.abs(ax - cx)} height={12} />
+              <rect className="s2d-carbon" x={ax - PEDAL_BODY[2] / 2} y={-py - PEDAL_BODY[1] / 2} width={PEDAL_BODY[2]} height={PEDAL_BODY[1]} />
+            </g>
+          );
+        })}
         <rect className="s2d-saddle-front" x={-60} y={-bike.saddle.y} width={120} height={26} />
 
         {/* rider */}
@@ -91,8 +109,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
           )}
           {riderVisibility.feet && (
             <>
-              {poly("s2d-shoe", ellipse(v(fm.ankleL.x, bike.cleat.y + 40), 38 * hs, 64 * hs))}
-              {poly("s2d-shoe", ellipse(v(fm.ankleR.x, farCleatY + 40), 38 * hs, 64 * hs))}
+              {poly("s2d-shoe", ellipse(v(fm.ankleL.x, bike.cleat.y + SOLE_ABOVE_SPINDLE + 26 * hs), 44 * hs, 26 * hs))}
+              {poly("s2d-shoe", ellipse(v(fm.ankleR.x, farCleatY + SOLE_ABOVE_SPINDLE + 26 * hs), 44 * hs, 26 * hs))}
             </>
           )}
           {riderVisibility.torso && <polygon className="s2d-clay" points={torso} />}
@@ -118,7 +136,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         <rect className="s2d-carbon" x={-48} y={-hb.y - 14} width={96} height={28} rx={6} />
         <rect className="s2d-frame" x={-19} y={-ht.y} width={38} height={ht.y - hb.y} />
         <rect className="s2d-carbon" x={-17} y={-bike.steererTop.y} width={34} height={bike.steererTop.y - ht.y} />
-        <rect className="s2d-carbon" x={-22} y={-bike.barClamp.y - 18} width={44} height={36} rx={6} />
+        <rect className="s2d-carbon" x={-22} y={-bike.stemPivot.y - components.stem_height / 2} width={44} height={components.stem_height} rx={6} />
         <path
           className="s2d-bar"
           d={`M ${-hw + 30} ${-hy} L ${-hw} ${-hy} L ${-hw} ${-hy + 110} M ${hw - 30} ${-hy} L ${hw} ${-hy} L ${hw} ${-hy + 110} M ${-hw} ${-hy} L ${hw} ${-hy}`}

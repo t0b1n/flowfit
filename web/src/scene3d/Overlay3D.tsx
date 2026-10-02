@@ -104,6 +104,7 @@ export const Overlay3D: React.FC<Overlay3DProps> = ({
                   { label: "Saddle setback", value: n(values.setback), unit: "mm", delta: delta("setback") },
                   { label: "Stem", value: `${n(c.stem_length)} × ${n(c.stem_angle_deg)}`, unit: "mm·°" },
                   { label: "Spacers", value: n(c.spacer_stack), unit: "mm" },
+                  { label: "Stem height", value: n(c.stem_height), unit: "mm" },
                   { label: "Crank", value: n(c.crank_length, 1), unit: "mm" },
                 ],
               },

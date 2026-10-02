@@ -23,6 +23,7 @@ export const DEFAULT_COMPONENTS: Components = {
   stem_length: 120,
   stem_angle_deg: -6,
   spacer_stack: 10,
+  stem_height: 40,
   bar_reach: 80,
   bar_drop: 0,
   hood_reach_offset: 24.6,
@@ -587,9 +588,11 @@ export const synthesizeBike = (
 
   const steererTop = { x: headTubeTop.x, y: headTubeTop.y + components.spacer_stack };
   const stemAngle = radiansFromDegrees(components.stem_angle_deg);
+  // The stem has vertical depth: its bottom sits on the spacer stack, so the pivot is half the clamp height above it.
+  const stemPivot = { x: steererTop.x, y: steererTop.y + (components.stem_height ?? 40) / 2 };
   const barClamp = {
-    x: steererTop.x + Math.cos(stemAngle) * components.stem_length,
-    y: steererTop.y + Math.sin(stemAngle) * components.stem_length,
+    x: stemPivot.x + Math.cos(stemAngle) * components.stem_length,
+    y: stemPivot.y + Math.sin(stemAngle) * components.stem_length,
   };
   const hoodAngle = radiansFromDegrees(Math.max(8, components.stem_angle_deg + 6));
   const hoodLength = components.bar_reach + components.hood_reach_offset;
@@ -613,6 +616,7 @@ export const synthesizeBike = (
     cleat,
     crankEnd,
     steererTop,
+    stemPivot,
     barClamp,
     hoods,
   };
@@ -1045,7 +1049,8 @@ const _FRAME_EDGES: [string, string][] = [
   ["seat_tube_top", "seatpost_top"],
   // Cockpit: steerer/spacers follow head angle, then stem, then handlebar
   ["head_tube_top", "steerer_top"],
-  ["steerer_top", "bar_clamp"],
+  ["steerer_top", "stem_pivot"],
+  ["stem_pivot", "bar_clamp"],
   ["bar_clamp", "bar_top_l"],
   ["bar_clamp", "bar_top_r"],
   ["bar_top_l", "hoods_l"],
@@ -1097,6 +1102,7 @@ export function buildGeometry3D(
   p("head_tube_top", bike.headTubeTop);
   p("head_tube_bottom", bike.headTubeBottom);
   p("steerer_top", bike.steererTop);
+  p("stem_pivot", bike.stemPivot);
   p("bar_clamp", bike.barClamp);
 
   // Seatpost head extends a short distance past the clamp along the seat

@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { CHAINRING } from "./design/bikeProfiles";
+import { PEDAL_BODY, shoeAxis, shoeRadius } from "./design/foot";
 import { PROFILES, MASSES, bump, calAt, lerp } from "./design/riderBody";
 import { legPoseAt, PedalStrokeLUT } from "./geometry";
 import { limbGeometry, muscleLimbGeometry, resolveBulges, segScale, type P3 } from "./riderMesh";
@@ -67,7 +68,6 @@ interface AnimatedLegsProps {
 
 const CHAINRING_Z = -58;      // drive side = rider's right = −Z
 const CRANK_ROOT_Z = 52;      // crank arm root just outboard of the BB shell
-const PEDAL_BODY: [number, number, number] = [92, 14, 58];
 
 /** Gear-toothed ring outline as a thin extrusion. */
 function ringGeometry(teeth: number, outer: number, root: number, hole: number, depth: number): THREE.BufferGeometry {
@@ -103,6 +103,8 @@ export function AnimatedLegs({
   const crankRRef = useRef<THREE.Group>(null);
   const pedalLRef = useRef<THREE.Group>(null);
   const pedalRRef = useRef<THREE.Group>(null);
+  const spindleLRef = useRef<THREE.Group>(null);
+  const spindleRRef = useRef<THREE.Group>(null);
 
   // Lengths are constant through the stroke: geometry is built once per fit change.
   const dims = useMemo(() => {
@@ -111,8 +113,8 @@ export function AnimatedLegs({
     const drawnAnkleX = p0.ankle.x - lut.ankleSetbackMm;
     const thighLen = dist3(hipL[0], hipL[1], hipL[2], p0.knee.x, p0.knee.y, halfStance);
     const calfLen = dist3(p0.knee.x, p0.knee.y, 0, drawnAnkleX, p0.ankle.y, 0);
-    const footLen = dist3(p0.cleat.x, p0.cleat.y, 0, drawnAnkleX, p0.ankle.y, 0);
-    const crankLen = dist3(bb[0], bb[1], CRANK_ROOT_Z, p0.spindle.x, p0.spindle.y, halfStance);
+    const footLen = shoeAxis(p0.cleat, lut.ankleSetbackMm, hs).len;
+    const crankLen = dist3(bb[0], bb[1], 0, p0.spindle.x, p0.spindle.y, 0);
 
     // Anterior = forward (+x) in the sagittal plane; resolved against each segment's rest orientation.
     // Rotation about Z keeps the local frame consistent, so one rest pose serves the whole stroke.
@@ -127,7 +129,7 @@ export function AnimatedLegs({
     const kneeP: P3 = [p0.knee.x, p0.knee.y, halfStance];
     const ankP: P3 = [drawnAnkleX, p0.ankle.y, halfStance];
     // Shoe: heel→toe lathe, flattened laterally (mockup bike3.js)
-    const shoe = limbGeometry(footLen + 70 * hs, (t) => (lerp(38, 24, t) + 6 * bump(t, 0.3, 0.2)) * hs, 20, 28);
+    const shoe = limbGeometry(footLen, (t) => shoeRadius(t, hs), 20, 28);
     shoe.scale(1, 1, 0.82);
     return {
       thigh: { L: mk("thigh", thighLen, thighA, kneeP, 1), R: mk("thigh", thighLen, [hipR[0], hipR[1], -halfStance], [p0.knee.x, p0.knee.y, -halfStance], -1), len: thighLen },
@@ -168,19 +170,25 @@ export function AnimatedLegs({
     setSegment(thighRRef.current, hipR[0], hipR[1], hipR[2], right.knee.x, right.knee.y, zR);
     setSegment(calfLRef.current, left.knee.x, left.knee.y, zL, lAnkleX, left.ankle.y, zL, dims.calf.len);
     setSegment(calfRRef.current, right.knee.x, right.knee.y, zR, rAnkleX, right.ankle.y, zR, dims.calf.len);
-    // Shoes run heel (ankle) → toe (cleat + 70 along the same direction)
-    setSegment(footLRef.current, lAnkleX, left.ankle.y, zL, left.cleat.x, left.cleat.y, zL, dims.footLen);
-    setSegment(footRRef.current, rAnkleX, right.ankle.y, zR, right.cleat.x, right.cleat.y, zR, dims.footLen);
+    // Shoes: flat, ball of the foot over the cleat point with the sole on the pedal body (design/foot.ts)
+    const hsF = heightMm / 1800;
+    const shL = shoeAxis(left.cleat, setback, hsF);
+    const shR = shoeAxis(right.cleat, setback, hsF);
+    setSegment(footLRef.current, shL.heel.x, shL.heel.y, zL, shL.toe.x, shL.toe.y, zL, dims.footLen);
+    setSegment(footRRef.current, shR.heel.x, shR.heel.y, zR, shR.toe.x, shR.toe.y, zR, dims.footLen);
 
     kneeLRef.current?.position.set(left.knee.x, left.knee.y, zL);
     kneeRRef.current?.position.set(right.knee.x, right.knee.y, zR);
     ankleLRef.current?.position.set(lAnkleX, left.ankle.y, zL);
     ankleRRef.current?.position.set(rAnkleX, right.ankle.y, zR);
 
-    setSegment(crankLRef.current, bb[0], bb[1], +CRANK_ROOT_Z, left.spindle.x, left.spindle.y, zL);
-    setSegment(crankRRef.current, bb[0], bb[1], -CRANK_ROOT_Z, right.spindle.x, right.spindle.y, zR);
-    pedalLRef.current?.position.set(left.spindle.x, left.spindle.y, zL + 20);
-    pedalRRef.current?.position.set(right.spindle.x, right.spindle.y, zR - 20);
+    // Crank arms stay in a plane parallel to the frame (offset from the BB); the pedal spindle runs outboard to the pedal under the shoe
+    setSegment(crankLRef.current, bb[0], bb[1], +CRANK_ROOT_Z, left.spindle.x, left.spindle.y, +CRANK_ROOT_Z);
+    setSegment(crankRRef.current, bb[0], bb[1], -CRANK_ROOT_Z, right.spindle.x, right.spindle.y, -CRANK_ROOT_Z);
+    pedalLRef.current?.position.set(left.spindle.x, left.spindle.y, zL);
+    pedalRRef.current?.position.set(right.spindle.x, right.spindle.y, zR);
+    spindleLRef.current?.position.set(left.spindle.x, left.spindle.y, (CRANK_ROOT_Z + zL) / 2);
+    spindleRRef.current?.position.set(right.spindle.x, right.spindle.y, (-CRANK_ROOT_Z + zR) / 2);
   });
 
   const crank = (ref: React.RefObject<THREE.Group>) => (
@@ -241,6 +249,15 @@ export function AnimatedLegs({
       </group>
       {crank(crankLRef)}
       {crank(crankRRef)}
+      {/* pedal spindles: crank end → pedal body, along z */}
+      {[spindleLRef, spindleRRef].map((r, i) => (
+        <group key={i} ref={r}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[7, 7, Math.abs(halfStance - CRANK_ROOT_Z) + 2, 12]} />
+            {M.carbon}
+          </mesh>
+        </group>
+      ))}
       <group ref={pedalLRef}>
         <mesh>
           <boxGeometry args={PEDAL_BODY} />
