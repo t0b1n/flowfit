@@ -9,9 +9,11 @@ export type Components = {
   saddle_rail_length: number;
   saddle_clamp_offset: number;
   stem_length: number;
+  /** manufacturer rating: degrees from the normal to the steerer (−6 is a typical road stem), not from horizontal */
   stem_angle_deg: number;
+  /** spacer stack height, measured along the steerer */
   spacer_stack: number;
-  /** vertical depth of the stem clamp; 0 spacers puts its bottom on the head tube top (standard 40 mm) */
+  /** height of the stem's steerer clamp along the steerer; 0 spacers puts its bottom on the head tube top (standard 40 mm) */
   stem_height: number;
   bar_reach: number;
   bar_drop: number;
@@ -68,7 +70,7 @@ export type BikeSketch = {
   cleat: ContactPoint;
   crankEnd: ContactPoint;
   steererTop: ContactPoint;
-  /** centre of the stem's steerer clamp: steererTop + stem_height / 2 */
+  /** centre of the stem's steerer clamp: steererTop + stem_height / 2 along the steerer */
   stemPivot: ContactPoint;
   barClamp: ContactPoint;
   hoods: ContactPoint;

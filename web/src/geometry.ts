@@ -580,6 +580,9 @@ export function kneeExtensionAt(lut: PedalStrokeLUT, angleDeg: number): number {
   return lut.kneeExtensionDeg[i0] + (lut.kneeExtensionDeg[i1] - lut.kneeExtensionDeg[i0]) * t;
 }
 
+/** Stem rating (degrees from the steerer normal, as printed on the stem) → angle above horizontal. */
+export const stemAngleFromHorizontal = (stemAngleDeg: number, headAngleDeg: number) => stemAngleDeg + (90 - headAngleDeg);
+
 export const synthesizeBike = (
   sizeData: ReturnType<typeof getSizeData>,
   frame: FrameGeometry,
@@ -645,19 +648,28 @@ export const synthesizeBike = (
   };
   const cleat = { x: crankEnd.x, y: crankEnd.y };
 
-  const steererTop = { x: headTubeTop.x, y: headTubeTop.y + components.spacer_stack };
-  const stemAngle = radiansFromDegrees(components.stem_angle_deg);
-  // The stem has vertical depth: its bottom sits on the spacer stack, so the pivot is half the clamp height above it.
-  const stemPivot = { x: steererTop.x, y: steererTop.y + (components.stem_height ?? 40) / 2 };
+  // Spacers and the stem clamp stack along the steerer (the head-tube axis, leaning back), not straight up.
+  const steererUp = { x: -headAxis.x, y: -headAxis.y };
+  const steererTop = {
+    x: headTubeTop.x + steererUp.x * components.spacer_stack,
+    y: headTubeTop.y + steererUp.y * components.spacer_stack,
+  };
+  // The clamp's bottom sits on the spacer stack, so the pivot is half the clamp height further up the steerer.
+  const halfClamp = (components.stem_height ?? 40) / 2;
+  const stemPivot = { x: steererTop.x + steererUp.x * halfClamp, y: steererTop.y + steererUp.y * halfClamp };
+  // stem_angle_deg is the manufacturer rating: measured from the normal to the steerer, so on a 73° head tube a
+  // −6° stem rises 11° above horizontal and a −17° stem is level.
+  const stemAngleAbsDeg = stemAngleFromHorizontal(components.stem_angle_deg, frame.head_angle_deg);
+  const stemAngle = radiansFromDegrees(stemAngleAbsDeg);
   const barClamp = {
     x: stemPivot.x + Math.cos(stemAngle) * components.stem_length,
     y: stemPivot.y + Math.sin(stemAngle) * components.stem_length,
   };
-  const hoodAngle = radiansFromDegrees(Math.max(8, components.stem_angle_deg + 6));
-  const hoodLength = components.bar_reach + components.hood_reach_offset;
+  // Bar reach is a horizontal distance from the clamp centre, and the bar is rotated to the rider's setup (drops /
+  // hood platform roughly level) independently of the stem angle, so the hoods sit straight ahead of the clamp.
   const hoods = {
-    x: barClamp.x + Math.cos(hoodAngle) * hoodLength,
-    y: barClamp.y + Math.sin(hoodAngle) * hoodLength + components.hood_drop_offset,
+    x: barClamp.x + components.bar_reach + components.hood_reach_offset,
+    y: barClamp.y + components.hood_drop_offset,
   };
 
   return {
@@ -1065,19 +1077,18 @@ export const BAR_REACH_MAX_MM = 130;
 
 /**
  * Given a target hoods position and the current bar clamp location, compute
- * the bar reach needed to position the hoods there.
+ * the bar reach needed to position the hoods there. Bar reach is horizontal
+ * (see synthesizeBike), so only the x gap counts; a height gap needs stem or
+ * spacer changes instead.
  *
  * Returns null if the result is outside [BAR_REACH_MIN_MM, BAR_REACH_MAX_MM].
- *
- * Approximation: ignores hood_drop_offset (usually 0). Error is typically <2mm.
  */
 export const barReachNeeded = (
   targetHoods: ContactPoint,
   barClamp: ContactPoint,
   hoodReachOffset: number
 ): number | null => {
-  const hoodLength = Math.hypot(targetHoods.x - barClamp.x, targetHoods.y - barClamp.y);
-  const reach = hoodLength - hoodReachOffset;
+  const reach = targetHoods.x - barClamp.x - hoodReachOffset;
   if (reach < BAR_REACH_MIN_MM || reach > BAR_REACH_MAX_MM) return null;
   return reach;
 };

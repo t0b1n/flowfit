@@ -42,7 +42,7 @@ SetupInput → solver.py::solve_setup()
 
 **Coordinate system:** Origin = bottom bracket. X = forward (positive away from rider), Y = up.
 
-**`synthesize_bike(frame, components)`** builds `BikePoints` in this order: BB → wheel axles → saddle (along seat tube + rail offset) → steerer top (frame.reach, frame.stack + spacer_stack) → bar clamp (stem vector) → hoods (bar reach + drop) → cleat (below BB by crank_length).
+**`synthesize_bike(frame, components)`** builds `BikePoints` in this order: BB → wheel axles → saddle (along seat tube + rail offset) → steerer top (frame.reach, frame.stack + spacer_stack) → bar clamp (stem vector) → hoods (horizontal: bar_reach + hood_reach_offset ahead of the clamp, hood_drop_offset up; independent of stem angle) → cleat (below BB by crank_length).
 
 **`solve_pose_2d_full()`** runs 6-step IK: hip (above saddle) → ankle (above cleat) → knee (circle intersection) → shoulder (circle intersection) → elbow → derived joints. All joints solved in 2D sagittal plane.
 
@@ -71,4 +71,5 @@ SetupInput → solver.py::solve_setup()
 - **Hip joint offset** (~95 mm vertical rise from saddle contact to femoral head) is distinct from saddle height and is critical to the IK chain but not exposed in the main UI.
 - **Preset → fine-tune pattern:** button pills set a value, a slider allows override. Used for Riding Intent, Hood Reach, and Pedal/Shoe Stack — not a shared component.
 - **`wheel_radius`** in frame catalog entries should always be the identifier `defaultWheelRadius` (340 for 700c), not a literal number, so the constant stays in sync.
+- **Stem / spacers:** `spacer_stack` and `stem_height` are measured along the steerer (head-tube axis), not vertically. `stem_angle_deg` is the manufacturer rating, measured from the normal to the steerer (`stemAngleFromHorizontal()` / `stem_angle_from_horizontal()`), so on a 73° head tube a −6° stem rises 11° above horizontal.
 - No ESLint, Prettier, Black, or isort configs exist in this repo.
