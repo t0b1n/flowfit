@@ -247,13 +247,13 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     // glutes over the saddle
     g.add(ellipsoid([hipC[0] - 52 * hs, hipC[1] - 20 * hs, s * 54 * hs], [MASSES.glute.semiAxes[0] * hs, MASSES.glute.semiAxes[1] * hs, MASSES.glute.semiAxes[2] * hs], mat, trunkA * 0.3));
   }
-  // pelvis bar (hip_l ↔ hip_r)
-  const hipL = get("hip_l");
+  // pelvis bar (hip_r ↔ hip_l)
   const hipR = get("hip_r");
-  if (hipL && hipR) {
+  const hipL = get("hip_l");
+  if (hipR && hipL) {
     const pr = 46 * hs; // reference-matched pelvis: end caps must not read as hip balls
-    const pel = new THREE.Mesh(limbGeometry(Math.abs(hipL[2] - hipR[2]) + 2 * pr, () => pr, 8, 36), mat);
-    pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipL[2]) + pr));
+    const pel = new THREE.Mesh(limbGeometry(Math.abs(hipR[2] - hipL[2]) + 2 * pr, () => pr, 8, 36), mat);
+    pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipR[2]) + pr));
     pel.rotation.x = Math.PI / 2;
     pel.rotation.z = 0;
     // lathe axis is +Y; rotate so it runs along +Z
@@ -263,7 +263,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
 
   // Arms + shoulders (per side)
   for (const s of [1, -1] as const) {
-    const side = s === 1 ? "l" : "r";
+    const side = s === 1 ? "r" : "l"; // +Z is the rider's right
     const sh = get(`shoulder_${side}`);
     const el = get(`elbow_${side}`);
     const wr = get(`wrist_${side}`);
@@ -308,7 +308,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   // Legs (static pose) when AnimatedLegs is not mounted
   if (opts.includeLegs) {
     for (const s of [1, -1] as const) {
-      const side = s === 1 ? "l" : "r";
+      const side = s === 1 ? "r" : "l"; // +Z is the rider's right
       const hip = get(`hip_${side}`);
       const kn2 = get(`knee_${side}`);
       const an = get(`ankle_${side}`);
@@ -323,7 +323,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   return g;
 }
 
-const shoulderName = (s: 1 | -1) => (s === 1 ? "shoulder_l" : "shoulder_r");
+const shoulderName = (s: 1 | -1) => (s === 1 ? "shoulder_r" : "shoulder_l");
 
 /** Pure bump/lerp re-exports so consumers (AnimatedLegs) don't need the design module for tiny helpers. */
 export { bump, lerp };
@@ -345,8 +345,8 @@ export function tPosePoints(pts: Map<string, P3>, groundY: number, centerX: numb
   const halfHip = 0.047 * heightMm;
   const halfSh = 0.108 * heightMm;
   const ankleY = groundY + 85 * hs;
-  const kneeY = ankleY + (d("knee_l", "ankle_l") || 440 * hs);
-  const hipY = kneeY + (d("hip_l", "knee_l") || 440 * hs);
+  const kneeY = ankleY + (d("knee_r", "ankle_r") || 440 * hs);
+  const hipY = kneeY + (d("hip_r", "knee_r") || 440 * hs);
   const shY = hipY + 0.272 * heightMm;
   const neckY = shY + 30 * hs;
   const gaze = (78 * Math.PI) / 180; // head gaze is horizontal when the neck→head angle is 78°
@@ -357,7 +357,7 @@ export function tPosePoints(pts: Map<string, P3>, groundY: number, centerX: numb
   out.set("shoulder_center", [centerX, shY, 0]);
   out.set("neck_base_center", [centerX, neckY, 0]);
   out.set("head_center", [centerX + Math.cos(gaze) * headLen, neckY + Math.sin(gaze) * headLen, 0]);
-  for (const [side, z] of [["l", 1], ["r", -1]] as const) {
+  for (const [side, z] of [["r", 1], ["l", -1]] as const) {
     out.set(`hip_${side}`, [centerX, hipY, z * halfHip]);
     out.set(`knee_${side}`, [centerX, kneeY, z * halfHip * 0.95]);
     out.set(`ankle_${side}`, [centerX, ankleY, z * halfHip * 0.9]);

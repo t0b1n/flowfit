@@ -58,8 +58,8 @@ export interface MetricDef {
 const pt = (ctx: MetricCtx, name: string): Vec3 | null => ctx.pts.get(name) ?? null;
 
 const hoodsMid = (ctx: MetricCtx): Vec3 | null => {
-  const l = pt(ctx, "hoods_l");
-  const r = pt(ctx, "hoods_r");
+  const l = pt(ctx, "hoods_r");
+  const r = pt(ctx, "hoods_l");
   if (l && r) return [(l[0] + r[0]) / 2, (l[1] + r[1]) / 2, (l[2] + r[2]) / 2];
   return l ?? r;
 };
@@ -77,7 +77,7 @@ export const METRICS: MetricDef[] = [
     unit: "°",
     bandKey: "knee_extension",
     compute: ({ lut }) => (lut ? 180 - lut.kneeFlexionBdcDeg : null),
-    anchor: (ctx) => pt(ctx, "knee_l"),
+    anchor: (ctx) => pt(ctx, "knee_r"),
     arc: ({ lut }) => {
       if (!lut) return null;
       const p = lut.poses[Math.round(lut.samples / 2)];
@@ -92,7 +92,7 @@ export const METRICS: MetricDef[] = [
     unit: "°",
     bandKey: "knee_flexion_tdc",
     compute: ({ lut }) => (lut ? lut.kneeFlexionTdcDeg : null),
-    anchor: (ctx) => pt(ctx, "knee_r"),
+    anchor: (ctx) => pt(ctx, "knee_l"),
     arc: ({ lut }) => {
       if (!lut) return null;
       const p = lut.poses[0];
@@ -107,7 +107,7 @@ export const METRICS: MetricDef[] = [
     unit: "°",
     bandKey: "hip_angle",
     compute: ({ m }) => angleAtPoint(m.shoulder, m.hip, m.knee),
-    anchor: (ctx) => pt(ctx, "hip_l"),
+    anchor: (ctx) => pt(ctx, "hip_r"),
     arc: ({ m }) => ({ v: m.hip, a: m.shoulder, c: m.knee }),
   },
   {
@@ -129,7 +129,7 @@ export const METRICS: MetricDef[] = [
     unit: "°",
     bandKey: "shoulder_flexion",
     compute: ({ m }) => angleAtPoint(m.hip, m.shoulder, m.elbow),
-    anchor: (ctx) => pt(ctx, "shoulder_l"),
+    anchor: (ctx) => pt(ctx, "shoulder_r"),
     arc: ({ m }) => ({ v: m.shoulder, a: m.hip, c: m.elbow }),
   },
   {
@@ -140,7 +140,7 @@ export const METRICS: MetricDef[] = [
     unit: "°",
     bandKey: "elbow_flexion",
     compute: ({ m }) => 180 - angleAtPoint(m.shoulder, m.elbow, m.hands),
-    anchor: (ctx) => pt(ctx, "elbow_l"),
+    anchor: (ctx) => pt(ctx, "elbow_r"),
     arc: ({ m }) => ({ v: m.elbow, a: m.shoulder, c: m.hands }),
   },
   {
@@ -150,7 +150,7 @@ export const METRICS: MetricDef[] = [
     short: "KOPS",
     unit: "mm",
     compute: ({ lut }) => (lut ? lut.kopsOffsetMm : null),
-    anchor: (ctx) => pt(ctx, "knee_l"),
+    anchor: (ctx) => pt(ctx, "knee_r"),
   },
   {
     id: "saddle_height",
@@ -184,7 +184,7 @@ export const METRICS: MetricDef[] = [
       const h = hoodsMid(ctx);
       return s && h ? s[1] - h[1] : null;
     },
-    anchor: (ctx) => pt(ctx, "hoods_l"),
+    anchor: (ctx) => pt(ctx, "hoods_r"),
   },
   {
     id: "reach",
@@ -197,7 +197,7 @@ export const METRICS: MetricDef[] = [
       const h = hoodsMid(ctx);
       return s && h ? h[0] - s[0] : null;
     },
-    anchor: (ctx) => pt(ctx, "hoods_l"),
+    anchor: (ctx) => pt(ctx, "hoods_r"),
   },
 ];
 

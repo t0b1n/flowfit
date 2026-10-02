@@ -11,6 +11,8 @@ export type Components = {
   stem_length: number;
   stem_angle_deg: number;
   spacer_stack: number;
+  /** vertical depth of the stem clamp; 0 spacers puts its bottom on the head tube top (standard 40 mm) */
+  stem_height: number;
   bar_reach: number;
   bar_drop: number;
   hood_reach_offset: number;
@@ -66,6 +68,8 @@ export type BikeSketch = {
   cleat: ContactPoint;
   crankEnd: ContactPoint;
   steererTop: ContactPoint;
+  /** centre of the stem's steerer clamp: steererTop + stem_height / 2 */
+  stemPivot: ContactPoint;
   barClamp: ContactPoint;
   hoods: ContactPoint;
 };

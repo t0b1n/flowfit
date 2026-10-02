@@ -3,6 +3,7 @@
  * converted to SVG (y down) when a point string is produced. Shapes come from the same profile tables as
  * the 3D meshes: `design/riderBody.ts` and `design/bikeProfiles.ts`.
  */
+import { shoeAxis, shoeRadius } from "../design/foot";
 import { HEAD_GAZE_OFFSET_DEG, bump, calAt, headDeform, lerp, torsoDepth, type SegmentName } from "../design/riderBody";
 import type { ContactPoint } from "../types";
 
@@ -18,6 +19,26 @@ export const norm = (a: V): V => {
 
 /** [x, y] pairs in bike coords → SVG `points` string (y flipped). */
 export const pts = (arr: Array<[number, number]>) => arr.map(([x, y]) => `${x.toFixed(1)},${(-y).toFixed(1)}`).join(" ");
+
+/** Convex hull of the points of several `pts()` polygon strings, as one polygon string (one object drawn as one shape). */
+export function hullOf(...polys: string[]): string {
+  const p: Array<[number, number]> = polys
+    .flatMap((s) => s.trim().split(/\s+/))
+    .map((t) => t.split(",").map(Number) as [number, number])
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o: [number, number], a: [number, number], b: [number, number]) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const build = (list: Array<[number, number]>) => {
+    const h: Array<[number, number]> = [];
+    for (const q of list) {
+      while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop();
+      h.push(q);
+    }
+    h.pop();
+    return h;
+  };
+  const hull = [...build(p), ...build([...p].reverse())];
+  return hull.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+}
 
 /** Outline of a tapered limb: radius `prof(t)` along a→b, with round caps. */
 export function seg(a: V, b: V, prof: (t: number) => number, n = 18): string {
@@ -141,13 +162,9 @@ export function buildFigure(f: FigureInput): FigurePolys {
   const footLen = f.footLengthMm * hs;
   const visAnkle = (an: V, cleat: V): V => v(cleat.x - footLen * 0.19, an.y);
 
-  const shoe = (an: V, cleat: V): string => {
-    const dx = cleat.x - an.x;
-    const dy = cleat.y - an.y;
-    const L = Math.hypot(dx, dy) || 1;
-    const heel = v(cleat.x - footLen * 0.19 - 38 * hs, an.y - 18 * hs);
-    const toe = v(cleat.x + (dx / L) * 70 * hs + 20 * hs, cleat.y + (dy / L) * 70 * hs - 4 * hs);
-    return seg(heel, toe, (t) => (lerp(38, 24, t) + 6 * bump(t, 0.3, 0.2)) * hs);
+  const shoe = (_an: V, cleat: V): string => {
+    const a = shoeAxis(cleat, footLen * 0.19, hs);
+    return seg(v(a.heel.x, a.heel.y), v(a.toe.x, a.toe.y), (t) => shoeRadius(t, hs));
   };
 
   const ax = Math.atan2(f.shoulder.y - f.hip.y, f.shoulder.x - f.hip.x);

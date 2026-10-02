@@ -3,7 +3,8 @@ import { BikeFitAnnotations, BikeGeometryAnnotations, type FrameMeasurementVisib
 import type { FrameGeometry, SizeData } from "../frameCatalog";
 import type { buildRider, PedalStrokeLUT } from "../geometry";
 import type { BikeSketch, Components, ContactPoint, FitWarning, MannequinSketch } from "../types";
-import { CockpitDrawing, DrivetrainFar, FrameDrawing, NearHardware, Wheel } from "./BikeDrawing2D";
+import { DebugLegend, DebugStyle } from "../debug";
+import { CockpitDrawing, DiscBrakes, DriveSide, FarCrank, FrameDrawing, NearCrank, Wheel } from "./BikeDrawing2D";
 import { buildFigure, v, type V } from "./draw2d";
 import { StageOverlay } from "./StageOverlay";
 import { METRICS, useMetricFocus } from "../fitMetrics";
@@ -32,6 +33,8 @@ export interface Stage2DSideProps {
   /** Fit to compare against (D-ui): drawn as an accent dashed ghost, and fed to the readout as deltas. */
   compare?: CompareTarget | null;
   showKops?: boolean;
+  /** dev-only: colour every component (see src/debug.tsx) */
+  debug?: boolean;
 }
 
 /** mm ruler along the ground: 25 mm minor ticks, 100 mm major, accent ticks at the axles and BB. */
@@ -89,10 +92,10 @@ const MetricArcShape: React.FC<{ v: V; a: V; c: V; kind: "hot" | "pin" | "dim" }
 const GhostLines: React.FC<{ compare: CompareTarget }> = ({ compare }) => {
   const P = new Map(compare.points.map((p) => [p.name, p.pos]));
   const chain = (names: string[]) => names.map((n) => P.get(n)).filter((p): p is [number, number, number] => !!p);
-  const leg = chain(["hip_l", "knee_l", "ankle_l", "cleat_l"]);
-  const torso = chain(["hip_l", "spine_joint", "shoulder_l", "neck_base_center", "head_center"]);
+  const leg = chain(["hip_r", "knee_r", "ankle_r", "cleat_r"]);
+  const torso = chain(["hip_r", "spine_joint", "shoulder_r", "neck_base_center", "head_center"]);
   const pts = (l: Array<[number, number, number]>) => l.map((p) => `${p[0]},${-p[1]}`).join(" ");
-  const hip = P.get("hip_l");
+  const hip = P.get("hip_r");
   return (
     <g className="s2d-ghost">
       {leg.length > 1 && <polyline points={pts(leg)} />}
@@ -107,6 +110,7 @@ const GhostLines: React.FC<{ compare: CompareTarget }> = ({ compare }) => {
 };
 
 export const Stage2DSide: React.FC<Stage2DSideProps> = ({
+  debug,
   viewBox,
   activeBounds,
   groundY,
@@ -140,12 +144,13 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
     footLengthMm: rider.foot_length,
     weightKg,
   });
-  const polys = (list: string[], cls = "s2d-clay") => list.map((p, i) => <polygon key={i} className={cls} points={p} />);
+  const polys = (list: string[], part?: string, cls = "s2d-clay") => list.map((p, i) => <polygon key={i} className={cls} points={p} data-part={part} />);
   const visibleParts = riderVisibility;
 
   return (
     <div className="s2d-wrap">
-    <svg ref={svgRef} viewBox={viewBox} className="geometry-svg s2d">
+    {debug && <DebugStyle />}
+    <svg ref={svgRef} viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}`}>
       <line className="s2d-ground" x1={activeBounds.minX} y1={groundY} x2={activeBounds.maxX} y2={groundY} />
       <Ruler
         minX={activeBounds.minX}
@@ -158,28 +163,30 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         ]}
       />
 
-      {/* far side: limbs behind the bike, then the drive side */}
+      {/* far (left) side: limbs, brakes and crank behind the frame; the drive side is drawn in front of it */}
       <g className="s2d-far">
-        {visibleParts.legs && polys(fig.farLeg)}
-        {visibleParts.feet && fig.farShoe && <polygon className="s2d-shoe" points={fig.farShoe} />}
-        {visibleParts.arms && polys(fig.farArm)}
+        {visibleParts.legs && polys(fig.farLeg, "leg")}
+        {visibleParts.feet && fig.farShoe && <polygon data-part="shoe" className="s2d-shoe" points={fig.farShoe} />}
+        {visibleParts.arms && polys(fig.farArm, "arm")}
       </g>
       <Wheel axle={bike.rearAxle} radius={R} />
       <Wheel axle={bike.frontAxle} radius={R} />
-      <DrivetrainFar bike={bike} farSpindle={visibleParts.legs ? v(farPose.cleat.x + components.cleat_setback, farPose.cleat.y) : null} />
+      <DiscBrakes bike={bike} />
+      <FarCrank bike={bike} farSpindle={visibleParts.legs ? v(farPose.cleat.x + components.cleat_setback, farPose.cleat.y) : null} />
       <FrameDrawing bike={bike} />
-      <NearHardware bike={bike} cleatCrankEnd={v(bike.cleat.x + components.cleat_setback, bike.cleat.y)} />
+      <DriveSide bike={bike} />
+      <NearCrank bike={bike} cleatCrankEnd={v(bike.cleat.x + components.cleat_setback, bike.cleat.y)} />
 
       {/* near body */}
       <g>
-        {visibleParts.torso && polys(fig.torso)}
-        {visibleParts.legs && polys(fig.nearLeg)}
-        {visibleParts.feet && <polygon className="s2d-shoe" points={fig.nearShoe} />}
-        {visibleParts.arms && polys(fig.nearArm)}
-        {visibleParts.head && <polygon className="s2d-clay" points={fig.head} />}
+        {visibleParts.torso && polys(fig.torso, "torso")}
+        {visibleParts.legs && polys(fig.nearLeg, "leg")}
+        {visibleParts.feet && <polygon data-part="shoe" className="s2d-shoe" points={fig.nearShoe} />}
+        {visibleParts.arms && polys(fig.nearArm, "arm")}
+        {visibleParts.head && <polygon data-part="torso" className="s2d-clay" points={fig.head} />}
       </g>
       <CockpitDrawing bike={bike} />
-      {visibleParts.arms && <polygon className="s2d-glove" points={fig.glove} />}
+      {visibleParts.arms && <polygon data-part="arm" className="s2d-glove" points={fig.glove} />}
 
       {/* skeleton overlay (with ANGLES) */}
       {showJointAngles && (
@@ -262,6 +269,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         />
       )}
     </svg>
+      {debug && <DebugLegend />}
       <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} svgRef={svgRef} viewBox={viewBox} was={compare?.metrics} />
     </div>
   );

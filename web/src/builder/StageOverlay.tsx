@@ -55,8 +55,8 @@ export const SIDE_PREFER: Partial<Record<MetricId, [number, number]>> = {
 export function metricValues(m: MannequinSketch, bike: BikeSketch, lut: PedalStrokeLUT) {
   const pts = new Map<string, Vec3>([
     ["saddle", [bike.saddle.x, bike.saddle.y, 0]],
-    ["hoods_l", [bike.hoods.x, bike.hoods.y, 0]],
     ["hoods_r", [bike.hoods.x, bike.hoods.y, 0]],
+    ["hoods_l", [bike.hoods.x, bike.hoods.y, 0]],
   ]);
   return computeAll({ m, lut, pts });
 }

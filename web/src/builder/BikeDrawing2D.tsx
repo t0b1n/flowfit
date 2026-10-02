@@ -1,12 +1,13 @@
+import { PEDAL_BODY } from "../design/foot";
 import React from "react";
 import { CHAINRING, RIM, SEATSTAY_DROP, TUBE_PROFILE } from "../design/bikeProfiles";
 import { lerp, bump } from "../design/riderBody";
 import type { BikeSketch } from "../types";
 import { SaddleShape } from "../components/SaddleShape";
-import { add, gear, norm, seg, sub, tube, v, type V } from "./draw2d";
+import { add, gear, hullOf, norm, seg, sub, tube, v, type V } from "./draw2d";
 
 const P = (x: number, y: number) => `${x.toFixed(1)} ${(-y).toFixed(1)}`;
-const poly = (cls: string, points: string, key?: React.Key) => <polygon key={key} className={cls} points={points} />;
+const poly = (cls: string, points: string, part?: string) => <polygon className={cls} points={points} data-part={part} />;
 
 /** Wheel: 28 mm tyre, 44 mm carbon rim band, 2.2 mm spokes, hub. Near-side rotor + caliper are drawn separately. */
 export const Wheel: React.FC<{ axle: V; radius: number }> = ({ axle: c, radius: R }) => {
@@ -24,7 +25,7 @@ export const Wheel: React.FC<{ axle: V; radius: number }> = ({ axle: c, radius: 
     );
   });
   return (
-    <g>
+    <g data-part="wheel">
       <circle className="s2d-tyre" cx={c.x} cy={-c.y} r={R - RIM.tyre2D / 2} />
       <circle className="s2d-rim" cx={c.x} cy={-c.y} r={R - RIM.tyre2D - RIM.band2D / 2} />
       {spokes}
@@ -33,8 +34,11 @@ export const Wheel: React.FC<{ axle: V; radius: number }> = ({ axle: c, radius: 
   );
 };
 
-/** Far-side drivetrain parts: chainrings, cassette, chain, rear derailleur, far crank. */
-export const DrivetrainFar: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({ bike, farSpindle }) => {
+/**
+ * Drive-side parts (the rider's right, the side facing the viewer when the bike points right): chainrings,
+ * cassette, chain, rear derailleur. Drawn in front of the frame, behind the near crank and leg.
+ */
+export const DriveSide: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const bb = bike.bb;
   const rear = bike.rearAxle;
   const up = v(rear.x + 8, rear.y - 58);
@@ -50,7 +54,7 @@ export const DrivetrainFar: React.FC<{ bike: BikeSketch; farSpindle: V | null }>
     [rear.x, rear.y - 40],
   ] as const;
   return (
-    <g>
+    <g data-part="drivetrain">
       <polygon className="s2d-ring" points={gear(bb, big.teeth, big.outer, big.root)} />
       <polygon className="s2d-ring" points={gear(bb, small.teeth, small.outer, small.root)} />
       {cogs.map((r, i) => (
@@ -63,15 +67,18 @@ export const DrivetrainFar: React.FC<{ bike: BikeSketch; farSpindle: V | null }>
       {poly("s2d-carbon", tube(up, lo, 10, 10))}
       <circle className="s2d-pulley" cx={up.x} cy={-up.y} r={17} />
       <circle className="s2d-pulley" cx={lo.x} cy={-lo.y} r={17} />
-      {farSpindle && (
-        <>
-          {poly("s2d-carbon", tube(bb, farSpindle, 14, 10))}
-          <rect className="s2d-carbon" x={farSpindle.x - 40} y={-farSpindle.y - 2} width={80} height={12} />
-        </>
-      )}
     </g>
   );
 };
+
+/** Far (left, non-drive) crank and pedal, hidden behind the frame. */
+export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({ bike, farSpindle }) =>
+  farSpindle ? (
+    <g data-part="crank">
+      {poly("s2d-carbon", tube(bike.bb, farSpindle, 14, 10))}
+      <rect data-part="pedal" className="s2d-carbon" x={farSpindle.x - PEDAL_BODY[0] / 2} y={-farSpindle.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} />
+    </g>
+  ) : null;
 
 /** Frame: filled tapered tubes, curved fork, BB fillet, seatpost, bottle, stem and bars. */
 export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
@@ -79,39 +86,51 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const stUp = norm(sub(cl, bb));
   const htDown = norm(sub(hb, ht));
   const T = TUBE_PROFILE;
+  // Steerer clamp of the stem, drawn along the head-tube axis so its flat bottom sits flush on the head tube top
+  // (a vertical clamp would cut into the leaning head tube). Slid up the axis if it would still overlap it.
+  const htUp = v(-htDown.x, -htDown.y);
+  const htTop = add(ht, htUp, 4); // where the drawn head tube ends
+  const halfH = bike.stemPivot.y - bike.steererTop.y;
+  const rawBottom = add(bike.stemPivot, htUp, -halfH);
+  const lift = Math.max(0, 4 - ((rawBottom.x - ht.x) * htUp.x + (rawBottom.y - ht.y) * htUp.y));
+  const clampBottom = add(rawBottom, htUp, lift);
+  const clampTop = add(bike.stemPivot, htUp, halfH + lift);
   const stayTop = add(cl, stUp, -SEATSTAY_DROP);
   const perp = v(stUp.y, -stUp.x);
   const b0 = add(add(bb, sub(cl, bb), 0.22), perp, 60);
   const b1 = add(add(bb, sub(cl, bb), 0.66), perp, 60);
   return (
     <g>
-      {poly("s2d-frame", tube(bb, rearAxle, ...T.chainstay))}
-      {poly("s2d-frame", tube(stayTop, rearAxle, ...T.seatstay))}
-      {poly("s2d-frame", tube(bb, cl, ...T.seat_tube))}
-      {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]))}
-      {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube))}
-      {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube))}
-      {poly("s2d-frame", tube(add(hb, htDown, 16), add(ht, htDown, -4), ...T.head_tube))}
+      {poly("s2d-frame", tube(bb, rearAxle, ...T.chainstay), "chainstay")}
+      {poly("s2d-frame", tube(stayTop, rearAxle, ...T.seatstay), "seatstay")}
+      {poly("s2d-frame", tube(bb, cl, ...T.seat_tube), "seat_tube")}
+      {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]), "seat_tube")}
+      {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube), "top_tube")}
+      {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube), "down_tube")}
+      {poly("s2d-frame", tube(add(hb, htDown, 16), add(ht, htDown, -4), ...T.head_tube), "head_tube")}
       <path
         className="s2d-fork"
+        data-part="fork"
         d={`M${P(hb.x + htDown.x * 10, hb.y + htDown.y * 10)} Q ${P(hb.x + htDown.x * 190 + 4, hb.y + htDown.y * 190)} ${P(frontAxle.x, frontAxle.y)}`}
         strokeWidth={T.fork_blade[0] * 2}
       />
-      <circle className="s2d-frame" cx={bb.x} cy={-bb.y} r={30} />
-      <circle className="s2d-frame" cx={cl.x} cy={-cl.y} r={18} />
-      {poly("s2d-bottle", tube(b0, b1, 37, 34))}
-      <line className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
-      {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]))}
-      {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]))}
-      {poly("s2d-carbon", tube(ht, bike.steererTop, 17, 17))}
-      {poly("s2d-carbon", tube(add(bike.steererTop, htDown, 14), bike.barClamp, 19, 16))}
-      <SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" />
+      <circle className="s2d-frame" cx={bb.x} cy={-bb.y} r={30} data-part="bb_shell" />
+      <circle className="s2d-frame" cx={cl.x} cy={-cl.y} r={18} data-part="bb_shell" />
+      {poly("s2d-bottle", tube(b0, b1, 37, 34), "bottle")}
+      <line data-part="bottle" className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
+      {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]), "seatpost")}
+      {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]), "seatpost")}
+      {/* spacer stack: only the bit of steerer showing between the head tube and the stem (none at 0 spacers) */}
+      {Math.hypot(clampBottom.x - htTop.x, clampBottom.y - htTop.y) > 0.5 && poly("s2d-carbon", tube(htTop, clampBottom, 17, 17), "spacers")}
+      {/* the stem is one object: steerer clamp + arm */}
+      {poly("s2d-carbon", hullOf(tube(clampBottom, clampTop, 21, 21), tube(v(bike.barClamp.x, bike.barClamp.y - 19), v(bike.barClamp.x, bike.barClamp.y + 19), 13, 13)), "stem")}
+      <g data-part="saddle"><SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" /></g>
     </g>
   );
 };
 
-/** Near-side hardware: rotors, calipers, near crank and pedal. */
-export const NearHardware: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({ bike, cleatCrankEnd }) => {
+/** Disc rotors, calipers and the front brake hose: the rider's left (far) side, behind the frame. */
+export const DiscBrakes: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const { rearAxle: rear, frontAxle: front, bb, headTubeBottom: hb, headTubeTop: ht } = bike;
   const htDown = norm(sub(hb, ht));
   const rotor = (c: V, r: number) => (
@@ -124,7 +143,7 @@ export const NearHardware: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({
     </g>
   );
   return (
-    <g>
+    <g data-part="brakes">
       {rotor(rear, 70)}
       {rotor(front, 80)}
       <rect className="s2d-caliper" x={front.x - 88} y={-front.y - 70} width={60} height={26} transform={`rotate(52 ${front.x - 58} ${-front.y - 57})`} />
@@ -133,12 +152,18 @@ export const NearHardware: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({
         className="s2d-hose"
         d={`M${P(front.x - 40, front.y + 78)} Q ${P(hb.x + 30, hb.y - 150)} ${P(hb.x + htDown.x * 60 + 26, hb.y + htDown.y * 60)}`}
       />
-      {poly("s2d-carbon", tube(bb, cleatCrankEnd, 15, 10))}
-      <circle className="s2d-carbon" cx={bb.x} cy={-bb.y} r={22} />
-      <rect className="s2d-carbon" x={cleatCrankEnd.x - 40} y={-cleatCrankEnd.y - 2} width={80} height={12} />
     </g>
   );
 };
+
+/** Near (drive-side) crank and pedal, outboard of the chainrings. */
+export const NearCrank: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({ bike, cleatCrankEnd }) => (
+  <g data-part="crank">
+    {poly("s2d-carbon", tube(bike.bb, cleatCrankEnd, 15, 10))}
+    <circle className="s2d-carbon" cx={bike.bb.x} cy={-bike.bb.y} r={22} />
+    <rect data-part="pedal" className="s2d-carbon" x={cleatCrankEnd.x - PEDAL_BODY[0] / 2} y={-cleatCrankEnd.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} />
+  </g>
+);
 
 /** Drop bar, STI hood and lever. The near-side glove is drawn after this. */
 export const CockpitDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
@@ -148,11 +173,13 @@ export const CockpitDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
     <g>
       <path
         className="s2d-bar"
+        data-part="bar"
         d={`M${P(clp.x, clp.y)} C ${P(clp.x + 60, clp.y)} ${P(hood.x + 6, hood.y - 20)} ${P(hood.x + 8, hood.y - 60)} S ${P(clp.x + 44, clp.y - 126)} ${P(clp.x - 4, clp.y - 126)}`}
       />
-      {poly("s2d-hood", seg(v(hood.x - 26, hood.y - 26), v(hood.x + 46, hood.y + 14), (t) => 16 + 10 * bump(t, 0.7, 0.2) + 4 * bump(t, 0.95, 0.08)))}
+      {poly("s2d-hood", seg(v(hood.x - 26, hood.y - 26), v(hood.x + 46, hood.y + 14), (t) => 16 + 10 * bump(t, 0.7, 0.2) + 4 * bump(t, 0.95, 0.08)), "hood")}
       <path
         className="s2d-lever"
+        data-part="lever"
         d={`M${P(hood.x + 44, hood.y + 4)} C ${P(hood.x + 58, hood.y - 40)} ${P(hood.x + 46, hood.y - 100)} ${P(hood.x + 20, hood.y - 130)}`}
       />
     </g>

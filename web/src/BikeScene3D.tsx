@@ -28,6 +28,7 @@ import {
   LEG_EDGE_GROUPS,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
+import { DebugProvider, useDbg, useDebugOn, DEBUG_ENABLED } from "./debug";
 import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
 import { MatsProvider, useMats } from "./scene3d/materials";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
@@ -457,13 +458,14 @@ function BikeStatic({
   geo, tubes, wheelRadius, discRear,
 }: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; discRear: boolean }) {
   const M = useMats();
+  const debug = useDebugOn();
   const { bike, hoods } = useMemo(() => {
     const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape };
     return {
-      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear }),
-      hoods: buildHoods(geo.points, mats),
+      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug }),
+      hoods: buildHoods(geo.points, mats, debug),
     };
-  }, [geo, tubes, wheelRadius, discRear, M]);
+  }, [geo, tubes, wheelRadius, discRear, M, debug]);
   useEffect(
     () => () => {
       for (const grp of [bike, hoods]) grp.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
@@ -502,15 +504,16 @@ function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DRes
  * curls forward, down, and back toward the rider.
  */
 const BAR_EDGE_KEYS = new Set([
-  "bar_clamp→bar_top_l", "bar_clamp→bar_top_r",
-  "bar_top_l→hoods_l", "bar_top_r→hoods_r",
-  "hoods_l→bar_drop_l", "hoods_r→bar_drop_r",
+  "bar_clamp→bar_top_r", "bar_clamp→bar_top_l",
+  "bar_top_r→hoods_r", "bar_top_l→hoods_l",
+  "hoods_r→bar_drop_r", "hoods_l→bar_drop_l",
 ]);
 
 const BAR_TUBE_RADIUS = 11;
 
 function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]> }) {
   const M = useMats();
+  const dbg = useDbg();
   const bc = ptMap.get("bar_clamp");
   const geoms = useMemo(() => {
     if (!bc) return null;
@@ -520,7 +523,7 @@ function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]>
       const h = ptMap.get(`hoods_${side}`);
       const d = ptMap.get(`bar_drop_${side}`);
       if (!bt || !h || !d) return null;
-      const s = side === "l" ? 1 : -1;
+      const s = side === "r" ? 1 : -1; // +Z is the rider's right
       const pts = [
         new THREE.Vector3(bc[0], bc[1], s * 24),
         new THREE.Vector3(bt[0], bt[1], bt[2] - s * 36),
@@ -544,11 +547,11 @@ function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]>
       {/* Straight clamp section across the stem faceplate */}
       <mesh position={bc} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[BAR_TUBE_RADIUS + 1, BAR_TUBE_RADIUS + 1, 52, 12, 1]} />
-        {M.carbon}
+        {dbg("bar", M.carbon)}
       </mesh>
       {geoms.map((g, i) => (
         <mesh key={i} geometry={g}>
-          {M.carbon}
+          {dbg("bar", M.carbon)}
         </mesh>
       ))}
     </group>
@@ -587,20 +590,20 @@ function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
   const M = useMats();
   const ptMap = new Map(points.map((p) => [p.name, p.pos]));
   const bb = ptMap.get("bb");
-  const cleatL = ptMap.get("cleat_l");
   const cleatR = ptMap.get("cleat_r");
+  const cleatL = ptMap.get("cleat_l");
   if (!bb) return null;
 
-  const arms = [cleatL, cleatR].filter(Boolean) as [number, number, number][];
+  const arms = [cleatR, cleatL].filter(Boolean) as [number, number, number][];
 
   return (
     <group>
-      {/* Chainring on the drive side (rider's right = −Z) */}
-      <mesh position={[bb[0], bb[1], -54]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* Chainring on the drive side (rider's right = +Z) */}
+      <mesh position={[bb[0], bb[1], 48]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[100, 100, 4, 40, 1]} />
         {M.carbon}
       </mesh>
-      <mesh position={[bb[0], bb[1], -50]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[bb[0], bb[1], 44]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[78, 78, 3, 40, 1]} />
         {M.carbon}
       </mesh>
@@ -761,6 +764,7 @@ const SceneContent = React.memo(function SceneContent({
   target,
   showMannequin,
   tPose,
+  debugParts,
   saddleType,
   show2dOverlay,
   mannequin2D,
@@ -806,6 +810,7 @@ const SceneContent = React.memo(function SceneContent({
   target: [number, number, number];
   showMannequin: boolean;
   tPose: boolean;
+  debugParts: boolean;
   saddleType: SaddleType;
   show2dOverlay: boolean;
   mannequin2D?: MannequinSketch;
@@ -840,8 +845,8 @@ const SceneContent = React.memo(function SceneContent({
     () => new Map(geo.points.map((p) => [p.name, p.pos])),
     [geo]
   );
-  const hipL = effPtMap.get("hip_l");
   const hipR = effPtMap.get("hip_r");
+  const hipL = effPtMap.get("hip_l");
   const bbPt = effPtMap.get("bb") ?? ([0, 0, 0] as [number, number, number]);
 
   const wheelRadius = geo.frame.wheel_radius ?? 311;
@@ -870,6 +875,7 @@ const SceneContent = React.memo(function SceneContent({
   });
 
   return (
+    <DebugProvider value={debugParts}>
     <MatsProvider theme={theme}>
       {/* Stage: theme background + fog, soft key/rim lights with shadows, matte floor.
           Everything here lives under stage-root so the frontal-area probe and GLB export skip it. */}
@@ -919,11 +925,11 @@ const SceneContent = React.memo(function SceneContent({
 
       {/* Animated legs + crankset (replaces the static drivetrain while the
           stroke LUT is available) */}
-      {tPose ? null : strokeLUT && hipL && hipR ? (
+      {tPose ? null : strokeLUT && hipR && hipL ? (
         <AnimatedLegs
           lut={strokeLUT}
-          hipL={hipL}
           hipR={hipR}
+          hipL={hipL}
           bb={bbPt}
           halfStance={stanceWidth / 2}
           weightKg={weightKg}
@@ -956,10 +962,10 @@ const SceneContent = React.memo(function SceneContent({
               const isPin = pinned.includes(d.id);
               if (!isFocus && !isPin && !showAngles) return null;
               const zFor: Record<string, number> = {
-                hip: (hipL?.[2] ?? 100) + 85,
-                trunk: (hipL?.[2] ?? 100) + 85,
-                shoulder: (effPtMap.get("shoulder_l")?.[2] ?? 185) + 70,
-                elbow_flex: (effPtMap.get("elbow_l")?.[2] ?? 185) + 60,
+                hip: (hipR?.[2] ?? 100) + 85,
+                trunk: (hipR?.[2] ?? 100) + 85,
+                shoulder: (effPtMap.get("shoulder_r")?.[2] ?? 185) + 70,
+                elbow_flex: (effPtMap.get("elbow_r")?.[2] ?? 185) + 60,
                 knee_ext_bdc: stanceWidth / 2 + 75,
                 knee_flex_tdc: -(stanceWidth / 2 + 75),
               };
@@ -1013,8 +1019,8 @@ const SceneContent = React.memo(function SceneContent({
         )}
         {showDimensions && !tPose && (() => {
           const saddle = effPtMap.get("saddle");
-          const hl = effPtMap.get("hoods_l");
-          const hr = effPtMap.get("hoods_r");
+          const hl = effPtMap.get("hoods_r");
+          const hr = effPtMap.get("hoods_l");
           if (!saddle || !hl || !hr) return null;
           const barW = geo.components.bar_width ?? 400;
           const hoods: [number, number, number] = [(hl[0] + hr[0]) / 2, (hl[1] + hr[1]) / 2, 0];
@@ -1057,6 +1063,7 @@ const SceneContent = React.memo(function SceneContent({
       {/* Export hook */}
       <SceneExporter onExportReady={onExportReady} />
     </MatsProvider>
+    </DebugProvider>
   );
 });
 
@@ -1137,6 +1144,8 @@ export interface Compare3D {
 interface BikeScene3DProps {
   /** Comparison fit; takes precedence over the in-session snapshot ghost. */
   compare?: Compare3D | null;
+  /** dev-only component colouring (src/debug.tsx) */
+  debugParts?: boolean;
   geo: Geometry3DResponse;
   mannequin2D?: MannequinSketch;
   weightKg?: number;
@@ -1171,7 +1180,7 @@ function exportCsv(geo: Geometry3DResponse) {
 
 export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   geo, mannequin2D, weightKg = 75,
-  strokeLUT, stanceWidth, postureBands, compare,
+  strokeLUT, stanceWidth, postureBands, compare, debugParts = false,
 }) => {
   const [theme] = useTheme();
   const [quality, setQualityState] = useState<Quality>(readQuality);
@@ -1295,11 +1304,11 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   }, [geo, mannequin2D, strokeLUT, shownIds, hoverOnly, showDimensions, stanceWidth]);
   const rulerLabels = ["R.AXLE", "BB 0", `F.AXLE · WB ${Math.round((geoPtMap.get("front_axle")?.[0] ?? 0) - (geoPtMap.get("rear_axle")?.[0] ?? 0))}`];
   const saddlePt = geoPtMap.get("saddle");
-  const hoodsLPt = geoPtMap.get("hoods_l");
   const hoodsRPt = geoPtMap.get("hoods_r");
+  const hoodsLPt = geoPtMap.get("hoods_l");
   const currentDropMm =
-    saddlePt && hoodsLPt && hoodsRPt
-      ? saddlePt[1] - (hoodsLPt[1] + hoodsRPt[1]) / 2
+    saddlePt && hoodsRPt && hoodsLPt
+      ? saddlePt[1] - (hoodsRPt[1] + hoodsLPt[1]) / 2
       : 0;
   const currentTrunkDeg = mannequin2D
     ? (Math.atan2(
@@ -1326,12 +1335,12 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
         const p = pts.find((q) => q.name === name);
         if (p) p.pos = [x, y, z];
       };
-      set("knee_l", left.knee.x, left.knee.y, hs);
-      set("ankle_l", left.ankle.x - setback, left.ankle.y, hs);
-      set("cleat_l", left.cleat.x, left.cleat.y, hs);
-      set("knee_r", right.knee.x, right.knee.y, -hs);
-      set("ankle_r", right.ankle.x - setback, right.ankle.y, -hs);
-      set("cleat_r", right.cleat.x, right.cleat.y, -hs);
+      set("knee_r", left.knee.x, left.knee.y, hs);
+      set("ankle_r", left.ankle.x - setback, left.ankle.y, hs);
+      set("cleat_r", left.cleat.x, left.cleat.y, hs);
+      set("knee_l", right.knee.x, right.knee.y, -hs);
+      set("ankle_l", right.ankle.x - setback, right.ankle.y, -hs);
+      set("cleat_l", right.cleat.x, right.cleat.y, -hs);
     }
     setGhost({
       points: pts,
@@ -1533,12 +1542,14 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
         >
           HQ
         </button>
+        {DEBUG_ENABLED && (
         <button
           className={`tab-pill ${devMode ? "tab-pill--active" : ""}`}
           onClick={() => setDevMode((v) => !v)}
         >
           Dev
         </button>
+        )}
       </div>
 
       {/* Pedaling animation + analytics layers */}
@@ -1660,6 +1671,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             target={viewCenter}
             showMannequin={showMannequin}
             tPose={tPose}
+            debugParts={debugParts}
             saddleType={saddleType}
             show2dOverlay={show2dOverlay}
             mannequin2D={mannequin2D}

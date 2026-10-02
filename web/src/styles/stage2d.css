@@ -688,3 +688,32 @@
     min-height: 420px;
   }
 }
+
+/* Dev-only debug mode legend (src/debug.tsx) */
+.debug-legend {
+  position: absolute;
+  left: 12px;
+  top: 40px;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  max-width: 460px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--ink);
+  font: 500 10px/1.2 var(--font-mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.debug-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.debug-legend__item i {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--ink);
+}

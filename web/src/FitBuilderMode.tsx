@@ -6,6 +6,7 @@ import { HOOD_PRESETS } from "./components/hoodPresets";
 import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements, angleAtPoint, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, idealContactsFromRider, idealContactsFromSaddleHeight, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
+import { useDebugParts } from "./debug";
 import { ControlsColumn } from "./builder/ControlsColumn";
 import { ResultsColumn } from "./builder/ResultsColumn";
 import { StageToolbar } from "./builder/StageToolbar";
@@ -210,6 +211,7 @@ export const FitBuilderMode: React.FC = () => {
   // In fullscreen, zoom to the frame+rider area (no wheel-radius padding)
   // ── Fit history: capture / restore / compare (track D-ui) ───────────────────
   const history = useFitHistory();
+  const [debugParts, toggleDebug] = useDebugParts();
   const [sessionSnapshot, setSessionSnapshot] = useState<CompareTarget | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -426,7 +428,7 @@ export const FitBuilderMode: React.FC = () => {
 
       {/* ── Centre: visualization ── */}
       <section className="visual-panel builder-center">
-        <StageToolbar showKops={showKops} setShowKops={setShowKops} compareSlot={compareSlot} model={model} sizeData={sizeData} viewOptions={viewOptions} view={view} setView={setView} view3d={view3d} layersRef={layersRef} layersOpen={layersOpen} setLayersOpen={setLayersOpen} setAllRiderVisibility={setAllRiderVisibility} riderVisibility={riderVisibility} toggleRiderVisibility={toggleRiderVisibility} showJointAngles={showJointAngles} setShowJointAngles={setShowJointAngles} showFitPositions={showFitPositions} setShowFitPositions={setShowFitPositions} showFrameGeometry={showFrameGeometry} setShowFrameGeometry={setShowFrameGeometry} setAllFrameMeasurements={setAllFrameMeasurements} frameMeasurementVisibility={frameMeasurementVisibility} toggleFrameMeasurement={toggleFrameMeasurement} fullscreen={fullscreen} setFullscreen={setFullscreen} />
+        <StageToolbar debug={debugParts} toggleDebug={toggleDebug} showKops={showKops} setShowKops={setShowKops} compareSlot={compareSlot} model={model} sizeData={sizeData} viewOptions={viewOptions} view={view} setView={setView} view3d={view3d} layersRef={layersRef} layersOpen={layersOpen} setLayersOpen={setLayersOpen} setAllRiderVisibility={setAllRiderVisibility} riderVisibility={riderVisibility} toggleRiderVisibility={toggleRiderVisibility} showJointAngles={showJointAngles} setShowJointAngles={setShowJointAngles} showFitPositions={showFitPositions} setShowFitPositions={setShowFitPositions} showFrameGeometry={showFrameGeometry} setShowFrameGeometry={setShowFrameGeometry} setAllFrameMeasurements={setAllFrameMeasurements} frameMeasurementVisibility={frameMeasurementVisibility} toggleFrameMeasurement={toggleFrameMeasurement} fullscreen={fullscreen} setFullscreen={setFullscreen} />
 
         {!view3d && (
           <div className="legend-row">
@@ -438,6 +440,7 @@ export const FitBuilderMode: React.FC = () => {
         <div className="visual-stage">
           {view3d ? (
             <BikeScene3D
+              debugParts={debugParts}
               geo={geo3d}
               mannequin2D={mannequin}
               weightKg={riderFit.weight}
@@ -447,8 +450,8 @@ export const FitBuilderMode: React.FC = () => {
               compare={history.compareTo ?? sessionSnapshot}
             />
           ) : view === "side" ? (
-            <Stage2DSide showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
-          ) : <Stage2DFront compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
+            <Stage2DSide debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
+          ) : <Stage2DFront debug={debugParts} compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
         </div>
       </section>
 
