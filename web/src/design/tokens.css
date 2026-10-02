@@ -66,4 +66,32 @@
   --s-8: 32px;
 
   --radius: 0;
+
+  /* Debug part palette (dev builds only; see src/debug.ts) */
+  --debug-1: #E6194B;
+  --debug-2: #3CB44B;
+  --debug-3: #FFE119;
+  --debug-4: #4363D8;
+  --debug-5: #F58231;
+  --debug-6: #911EB4;
+  --debug-7: #42D4F4;
+  --debug-8: #F032E6;
+  --debug-9: #BFEF45;
+  --debug-10: #FABED4;
+  --debug-11: #469990;
+  --debug-12: #9A6324;
+  --debug-13: #800000;
+  --debug-14: #000075;
+  --debug-15: #AAFFC3;
+  --debug-16: #808000;
+  --debug-17: #FFD8B1;
+  --debug-18: #E6BEFF;
+  --debug-19: #A9A9A9;
+  --debug-20: #FFFAC8;
+  --debug-21: #FF7F50;
+  --debug-22: #20B2AA;
+  --debug-23: #8B008B;
+  --debug-24: #6B8E23;
+  --debug-25: #CD5C5C;
+  --debug-26: #4682B4;
 }

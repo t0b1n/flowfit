@@ -28,6 +28,7 @@ import {
   LEG_EDGE_GROUPS,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
+import { DebugProvider, useDbg, useDebugOn, DEBUG_ENABLED } from "./debug";
 import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
 import { MatsProvider, useMats } from "./scene3d/materials";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
@@ -457,13 +458,14 @@ function BikeStatic({
   geo, tubes, wheelRadius, discRear,
 }: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; discRear: boolean }) {
   const M = useMats();
+  const debug = useDebugOn();
   const { bike, hoods } = useMemo(() => {
     const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape };
     return {
-      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear }),
-      hoods: buildHoods(geo.points, mats),
+      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug }),
+      hoods: buildHoods(geo.points, mats, debug),
     };
-  }, [geo, tubes, wheelRadius, discRear, M]);
+  }, [geo, tubes, wheelRadius, discRear, M, debug]);
   useEffect(
     () => () => {
       for (const grp of [bike, hoods]) grp.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
@@ -511,6 +513,7 @@ const BAR_TUBE_RADIUS = 11;
 
 function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]> }) {
   const M = useMats();
+  const dbg = useDbg();
   const bc = ptMap.get("bar_clamp");
   const geoms = useMemo(() => {
     if (!bc) return null;
@@ -544,11 +547,11 @@ function HandlebarMesh({ ptMap }: { ptMap: Map<string, [number, number, number]>
       {/* Straight clamp section across the stem faceplate */}
       <mesh position={bc} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[BAR_TUBE_RADIUS + 1, BAR_TUBE_RADIUS + 1, 52, 12, 1]} />
-        {M.carbon}
+        {dbg("bar", M.carbon)}
       </mesh>
       {geoms.map((g, i) => (
         <mesh key={i} geometry={g}>
-          {M.carbon}
+          {dbg("bar", M.carbon)}
         </mesh>
       ))}
     </group>
@@ -595,12 +598,12 @@ function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
 
   return (
     <group>
-      {/* Chainring on the drive side (rider's right = −Z) */}
-      <mesh position={[bb[0], bb[1], -54]} rotation={[Math.PI / 2, 0, 0]}>
+      {/* Chainring on the drive side (rider's right = +Z) */}
+      <mesh position={[bb[0], bb[1], 48]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[100, 100, 4, 40, 1]} />
         {M.carbon}
       </mesh>
-      <mesh position={[bb[0], bb[1], -50]} rotation={[Math.PI / 2, 0, 0]}>
+      <mesh position={[bb[0], bb[1], 44]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[78, 78, 3, 40, 1]} />
         {M.carbon}
       </mesh>
@@ -761,6 +764,7 @@ const SceneContent = React.memo(function SceneContent({
   target,
   showMannequin,
   tPose,
+  debugParts,
   saddleType,
   show2dOverlay,
   mannequin2D,
@@ -806,6 +810,7 @@ const SceneContent = React.memo(function SceneContent({
   target: [number, number, number];
   showMannequin: boolean;
   tPose: boolean;
+  debugParts: boolean;
   saddleType: SaddleType;
   show2dOverlay: boolean;
   mannequin2D?: MannequinSketch;
@@ -870,6 +875,7 @@ const SceneContent = React.memo(function SceneContent({
   });
 
   return (
+    <DebugProvider value={debugParts}>
     <MatsProvider theme={theme}>
       {/* Stage: theme background + fog, soft key/rim lights with shadows, matte floor.
           Everything here lives under stage-root so the frontal-area probe and GLB export skip it. */}
@@ -1057,6 +1063,7 @@ const SceneContent = React.memo(function SceneContent({
       {/* Export hook */}
       <SceneExporter onExportReady={onExportReady} />
     </MatsProvider>
+    </DebugProvider>
   );
 });
 
@@ -1137,6 +1144,8 @@ export interface Compare3D {
 interface BikeScene3DProps {
   /** Comparison fit; takes precedence over the in-session snapshot ghost. */
   compare?: Compare3D | null;
+  /** dev-only component colouring (src/debug.tsx) */
+  debugParts?: boolean;
   geo: Geometry3DResponse;
   mannequin2D?: MannequinSketch;
   weightKg?: number;
@@ -1171,7 +1180,7 @@ function exportCsv(geo: Geometry3DResponse) {
 
 export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   geo, mannequin2D, weightKg = 75,
-  strokeLUT, stanceWidth, postureBands, compare,
+  strokeLUT, stanceWidth, postureBands, compare, debugParts = false,
 }) => {
   const [theme] = useTheme();
   const [quality, setQualityState] = useState<Quality>(readQuality);
@@ -1533,12 +1542,14 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
         >
           HQ
         </button>
+        {DEBUG_ENABLED && (
         <button
           className={`tab-pill ${devMode ? "tab-pill--active" : ""}`}
           onClick={() => setDevMode((v) => !v)}
         >
           Dev
         </button>
+        )}
       </div>
 
       {/* Pedaling animation + analytics layers */}
@@ -1660,6 +1671,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             target={viewCenter}
             showMannequin={showMannequin}
             tPose={tPose}
+            debugParts={debugParts}
             saddleType={saddleType}
             show2dOverlay={show2dOverlay}
             mannequin2D={mannequin2D}

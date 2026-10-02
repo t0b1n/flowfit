@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { CHAINRING } from "./design/bikeProfiles";
+import { useDbg } from "./debug";
 import { PEDAL_BODY, shoeAxis, shoeRadius } from "./design/foot";
 import { PROFILES, MASSES, bump, calAt, lerp } from "./design/riderBody";
 import { legPoseAt, PedalStrokeLUT } from "./geometry";
@@ -66,7 +67,7 @@ interface AnimatedLegsProps {
   showLegs: boolean;
 }
 
-const CHAINRING_Z = -58;      // drive side = rider's right = −Z
+const CHAINRING_Z = 46;       // drive side = rider's right = +Z (x forward, y up ⇒ +Z is the right-hand side); crank arms sit outboard at 52
 const CRANK_ROOT_Z = 52;      // crank arm root just outboard of the BB shell
 
 /** Gear-toothed ring outline as a thin extrusion. */
@@ -89,6 +90,7 @@ export function AnimatedLegs({
   crankAngleRef, playing, cadenceRpm, showLegs,
 }: AnimatedLegsProps) {
   const M = useMats();
+  const dbg = useDbg();
   const thighLRef = useRef<THREE.Group>(null);
   const thighRRef = useRef<THREE.Group>(null);
   const calfLRef = useRef<THREE.Group>(null);
@@ -157,7 +159,7 @@ export function AnimatedLegs({
       crankAngleRef.current = (crankAngleRef.current + cadenceRpm * 6 * dt) % 360;
     }
     const theta = crankAngleRef.current;
-    // Crank angle refers to the right (drive-side, −Z) crank; left is +180°.
+    // Crank angle refers to the drive-side crank (rider's right, +Z); the other crank is +180°.
     const right = legPoseAt(lut, theta);
     const left = legPoseAt(lut, theta + 180);
     const zL = +halfStance;
@@ -195,7 +197,7 @@ export function AnimatedLegs({
     <group ref={ref}>
       <mesh>
         <primitive object={limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16)} attach="geometry" />
-        {M.carbon}
+        {dbg("crank", M.carbon)}
       </mesh>
     </group>
   );
@@ -217,12 +219,12 @@ export function AnimatedLegs({
     <group>
       {showLegs && (
         <group name="mannequin-legs">
-          {limb(thighLRef, dims.thigh.L, M.clay)}
-          {limb(thighRRef, dims.thigh.R, M.clay)}
-          {limb(calfLRef, dims.calf.L, M.clay)}
-          {limb(calfRRef, dims.calf.R, M.clay)}
-          {limb(footLRef, dims.shoe, M.tape)}
-          {limb(footRRef, dims.shoe, M.tape)}
+          {limb(thighLRef, dims.thigh.L, dbg("leg", M.clay))}
+          {limb(thighRRef, dims.thigh.R, dbg("leg", M.clay))}
+          {limb(calfLRef, dims.calf.L, dbg("leg", M.clay))}
+          {limb(calfRRef, dims.calf.R, dbg("leg", M.clay))}
+          {limb(footLRef, dims.shoe, dbg("shoe", M.tape))}
+          {limb(footRRef, dims.shoe, dbg("shoe", M.tape))}
           {mass(kneeLRef, dims.kneeR, MASSES.knee.depthScale)}
           {mass(kneeRRef, dims.kneeR, MASSES.knee.depthScale)}
           {mass(ankleLRef, dims.ankleR)}
@@ -236,8 +238,8 @@ export function AnimatedLegs({
         {M.carbon}
       </mesh>
       <group position={[bb[0], bb[1], CHAINRING_Z]}>
-        <mesh geometry={rings.big} position={[0, 0, -2]}>{M.carbon}</mesh>
-        <mesh geometry={rings.small} position={[0, 0, 7]}>{M.carbon}</mesh>
+        <mesh geometry={rings.big} position={[0, 0, 2]}>{dbg("drivetrain", M.carbon)}</mesh>
+        <mesh geometry={rings.small} position={[0, 0, -7]}>{dbg("drivetrain", M.carbon)}</mesh>
         {Array.from({ length: CHAINRING.spiderArms }, (_, i) => (
           <group key={i} rotation={[0, 0, (i / CHAINRING.spiderArms) * Math.PI * 2 + 0.5]}>
             <mesh position={[0, CHAINRING.spiderRadius / 2, 0]}>
@@ -254,20 +256,20 @@ export function AnimatedLegs({
         <group key={i} ref={r}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[7, 7, Math.abs(halfStance - CRANK_ROOT_Z) + 2, 12]} />
-            {M.carbon}
+            {dbg("pedal", M.carbon)}
           </mesh>
         </group>
       ))}
       <group ref={pedalLRef}>
         <mesh>
           <boxGeometry args={PEDAL_BODY} />
-          {M.tape}
+          {dbg("pedal", M.tape)}
         </mesh>
       </group>
       <group ref={pedalRRef}>
         <mesh>
           <boxGeometry args={PEDAL_BODY} />
-          {M.tape}
+          {dbg("pedal", M.tape)}
         </mesh>
       </group>
     </group>

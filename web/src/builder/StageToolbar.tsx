@@ -1,5 +1,6 @@
 import React from "react";
 import { Pill } from "../design/Pill";
+import { DEBUG_ENABLED } from "../debug";
 import { Segmented } from "../design/Segmented";
 import { FRAME_MEASUREMENT_IDS, type FrameMeasurementId } from "../BikeAnnotations";
 import { ViewKind, RiderVisibilityPart, RIDER_VISIBILITY_LABELS, FRAME_MEASUREMENT_LABELS } from "./shared";
@@ -32,10 +33,13 @@ export interface StageToolbarProps {
   /** Slot for the compare menu (track D). */
   compareSlot?: React.ReactNode;
   showKops?: boolean;
+  /** dev-only component colouring (src/debug.tsx); the button only renders in dev builds */
+  debug?: boolean;
+  toggleDebug?: () => void;
   setShowKops?: (value: React.SetStateAction<boolean>) => void;
 }
 
-export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, viewOptions, view, setView, view3d, layersRef, layersOpen, setLayersOpen, setAllRiderVisibility, riderVisibility, toggleRiderVisibility, showJointAngles, setShowJointAngles, showFitPositions, setShowFitPositions, showFrameGeometry, setShowFrameGeometry, setAllFrameMeasurements, frameMeasurementVisibility, toggleFrameMeasurement, fullscreen, setFullscreen, compareSlot, showKops, setShowKops }) => {
+export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, viewOptions, view, setView, view3d, layersRef, layersOpen, setLayersOpen, setAllRiderVisibility, riderVisibility, toggleRiderVisibility, showJointAngles, setShowJointAngles, showFitPositions, setShowFitPositions, showFrameGeometry, setShowFrameGeometry, setAllFrameMeasurements, frameMeasurementVisibility, toggleFrameMeasurement, fullscreen, setFullscreen, compareSlot, showKops, setShowKops, debug, toggleDebug }) => {
   return (
     <div className="stage-bar">
           <div className="stage-bar__title">
@@ -151,6 +155,11 @@ export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, vie
               </>
             )}
             <span className="stage-bar__spacer" />
+            {DEBUG_ENABLED && toggleDebug && (
+              <Pill variant={debug ? "active" : "ghost"} onClick={toggleDebug} title="Dev only: colour each component">
+                Debug
+              </Pill>
+            )}
             {compareSlot}
             <Pill
               title={fullscreen ? "Show controls" : "Hide controls"}
