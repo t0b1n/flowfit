@@ -4,7 +4,7 @@
  * the 3D meshes: `design/riderBody.ts` and `design/bikeProfiles.ts`.
  */
 import { shoeAxis, shoeRadius } from "../design/foot";
-import { HEAD_GAZE_OFFSET_DEG, bump, calAt, headDeform, lerp, spinePath, torsoDepth, type SegmentName, type SpinePath } from "../design/riderBody";
+import { HEAD_GAZE_OFFSET_DEG, NECK_SLIM, bump, calAt, headDeform, lerp, spinePath, torsoDepth, type SegmentName, type SpinePath } from "../design/riderBody";
 import type { ContactPoint } from "../types";
 
 export type V = ContactPoint;
@@ -240,7 +240,7 @@ export function buildFigure(f: FigureInput): FigurePolys {
     ellipse(v(f.hip.x - 16, f.hip.y - 4), 80 * hs, 78 * hs),
     ellipse(v(f.hip.x - 52 * hs, f.hip.y - 20 * hs), 62 * hs, 56 * hs, ax * 0.3),
     seg(v(f.neckBase.x - 20, f.neckBase.y - 6), f.shoulder, (t) => lerp(42, 36, t) * hs),
-    seg(v(f.shoulder.x - 12, f.shoulder.y - 22), v(f.head.x - 26, f.head.y - 44), (t) => k("neck") * calAt("neck", 0.5) * lerp(44, 40, t)),
+    seg(v(f.shoulder.x - 12, f.shoulder.y - 22), v(f.head.x - 34, f.head.y - 50), (t) => k("neck") * calAt("neck", 0.5) * NECK_SLIM * lerp(44, 40, t)),
   ];
   const ua = Math.atan2(f.elbow.y - f.shoulder.y, f.elbow.x - f.shoulder.x);
   torso.push(ellipse(v(f.shoulder.x + Math.cos(ua) * 24, f.shoulder.y + Math.sin(ua) * 24), 58 * hs, 48 * hs, ua));

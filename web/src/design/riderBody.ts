@@ -138,7 +138,7 @@ export const calAt = (segment: SegmentName, t: number): number => {
 export function headDeform(x: number, y: number, z: number): [number, number, number] {
   // Adult male head: ~195 mm long, ~155 mm wide, ~225 mm crown to chin.
   let X = x * 97;
-  let Y = y * 112 - 8;
+  let Y = y * 112 + 18; // raised along the neck so the chin clears the shoulders
   let Z = z * 77;
   const low = smoothstep(0, -1, y); // 0 at the equator → 1 at the chin
   Z *= 1 - 0.22 * low; // jaw narrows
@@ -147,6 +147,9 @@ export function headDeform(x: number, y: number, z: number): [number, number, nu
   if (X > 0) X -= 7 * Math.max(0, x) ** 6; // flatter face
   return [X, Y, Z];
 }
+
+/** Neck thickness factor, so there is a visible gap under the chin and behind the skull. */
+export const NECK_SLIM = 0.82;
 
 /** Head gaze offset from the neck direction, in degrees. */
 export const HEAD_GAZE_OFFSET_DEG = 78;
