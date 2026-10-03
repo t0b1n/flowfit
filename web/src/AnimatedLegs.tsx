@@ -108,9 +108,14 @@ export function AnimatedLegs({
   const spindleRRef = useRef<THREE.Group>(null);
   const spindleLRef = useRef<THREE.Group>(null);
 
-  // Lengths are constant through the stroke: geometry is built once per fit change.
+  // Lengths are constant through the stroke: geometry is built once per fit change. `lut`, `hipR`, `hipL` and `bb` are new
+  // objects on every slider tick even when their numbers are unchanged, so the memo is keyed on the numbers it reads.
+  const p0 = lut.poses[0];
+  const dimsKey = [
+    p0.knee.x, p0.knee.y, p0.ankle.x, p0.ankle.y, p0.cleat.x, p0.cleat.y, p0.spindle.x, p0.spindle.y, lut.ankleSetbackMm,
+    ...hipR, ...hipL, bb[0], bb[1], halfStance, weightKg, heightMm,
+  ].map((n) => n.toFixed(2)).join("|");
   const dims = useMemo(() => {
-    const p0 = lut.poses[0];
     const hs = heightMm / 1800;
     const drawnAnkleX = p0.ankle.x - lut.ankleSetbackMm;
     const thighLen = dist3(hipR[0], hipR[1], hipR[2], p0.knee.x, p0.knee.y, halfStance);
@@ -142,10 +147,17 @@ export function AnimatedLegs({
       kneeR: MASSES.knee.radius * hs,
       ankleR: MASSES.ankle.radius * hs,
     };
-  }, [lut, hipR, hipL, bb, halfStance, weightKg, heightMm]);
+  }, [dimsKey]);
   useEffect(() => () => {
     dims.thigh.L.dispose(); dims.thigh.R.dispose(); dims.calf.L.dispose(); dims.calf.R.dispose(); dims.shoe.dispose();
   }, [dims]);
+
+  // One crank-arm geometry for both cranks, per crank length (it used to be rebuilt, and leaked, on every render).
+  const crankGeom = useMemo(
+    () => limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16),
+    [dims.crankLen],
+  );
+  useEffect(() => () => crankGeom.dispose(), [crankGeom]);
 
   const rings = useMemo(() => {
     const { big, small } = CHAINRING;
@@ -153,7 +165,7 @@ export function AnimatedLegs({
   }, []);
   useEffect(() => () => { rings.big.dispose(); rings.small.dispose(); }, [rings]);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     if (playing) {
       // cadence rpm → deg/s = rpm · 360 / 60 = rpm · 6
       crankAngleRef.current = (crankAngleRef.current + cadenceRpm * 6 * dt) % 360;
@@ -191,12 +203,13 @@ export function AnimatedLegs({
     pedalLRef.current?.position.set(left.spindle.x, left.spindle.y, zL);
     spindleRRef.current?.position.set(right.spindle.x, right.spindle.y, (CRANK_ROOT_Z + zR) / 2);
     spindleLRef.current?.position.set(left.spindle.x, left.spindle.y, (-CRANK_ROOT_Z + zL) / 2);
+    if (playing) state.invalidate(); // frameloop="demand": keep the animation running
   });
 
   const crank = (ref: React.RefObject<THREE.Group>) => (
     <group ref={ref}>
       <mesh>
-        <primitive object={limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16)} attach="geometry" />
+        <primitive object={crankGeom} attach="geometry" />
         {dbg("crank", M.carbon)}
       </mesh>
     </group>

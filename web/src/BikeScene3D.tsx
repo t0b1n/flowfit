@@ -30,6 +30,7 @@ import {
 import { AnimatedLegs } from "./AnimatedLegs";
 import { DebugProvider, useDbg, useDebugOn, DEBUG_ENABLED } from "./debug";
 import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
+import { GeometryCache } from "./scene3d/geometryCache";
 import { MatsProvider, useMats } from "./scene3d/materials";
 import { buildBar, buildHoodMeshes } from "./cockpit3d";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
@@ -460,7 +461,11 @@ function BikeStatic({
 }: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; discRear: boolean }) {
   const M = useMats();
   const debug = useDebugOn();
-  const { bike, hoods } = useMemo(() => {
+  // Shape-keyed geometry cache: the sliders mostly move parts, so rebuilding only what changed shape keeps ticks cheap.
+  const cache = useMemo(() => new GeometryCache(), []);
+  useEffect(() => () => cache.disposeAll(), [cache]);
+  const { bike, hoods, legacyHoods } = useMemo(() => {
+    cache.begin();
     const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape };
     const ck = geo.cockpit;
     const ckMats = { carbon: M.m.carbon, hood: M.m.hood, lever: M.m.lever, pad: M.m.tape, alloy: M.m.alloy };
@@ -468,22 +473,17 @@ function BikeStatic({
     let cockpitGroup: THREE.Group;
     if (ck) {
       cockpitGroup = new THREE.Group();
-      cockpitGroup.add(buildBar(ck, pivot, ckMats, debug));
-      cockpitGroup.add(buildHoodMeshes(ck, ckMats, debug));
+      cockpitGroup.add(buildBar(ck, pivot, ckMats, debug, cache));
+      cockpitGroup.add(buildHoodMeshes(ck, ckMats, debug, cache));
     } else {
-      cockpitGroup = buildHoods(geo.points, mats, debug); // older JSON without a cockpit model
+      cockpitGroup = buildHoods(geo.points, mats, debug); // older JSON without a cockpit model (uncached: disposed below)
     }
-    return {
-      bike: buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug, integratedStem: ck?.build === "integrated" }),
-      hoods: cockpitGroup,
-    };
-  }, [geo, tubes, wheelRadius, discRear, M, debug]);
-  useEffect(
-    () => () => {
-      for (const grp of [bike, hoods]) grp.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
-    },
-    [bike, hoods],
-  );
+    const bike = buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug, integratedStem: ck?.build === "integrated", cache });
+    return { bike, hoods: cockpitGroup, legacyHoods: ck ? null : cockpitGroup };
+  }, [geo, tubes, wheelRadius, discRear, M, debug, cache]);
+  // Sweep after commit: the previous group is still in the scene during render and must not lose its geometry.
+  useEffect(() => cache.end(), [bike, hoods, cache]);
+  useEffect(() => () => legacyHoods?.traverse((o) => (o as THREE.Mesh).geometry?.dispose()), [legacyHoods]);
   return (
     <>
       <primitive object={bike} />
@@ -495,16 +495,17 @@ function BikeStatic({
 /** The static clay rider (legs only when no stroke LUT is available; otherwise AnimatedLegs owns them). */
 function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
   const M = useMats();
+  const cache = useMemo(() => new GeometryCache(), []);
+  useEffect(() => () => cache.disposeAll(), [cache]);
   const group = useMemo(() => {
     const pts = new Map(geo.points.filter((p) => p.group === "mannequin").map((p) => [p.name, p.pos as P3]));
     const heightMm = geo.rider?.height ?? 1800;
-    if (tPose) return buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { weightKg, heightMm, includeLegs: true, feet: true });
-    return buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs, handRollDeg: geo.cockpit?.hoodRollDeg ?? 0 });
-  }, [geo, weightKg, includeLegs, M, tPose]);
-  useEffect(
-    () => () => group.traverse((o) => (o as THREE.Mesh).geometry?.dispose()),
-    [group],
-  );
+    cache.begin();
+    return tPose
+      ? buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { weightKg, heightMm, includeLegs: true, feet: true }, cache)
+      : buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs, handRollDeg: geo.cockpit?.hoodRollDeg ?? 0 }, cache);
+  }, [geo, weightKg, includeLegs, M, tPose, cache]);
+  useEffect(() => cache.end(), [group, cache]);
   return <primitive object={group} />;
 }
 
@@ -875,7 +876,23 @@ const SceneContent = React.memo(function SceneContent({
   // The light stage reads a touch darker than the page token once lit (as in mock-up 02): match the clear colour to it.
   const stageBg = useMemo(() => new THREE.Color(tokens.bg).multiplyScalar(light ? 0.86 : 1), [tokens.bg, light]);
   // Every bike and rider mesh casts and receives shadows (the stage floor only receives).
-  const { scene } = useThree();
+  const { scene, gl, invalidate } = useThree();
+  // Frames render on demand (Canvas frameloop="demand"): ask for one when anything the scene shows has changed.
+  // Prop changes that reach the scene graph invalidate by themselves; this covers the ones that do not (overlay toggles,
+  // focus / hover highlights, theme and quality).
+  useEffect(() => {
+    invalidate();
+  }, [invalidate, geo, theme, quality, showAngles, showDimensions, showKops, focused, pinned, hovered]);
+  // DEV: shader programs / geometries on the GPU. Both should stay flat while a slider drags (`window.__glInfo()`).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const info = () => ({ programs: gl.info.programs?.length ?? 0, geometries: gl.info.memory.geometries, textures: gl.info.memory.textures });
+    (window as unknown as { __glInfo?: () => unknown; __scene?: THREE.Scene }).__glInfo = info;
+    (window as unknown as { __scene?: THREE.Scene; __gl?: THREE.WebGLRenderer }).__scene = scene;
+    (window as unknown as { __gl?: THREE.WebGLRenderer }).__gl = gl;
+    const id = window.setInterval(() => console.debug("[gl]", JSON.stringify(info())), 1000);
+    return () => window.clearInterval(id);
+  }, [gl, scene]);
   useEffect(() => {
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
@@ -884,7 +901,7 @@ const SceneContent = React.memo(function SceneContent({
         m.receiveShadow = true;
       }
     });
-  });
+  }, [scene, geo, tPose, showMannequin, discWheels, debugParts, strokeLUT, weightKg, stanceWidth, attachedAssets]);
 
   return (
     <DebugProvider value={debugParts}>
@@ -1099,7 +1116,7 @@ function CameraPresetRig({
   camDist: number;
   points: Map<string, [number, number, number]>;
 }) {
-  const { camera, controls } = useThree();
+  const { camera, controls, invalidate } = useThree();
   const goalRef = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
 
   useEffect(() => {
@@ -1115,6 +1132,7 @@ function CameraPresetRig({
         // Cockpit: three-quarter front view, close in on the bars and hoods.
         goalRef.current = { pos: mid.clone().add(new THREE.Vector3(470, 210, 400)), target: mid };
       }
+      invalidate();
       return;
     }
     const [cx, cy, cz] = center;
@@ -1128,10 +1146,11 @@ function CameraPresetRig({
       pos: new THREE.Vector3(...pos),
       target: new THREE.Vector3(cx, cy, cz),
     };
+    invalidate();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.nonce]);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const goal = goalRef.current;
     if (!goal) return;
     damp3(camera.position, goal.pos, 7, dt);
@@ -1140,7 +1159,9 @@ function CameraPresetRig({
       damp3(orbit.target, goal.target, 7, dt);
       orbit.update?.();
     }
-    if (camera.position.distanceTo(goal.pos) < 2) goalRef.current = null;
+    // Stop once the camera is within 0.5 mm of the goal, so the loop goes idle; otherwise ask for the next frame.
+    if (camera.position.distanceTo(goal.pos) < 0.5) goalRef.current = null;
+    else state.invalidate();
   });
   return null;
 }
@@ -1250,6 +1271,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   // the canvas); scrub state mirrors it at low frequency for the slider thumb.
   // 0° puts the near-side (right, +Z) leg at BDC — the pose the 2D fit view shows.
   const crankAngleRef = useRef(0);
+  /** set by the Canvas: lets DOM controls outside it (crank scrub) request a frame under frameloop="demand" */
+  const invalidateRef = useRef<() => void>(() => {});
   const [playing, setPlaying] = useState(false);
   const [cadenceRpm, setCadenceRpm] = useState(60);
   const [scrubDeg, setScrubDeg] = useState(0);
@@ -1599,6 +1622,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
               onChange={(e) => {
                 const v = Number(e.target.value);
                 crankAngleRef.current = v;
+                invalidateRef.current();
                 setScrubDeg(v);
                 setPlaying(false);
               }}
@@ -1620,6 +1644,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             title="Set the near-side crank to 3 o'clock (the KOPS reference position)"
             onClick={() => {
               crankAngleRef.current = 270; // near/left leg = 270 + 180 = 90°
+              invalidateRef.current();
               setScrubDeg(270);
               setPlaying(false);
             }}
@@ -1689,6 +1714,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
       <div className="bike3d-canvas-wrapper" ref={wrapRef} tabIndex={0} style={{ ["--bike3d-bg" as string]: TOKENS[theme].bg }}>
         <Canvas
           shadows
+          frameloop="demand"
+          onCreated={({ invalidate }) => { invalidateRef.current = invalidate; }}
           camera={{ position: camPos, fov: 30, near: 1, far: 50000 }}
           gl={{
             alpha: false,

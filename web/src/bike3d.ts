@@ -5,7 +5,7 @@
  * descriptors that BikeScene3D renders as cylinder meshes.
  *
  * Coordinate system (matches backend origin = bb, units mm):
- *   X — forward,  Y — up,  Z — lateral (positive = rider's left)
+ *   X — forward,  Y — up,  Z — lateral (positive = rider's right, the drive side)
  */
 
 import * as THREE from "three";
@@ -14,6 +14,7 @@ import { CHAINRING, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName }
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { forkFrame, forkSpine } from "./design/fork";
 import type { Cockpit } from "./cockpit";
+import { GeometryCache, k1 } from "./scene3d/geometryCache";
 
 export interface Geometry3DPoint {
   name: string;
@@ -305,16 +306,19 @@ type V3 = [number, number, number];
 const vv = (p: V3) => new THREE.Vector3(p[0], p[1], p[2]);
 const lerpN = (a: number, b: number, t: number) => a + (b - a) * t;
 
-const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 6): THREE.Mesh => {
-  const m = new THREE.Mesh(limbGeometry(a.distanceTo(b), (t) => lerpN(r0, r1, t), seg, 20), mat);
+const taperMesh = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg: number, cache?: GeometryCache): THREE.Mesh => {
+  const len = a.distanceTo(b);
+  const build = () => limbGeometry(len, (t) => lerpN(r0, r1, t), seg, 20);
+  const m = new THREE.Mesh(cache ? cache.get(`taper|${k1(len)}|${r0}|${r1}|${seg}`, build) : build(), mat);
   orientBetween(m, a, b);
   return m;
 };
 
 /** Flat-ended cylinder a → b (radius r0 at a, r1 at b): exactly |a→b| long, unlike `taper`'s round caps. */
-const cylinder = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material): THREE.Mesh => {
+const cylinderMesh = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, cache?: GeometryCache): THREE.Mesh => {
   const len = a.distanceTo(b);
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 28), mat);
+  const build = () => new THREE.CylinderGeometry(r1, r0, len, 28);
+  const m = new THREE.Mesh(cache ? cache.get(`cyl|${k1(len)}|${r0}|${r1}`, build) : build(), mat);
   m.position.copy(a).lerp(b, 0.5);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
   return m;
@@ -322,18 +326,20 @@ const cylinder = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, ma
 
 const FRAME_TUBES = new Set<string>(["down_tube", "seat_tube", "top_tube", "head_tube", "chainstay", "seatstay"]);
 
-function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { disc: boolean; rotorR: number }) {
+function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { disc: boolean; rotorR: number }, cache?: GeometryCache) {
+  const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 6) => taperMesh(a, b, r0, r1, mat, seg, cache);
+  /** wheel parts depend only on the wheel radius / rotor radius: placement is the mesh transform */
+  const part = <G extends THREE.BufferGeometry>(key: string, build: () => G): G => (cache ? cache.get(`wheel|${key}`, build) : build());
   const w = new THREE.Group();
   w.position.set(c[0], c[1], c[2]);
-  const tyre = new THREE.Mesh(new THREE.TorusGeometry(R - 14, 14, 18, 88), mats.tyre);
+  const tyre = new THREE.Mesh(part(`tyre|${R}`, () => new THREE.TorusGeometry(R - 14, 14, 18, 88)), mats.tyre);
   w.add(tyre);
   // Carbon deep rim: lathe profile around the axle (axis → Z)
-  const prof = RIM.lathe.map(([dr, y]) => new THREE.Vector2(R - dr, y));
-  const rim = new THREE.Mesh(new THREE.LatheGeometry(prof, 120), mats.carbon);
+  const rim = new THREE.Mesh(part(`rim|${R}`, () => new THREE.LatheGeometry(RIM.lathe.map(([dr, y]) => new THREE.Vector2(R - dr, y)), 120)), mats.carbon);
   rim.rotation.x = Math.PI / 2;
   w.add(rim);
   if (opts.disc) {
-    const disc = new THREE.Mesh(new THREE.CylinderGeometry(R - 74, R - 74, 18, 64, 1), mats.carbon);
+    const disc = new THREE.Mesh(part(`disc|${R}`, () => new THREE.CylinderGeometry(R - 74, R - 74, 18, 64, 1)), mats.carbon);
     disc.rotation.x = Math.PI / 2;
     w.add(disc);
   } else {
@@ -345,12 +351,12 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
       w.add(taper(s, e, 1.1, 1.1, mats.spoke, 1));
     }
   }
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(HUB.shellR, HUB.shellR, 2 * HUB.shellHalf, 16, 1), mats.alloy);
+  const hub = new THREE.Mesh(part("hub", () => new THREE.CylinderGeometry(HUB.shellR, HUB.shellR, 2 * HUB.shellHalf, 16, 1)), mats.alloy);
   hub.rotation.x = Math.PI / 2;
   w.add(hub);
   // Disc rotor on the rider's left (−Z, non-drive) side: ring + 6 spokes, flat-mount caliper
   const rr = opts.rotorR;
-  const ring = new THREE.Mesh(new THREE.RingGeometry(rr - 16, rr, 64), mats.rotor);
+  const ring = new THREE.Mesh(part(`ring|${rr}`, () => new THREE.RingGeometry(rr - 16, rr, 64)), mats.rotor);
   ring.position.z = -24;
   (ring.material as THREE.Material).side = THREE.DoubleSide;
   w.add(ring);
@@ -360,7 +366,7 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
     const e = new THREE.Vector3((rr - 16) * Math.cos(a), (rr - 16) * Math.sin(a), -24);
     w.add(taper(s, e, 4, 4, mats.rotor, 1));
   }
-  const cal = new THREE.Mesh(new THREE.BoxGeometry(60, 26, 18), mats.alloy);
+  const cal = new THREE.Mesh(part("caliper", () => new THREE.BoxGeometry(60, 26, 18)), mats.alloy);
   cal.position.set(Math.cos(0.9) * (rr + 8), Math.sin(0.9) * (rr + 8), -24);
   cal.rotation.z = 0.9 - Math.PI / 2;
   w.add(cal);
@@ -405,9 +411,14 @@ function forkGeometry(crown: { x: number; y: number }, axle: { x: number; y: num
  * calipers), rear cassette, derailleurs and chain, bottle and cage. The swept handlebar and the saddle stay
  * in BikeScene3D. Named "bike-root".
  */
-export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], wheelRadius: number, mats: BikeMaterials, opts: { discRear: boolean; debug?: boolean; integratedStem?: boolean }): THREE.Group {
+export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], wheelRadius: number, mats: BikeMaterials, opts: { discRear: boolean; debug?: boolean; integratedStem?: boolean; cache?: GeometryCache }): THREE.Group {
   const g = new THREE.Group();
   g.name = "bike-root";
+  const cache = opts.cache;
+  const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 6) => taperMesh(a, b, r0, r1, mat, seg, cache);
+  const cylinder = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material) => cylinderMesh(a, b, r0, r1, mat, cache);
+  /** fixed-size primitives (shape numbers in the key, placement is the mesh transform) */
+  const prim = <G extends THREE.BufferGeometry>(key: string, build: () => G): G => (cache ? cache.get(key, build) : build());
   const P = new Map(points.map((p) => [p.name, p.pos as V3]));
   /** debug mode: flat per-part colour instead of the real material */
   const pick = (part: string, m: THREE.Material): THREE.Material => (opts.debug ? debugMaterial(partForTube(part)) : m);
@@ -448,7 +459,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       if (!opts.integratedStem) {
         g.add(taper(a, b, STEM.armR[0], STEM.armR[1], pick("stem", mats.carbon)));
         // bar clamp body around the bar (the bar itself is drawn in the scene)
-        const bc = new THREE.Mesh(new THREE.CylinderGeometry(STEM.barClampR, STEM.barClampR, STEM.barClampWidth, 28), pick("stem", mats.carbon));
+        const bc = new THREE.Mesh(prim(`cyl|barclamp|${STEM.barClampR}|${STEM.barClampWidth}`, () => new THREE.CylinderGeometry(STEM.barClampR, STEM.barClampR, STEM.barClampWidth, 28)), pick("stem", mats.carbon));
         bc.position.copy(b);
         bc.rotation.x = Math.PI / 2; // axis along the bar (lateral, Z)
         g.add(bc);
@@ -466,13 +477,14 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const axle = { x: forkR[0], y: forkR[1] };
     const zc = (forkR[2] + forkL[2]) / 2;
     const half = Math.abs(forkR[2] - forkL[2]) / 2;
-    g.add(new THREE.Mesh(forkGeometry(crown, axle, zc, half), pick("fork", mats.frame)));
+    const forkKey = `fork|${k1(crown.x)}|${k1(crown.y)}|${k1(axle.x)}|${k1(axle.y)}|${k1(zc)}|${k1(half)}`;
+    g.add(new THREE.Mesh(cache ? cache.get(forkKey, () => forkGeometry(crown, axle, zc, half)) : forkGeometry(crown, axle, zc, half), pick("fork", mats.frame)));
     g.add(cylinder(new THREE.Vector3(axle.x, axle.y, zc - half - 6), new THREE.Vector3(axle.x, axle.y, zc + half + 6), HUB.axleR, HUB.axleR, pick("fork", mats.alloy)));
   }
 
   // Junction fillets
   const ball = (p: V3, r: number, m: THREE.Material) => {
-    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 16), m);
+    const s = new THREE.Mesh(prim(`ball|${r}`, () => new THREE.SphereGeometry(r, 20, 16)), m);
     s.position.set(p[0], p[1], p[2]);
     g.add(s);
   };
@@ -494,15 +506,15 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const wheelMats: BikeMaterials = opts.debug
     ? { ...mats, carbon: debugMaterial("wheel"), tyre: debugMaterial("wheel"), spoke: debugMaterial("wheel"), alloy: debugMaterial("wheel"), rotor: debugMaterial("brakes") }
     : mats;
-  if (rear) addWheel(g, rear, wheelRadius, wheelMats, { disc: opts.discRear, rotorR: 70 });
-  if (front) addWheel(g, front, wheelRadius, wheelMats, { disc: false, rotorR: 80 });
+  if (rear) addWheel(g, rear, wheelRadius, wheelMats, { disc: opts.discRear, rotorR: 70 }, cache);
+  if (front) addWheel(g, front, wheelRadius, wheelMats, { disc: false, rotorR: 80 }, cache);
 
   // Rear cassette, derailleur and chain (drive side = rider's right = +Z; forward +x, up +y makes +Z the right-hand side)
   if (rear) {
     const { cassette } = CHAINRING;
     for (let i = 0; i < cassette.rings; i++) {
       const r = lerpN(cassette.outerRadius, cassette.innerRadius, i / (cassette.rings - 1));
-      const c = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 2.2, 36), pick("drivetrain", mats.alloy));
+      const c = new THREE.Mesh(prim(`cog|${r}`, () => new THREE.CylinderGeometry(r, r, 2.2, 36)), pick("drivetrain", mats.alloy));
       c.rotation.x = Math.PI / 2;
       c.position.set(rear[0], rear[1], 42 + i * 3.9);
       g.add(c);
@@ -513,7 +525,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     g.add(taper(vv(rear).add(new THREE.Vector3(-22, -36, 72)), up.clone().add(new THREE.Vector3(-4, 4, 8)), 12, 12, pick("drivetrain", mats.carbon), 4));
     g.add(taper(up, lo, 10, 10, pick("drivetrain", mats.carbon), 4));
     for (const p of [up, lo]) {
-      const pu = new THREE.Mesh(new THREE.CylinderGeometry(17, 17, 8, 24), pick("drivetrain", mats.alloy));
+      const pu = new THREE.Mesh(prim("pulley", () => new THREE.CylinderGeometry(17, 17, 8, 24)), pick("drivetrain", mats.alloy));
       pu.rotation.x = Math.PI / 2;
       pu.position.copy(p).add(new THREE.Vector3(0, 0, 6));
       g.add(pu);
@@ -529,7 +541,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     run([ringTop, cogTop]);
     run([ringBot, lo.clone().add(new THREE.Vector3(-12, -17, 0)), lo.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(-12, 17, 0)), cogBot]);
     // Front derailleur
-    const fd = new THREE.Mesh(new THREE.BoxGeometry(70, 26, 12), pick("drivetrain", mats.alloy));
+    const fd = new THREE.Mesh(prim("box|front-derailleur", () => new THREE.BoxGeometry(70, 26, 12)), pick("drivetrain", mats.alloy));
     fd.position.set(bb[0] + (cl[0] - bb[0]) * 0.27, bb[1] + (cl[1] - bb[1]) * 0.27, 62);
     fd.rotation.z = Math.atan2(seatDir.y, seatDir.x) - Math.PI / 2 + 0.25;
     g.add(fd);

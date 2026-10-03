@@ -263,6 +263,10 @@ For visualization, the frontend builds its own 3D mannequin using `buildMannequi
 3. `buildMannequin3DPoints()` expands the 2D sagittal-plane mannequin into bilateral 3D using the same Z-spread rules and point/edge names as the backend (`mannequin3d.py` / `geometry_export.py`).
 4. `BikeScene3D` merges the frontend mannequin with the backend frame geometry. Frame edges go through `buildTubes()` (unchanged cylinders). Mannequin edges go through `buildMannequinParts()` which produces distinct primitives (spheres, cylinders, capsules, tapered cylinders) with weight-scaled radii.
 
+**Torso surface and back bend (rendering only):** the solver's hinge turns the upper torso about `spine_joint` by `backBendDeg`, so hip → spine → shoulder is a polyline. The rendered torso (3D `buildRiderMeshes`, 2D `buildFigure`) follows `spinePath()` (`design/riderBody.ts`) instead: straight → circular arc over `SPINE_BEND_LENGTH` (400 mm) → straight, turning by the same angle and ending exactly on the solved shoulder. No joint, metric or angle changes. The 3D lathe is bent onto the path by `bendTorso()` (`riderMesh.ts`); at 0° it reproduces the straight torso.
+
+**Geometry cache:** the 3D mesh builders take an optional shape-keyed `GeometryCache` (`scene3d/geometryCache.ts`), so a slider tick only rebuilds geometry whose shape numbers changed; placement is the mesh transform.
+
 **Contract:** The frontend bilateral expansion must produce the same point names, edge definitions, and Z-spread rules as the backend. This is enforced by regression tests in `tests/test_bilateral_expansion.py`.
 
 ---

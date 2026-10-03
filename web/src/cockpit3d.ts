@@ -9,6 +9,7 @@ import * as THREE from "three";
 import { BAR_RADIUS, barCenterline3D, type Cockpit, type Vec3 } from "./cockpit";
 import { debugMaterial } from "./debug";
 import type { Pt } from "./hoodModels";
+import { GeometryCache, k1 } from "./scene3d/geometryCache";
 
 export interface CockpitMaterials {
   carbon: THREE.Material;
@@ -96,13 +97,18 @@ const smooth = (e0: number, e1: number, x: number) => {
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 
 /** Handlebar: both sides swept, plus a faceplate (two-piece) or a fused bar-stem (integrated). */
-export function buildBar(ck: Cockpit, stemPivot: Vec3 | null, mats: CockpitMaterials, debug = false): THREE.Group {
+export function buildBar(ck: Cockpit, stemPivot: Vec3 | null, mats: CockpitMaterials, debug = false, cache?: GeometryCache): THREE.Group {
   const g = new THREE.Group();
   g.name = "cockpit-bar";
   const barMat = debug ? debugMaterial("bar") : mats.carbon;
   const integrated = ck.build === "integrated";
+  // Sweeps are built relative to the clamp and placed with the mesh transform, so the cached shape survives the stem
+  // and spacer sliders (they only move the clamp).
+  const c = ck.clamp;
+  const rel = (p: Vec3): Vec3 => [p[0] - c.x, p[1] - c.y, p[2]];
+  const relKey = (ps: Vec3[]) => ps.map((p) => p.map(k1).join(",")).join(";");
   for (const s of [1, -1] as const) {
-    const pts = barCenterline3D(ck, s);
+    const pts = barCenterline3D(ck, s).map(rel);
     const f = controlFractions(pts);
     // indices into barCenterline3D (before any zero-length collapse, which only ever removes none of these in practice)
     const uTopsEnd = f[Math.min(4, f.length - 1)];
@@ -118,24 +124,28 @@ export function buildBar(ck: Cockpit, stemPivot: Vec3 | null, mats: CockpitMater
       const t = smooth(uClamp, uClamp + 0.05, u);
       return [mix(15.9, BAR_RADIUS, t), mix(15.9, BAR_RADIUS, t)];
     };
-    g.add(new THREE.Mesh(sweepTube(pts, section, { capEnd: true }), barMat));
+    const geom = () => sweepTube(pts, section, { capEnd: true });
+    const bar = new THREE.Mesh(cache ? cache.get(`bar|${integrated ? "int" : "std"}|${s}|${relKey(pts)}`, geom) : geom(), barMat);
+    bar.position.set(c.x, c.y, 0);
+    g.add(bar);
   }
-  const c = ck.clamp;
   if (integrated && stemPivot) {
     // One-piece bar-stem: the stem body widens and flattens into the bar centre.
-    const piv = new THREE.Vector3(...stemPivot);
-    const cl = new THREE.Vector3(c.x, c.y, 0);
-    const mid = piv.clone().lerp(cl, 0.55);
-    const path: Vec3[] = [[piv.x, piv.y, 0], [mid.x, mid.y, 0], [cl.x + 6, cl.y + ck.rise * 0.25, 0]];
-    const stem = sweepTube(path, (u) => [mix(19, 36, smooth(0.2, 1, u)), mix(18, 11, smooth(0, 1, u))], { samples: 40, ring: 24, capEnd: true });
-    g.add(new THREE.Mesh(stem, debug ? debugMaterial("stem") : mats.carbon));
+    const piv = new THREE.Vector3(stemPivot[0] - c.x, stemPivot[1] - c.y, 0);
+    const mid = piv.clone().lerp(new THREE.Vector3(0, 0, 0), 0.55);
+    const path: Vec3[] = [[piv.x, piv.y, 0], [mid.x, mid.y, 0], [6, ck.rise * 0.25, 0]];
+    const geom = () => sweepTube(path, (u) => [mix(19, 36, smooth(0.2, 1, u)), mix(18, 11, smooth(0, 1, u))], { samples: 40, ring: 24, capEnd: true });
+    const stem = new THREE.Mesh(cache ? cache.get(`stem|${relKey(path)}`, geom) : geom(), debug ? debugMaterial("stem") : mats.carbon);
+    stem.position.set(c.x, c.y, 0);
+    g.add(stem);
   } else {
     // Faceplate with four bolts on the front of the stem clamp.
-    const plate = new THREE.Mesh(new THREE.BoxGeometry(8, 38, 50), debug ? debugMaterial("stem") : mats.carbon);
+    const plate = new THREE.Mesh(cache ? cache.get("box|faceplate", () => new THREE.BoxGeometry(8, 38, 50)) : new THREE.BoxGeometry(8, 38, 50), debug ? debugMaterial("stem") : mats.carbon);
     plate.position.set(c.x + 17, c.y, 0);
     g.add(plate);
     for (const [dy, dz] of [[11, 17], [-11, 17], [11, -17], [-11, -17]]) {
-      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 3, 10), mats.alloy);
+      const boltGeom = () => new THREE.CylinderGeometry(3, 3, 3, 10);
+      const bolt = new THREE.Mesh(cache ? cache.get("cyl|bolt", boltGeom) : boltGeom(), mats.alloy);
       bolt.rotation.z = Math.PI / 2;
       bolt.position.set(c.x + 22, c.y + dy, dz);
       g.add(bolt);
@@ -166,13 +176,14 @@ function extrudeOutline(pts: Pt[], thick: number, bevel: number): THREE.BufferGe
 }
 
 /** Shift/brake hoods for both sides from the traced outline, pitched and rotated in like the real thing. */
-export function buildHoodMeshes(ck: Cockpit, mats: CockpitMaterials, debug = false): THREE.Group {
+export function buildHoodMeshes(ck: Cockpit, mats: CockpitMaterials, debug = false, cache?: GeometryCache): THREE.Group {
   const g = new THREE.Group();
   g.name = "cockpit-hoods";
   const prof = ck.hood.profile;
-  const body = extrudeOutline(prof.body, ck.hood.thickness, 12);
-  const lever = extrudeOutline(prof.lever, 11, 3.5);
-  const pad = extrudeOutline(prof.pad, ck.hood.padOnLever ? 3 : 7, 1.2);
+  const part = (name: string, build: () => THREE.BufferGeometry) => (cache ? cache.get(`hood|${ck.hood.id}|${name}`, build) : build());
+  const body = part(`body|${ck.hood.thickness}`, () => extrudeOutline(prof.body, ck.hood.thickness, 12));
+  const lever = part("lever", () => extrudeOutline(prof.lever, 11, 3.5));
+  const pad = part(`pad|${ck.hood.padOnLever}`, () => extrudeOutline(prof.pad, ck.hood.padOnLever ? 3 : 7, 1.2));
   for (const s of [1, -1] as const) {
     const side = new THREE.Group();
     side.add(new THREE.Mesh(body, debug ? debugMaterial("hood") : mats.hood));

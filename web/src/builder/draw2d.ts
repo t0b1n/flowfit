@@ -4,7 +4,7 @@
  * the 3D meshes: `design/riderBody.ts` and `design/bikeProfiles.ts`.
  */
 import { shoeAxis, shoeRadius } from "../design/foot";
-import { HEAD_GAZE_OFFSET_DEG, bump, calAt, headDeform, lerp, torsoDepth, type SegmentName } from "../design/riderBody";
+import { HEAD_GAZE_OFFSET_DEG, bump, calAt, headDeform, lerp, spinePath, torsoDepth, type SegmentName, type SpinePath } from "../design/riderBody";
 import type { ContactPoint } from "../types";
 
 export type V = ContactPoint;
@@ -69,6 +69,38 @@ export function seg(a: V, b: V, prof: (t: number) => number, n = 18): string {
   };
   const ang = Math.atan2(uy, ux);
   return pts([...left, ...cap(b, prof(1), ang - Math.PI / 2), ...right.reverse(), ...cap(a, prof(0), ang + Math.PI / 2)]);
+}
+
+/**
+ * Outline of a limb whose axis is a `spinePath` between arc lengths s0 → s1: radius `prof(t)` with t running 0 → 1
+ * over that span, offset along the path normal, round end caps. A straight path gives the same shape as `seg`.
+ */
+export function pathSeg(path: SpinePath, s0: number, s1: number, prof: (t: number) => number, n = 18): string {
+  const left: Array<[number, number]> = [];
+  const right: Array<[number, number]> = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const { p, t: u } = path.at(s0 + (s1 - s0) * t);
+    const r = prof(t);
+    left.push([p.x - u.y * r, p.y + u.x * r]);
+    right.push([p.x + u.y * r, p.y - u.x * r]);
+  }
+  const cap = (c: V, r: number, a0: number) => {
+    const o: Array<[number, number]> = [];
+    for (let i = 0; i <= 10; i++) {
+      const ang = a0 + (i / 10) * Math.PI;
+      o.push([c.x + Math.cos(ang) * r, c.y + Math.sin(ang) * r]);
+    }
+    return o;
+  };
+  const a = path.at(s0);
+  const b = path.at(s1);
+  return pts([
+    ...left,
+    ...cap(b.p, prof(1), Math.atan2(b.t.y, b.t.x) - Math.PI / 2),
+    ...right.reverse(),
+    ...cap(a.p, prof(0), Math.atan2(a.t.y, a.t.x) + Math.PI / 2),
+  ]);
 }
 
 export const tube = (a: V, b: V, r0: number, r1: number) => seg(a, b, (t) => lerp(r0, r1, t), 6);
@@ -180,10 +212,10 @@ export function buildFigure(f: FigureInput): FigurePolys {
   };
 
   const ax = Math.atan2(f.shoulder.y - f.hip.y, f.shoulder.x - f.hip.x);
-  const cosA = Math.cos(ax);
-  const sinA = Math.sin(ax);
+  // The spine bends smoothly over ~40 cm (the same curve the 3D torso follows); the shoulder is unchanged.
+  const spine = spinePath(f.hip, f.spineJoint, f.shoulder);
   const torso: string[] = [
-    seg(v(f.hip.x - cosA * 10, f.hip.y - sinA * 10), v(f.shoulder.x - cosA * 18, f.shoulder.y - sinA * 18), torsoProf, 28),
+    pathSeg(spine, -10, spine.len - 18, torsoProf, 28),
     ellipse(v(f.hip.x - 16, f.hip.y - 4), 80 * hs, 78 * hs),
     ellipse(v(f.hip.x - 52 * hs, f.hip.y - 20 * hs), 62 * hs, 56 * hs, ax * 0.3),
     seg(v(f.neckBase.x - 20, f.neckBase.y - 6), f.shoulder, (t) => lerp(42, 36, t) * hs),
