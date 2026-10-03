@@ -10,6 +10,7 @@ import { DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasureme
 import type { BikeSelection, Components, FitMode, RiderFit } from "../types";
 import { Tier, PRESET_LABELS, PEDAL_PRESETS, SHOE_PRESETS } from "./shared";
 import type { buildRider } from "../geometry";
+import { SWORKS_POWER, railClampStatus, railOffsetLimits } from "../saddleModels";
 import type { FrameModel, SizeData, FrameGeometry } from "../frameCatalog";
 export interface ControlsColumnProps {
   mobilePanel: "controls" | "results" | null;
@@ -329,7 +330,7 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
                 [
                   ["Saddle stack", components.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
                   ["Seatpost offset", components.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
-                  ["Rail offset", components.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
+                  ["Rail offset", components.saddle_rail_offset, -60, 60, 2, "saddle_rail_offset", "mm"],
                   ["Crank length", components.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
                 ] as const
               ).map(([label, value, min, max, step, key, unit]) => (
@@ -352,6 +353,17 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
                 onReset={() => setTyreSize(DEFAULT_TYRE_SIZE)}
               />
             </div>
+            {(() => {
+              const { min, max } = railOffsetLimits(SWORKS_POWER);
+              const rail = railClampStatus(SWORKS_POWER, components.saddle_rail_offset);
+              return (
+                <p className="subpanel-note" style={rail.inBounds ? undefined : { color: "var(--band-out)" }}>
+                  {rail.inBounds
+                    ? `Rail offset in range for this saddle: ${min.toFixed(0)} to +${max.toFixed(0)} mm.`
+                    : `Rail offset is ${rail.overshootMm.toFixed(0)} mm outside the saddle's clampable range (${min.toFixed(0)} to +${max.toFixed(0)} mm): the clamp would grip the bend of the rails.`}
+                </p>
+              );
+            })()}
           </CollapsibleSection>
 
           <CollapsibleSection eyebrow="Advanced" title="Shoes & pedals" defaultOpen={false}>

@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { type FrameMeasurementId, type FrameMeasurementVisibility } from "./BikeAnnotations";
 import { useCatalog } from "./catalog/CatalogContext";
 import { HOOD_PRESETS } from "./components/hoodPresets";
-import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, hoodFit, idealContactsFromRider, idealContactsFromSaddleHeight, saddleForKneeExtension, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
+import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, SADDLE_CONTACT_TO_CLAMP_MM, hoodFit, idealContactsFromRider, idealContactsFromSaddleHeight, saddleForKneeExtension, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
 import { buildCockpit, hoodPitchDeg } from "./cockpit";
@@ -106,7 +106,7 @@ export const FitBuilderMode: React.FC = () => {
   const targetKneeExtension = 180 - riderFit.targetKneeFlexDeg;
 
   // Saddle x relative to the seat-tube line (setback post / rail position): the IK hip sits above the real saddle.
-  const saddleXOffset = components.saddle_rail_offset - components.seatpost_offset;
+  const saddleXOffset = components.saddle_rail_offset - components.seatpost_offset + SADDLE_CONTACT_TO_CLAMP_MM;
 
   // Saddle (and cleat) targets; the hood target depends on the solved rider and is added below.
   const idealBase = useMemo(
@@ -241,8 +241,8 @@ export const FitBuilderMode: React.FC = () => {
   const idealContacts = useMemo(() => ({ ...idealBase, hoods: hood.target }), [idealBase, hood.target]);
 
   const warnings = useMemo(
-    () => fitWarnings({ ideal: idealContacts, bike, hood, stroke: strokeMetrics, maxSaddleHeightMm }),
-    [idealContacts, bike, hood, strokeMetrics, maxSaddleHeightMm]
+    () => fitWarnings({ ideal: idealContacts, bike, hood, stroke: strokeMetrics, maxSaddleHeightMm, railOffsetMm: components.saddle_rail_offset }),
+    [idealContacts, bike, hood, strokeMetrics, maxSaddleHeightMm, components.saddle_rail_offset]
   );
 
   const barReachNeededValue = useMemo(

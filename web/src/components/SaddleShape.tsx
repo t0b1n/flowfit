@@ -1,7 +1,7 @@
 import React from "react";
 
 import type { ContactPoint } from "../types";
-import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, contactX, type Pt, type SaddleTrace } from "../saddleModels";
+import { SADDLE_CONTACT_U, SEATPOST_CLAMP_WIDTH_MM, SWORKS_POWER, contactHeight, contactX, type Pt, type SaddleTrace } from "../saddleModels";
 
 const path = (pts: Pt[], at: (p: Pt) => Pt) =>
   pts.map((p, i) => { const [x, y] = at(p); return `${i ? "L" : "M"} ${x.toFixed(1)},${y.toFixed(1)}`; }).join(" ") + " Z";
@@ -11,10 +11,12 @@ const path = (pts: Pt[], at: (p: Pt) => Pt) =>
 // traced stack (the default).
 export const SaddleShape: React.FC<{
   contact: ContactPoint; // saddle surface
-  clamp: ContactPoint;   // visual seatpost head / rail support
+  clamp: ContactPoint;   // seatpost head top: where the clamp grips the rails
   className?: string;
   trace?: SaddleTrace;
-}> = ({ contact, clamp, className, trace = SWORKS_POWER }) => {
+  /** clamp has slid off the straight rail section: drawn red */
+  clampOutOfBounds?: boolean;
+}> = ({ contact, clamp, className, trace = SWORKS_POWER, clampOutOfBounds = false }) => {
   const cx = contactX(trace, SADDLE_CONTACT_U);
   const dx = contact.x - cx;
   const dy = contact.y - contactHeight(trace, SADDLE_CONTACT_U);
@@ -23,7 +25,15 @@ export const SaddleShape: React.FC<{
     <g className={className}>
       <path d={path(trace.rail, at)} className="geometry-saddle-railbody" />
       <path d={path(trace.shell, at)} className="geometry-saddle-body" />
-      <circle cx={clamp.x} cy={-clamp.y} r={4} className="geometry-saddle-clamp" />
+      <rect
+        x={clamp.x - SEATPOST_CLAMP_WIDTH_MM / 2}
+        y={-clamp.y - 6}
+        width={SEATPOST_CLAMP_WIDTH_MM}
+        height={12}
+        rx={3}
+        className="geometry-saddle-clamp"
+        style={clampOutOfBounds ? { fill: "var(--band-out, #d33)", stroke: "var(--band-out, #d33)" } : undefined}
+      />
     </g>
   );
 };

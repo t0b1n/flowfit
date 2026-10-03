@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .saddle_rails import RAIL_OFFSET_MAX_MM, RAIL_OFFSET_MIN_MM, rail_clamp_status
 from .models import (
     Components,
     ConstraintResult,
@@ -20,6 +21,21 @@ def evaluate_component_constraints(components: Components) -> ConstraintResult:
                 value=components.spacer_stack,
                 min_allowed=0.0,
                 message="Spacer stack cannot be negative.",
+            )
+        )
+
+    rail = rail_clamp_status(components.saddle_rail_offset)
+    if not rail.in_bounds:
+        violations.append(
+            ConstraintViolation(
+                name="saddle_rail_offset",
+                value=components.saddle_rail_offset,
+                min_allowed=RAIL_OFFSET_MIN_MM,
+                max_allowed=RAIL_OFFSET_MAX_MM,
+                message=(
+                    f"Saddle is {rail.overshoot_mm:.0f} mm past the {rail.side} limit of the straight rail section: "
+                    "the clamp would grip the bend of the rails."
+                ),
             )
         )
 

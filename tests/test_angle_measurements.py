@@ -15,6 +15,7 @@ from typing import NamedTuple
 
 import pytest
 
+from bikegeo_core.saddle_rails import CONTACT_TO_CLAMP_MM
 from bikegeo_core import Components, FrameGeometry
 from bikegeo_core.coords import Vec2
 from bikegeo_core.geometry import synthesize_bike
@@ -71,7 +72,8 @@ def _components(**overrides) -> Components:
         hood_width=370.0,
         stance_width=155.0,
         saddle_stack=52.0,
-        seatpost_offset=0.0,
+        # cancels the contact-behind-clamp offset so the saddle sits on the seat-tube line, as _frontend_ideal_contacts assumes
+        seatpost_offset=CONTACT_TO_CLAMP_MM,
         saddle_rail_offset=0.0,
         pedal_stack_height=12.0,
     )
@@ -297,7 +299,7 @@ def _2d_view_pipeline(knee_flex_deg: float, trunk_angle_deg: float):
     saddle_clamp_x = -math.cos(seat_angle) * clamp_offset - comp.seatpost_offset
     saddle_clamp_y = math.sin(seat_angle) * clamp_offset
     actual_saddle = ContactPoint(
-        saddle_clamp_x + comp.saddle_rail_offset,
+        saddle_clamp_x + comp.saddle_rail_offset + CONTACT_TO_CLAMP_MM,
         saddle_clamp_y + comp.saddle_stack,
     )
     actual_cleat = ContactPoint(-comp.cleat_setback, -comp.crank_length)

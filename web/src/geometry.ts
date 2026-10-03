@@ -1,5 +1,5 @@
 import { getSizeData } from "./frameCatalog";
-import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight } from "./saddleModels";
+import { SADDLE_CONTACT_U, SEATPOST_HEAD_HEIGHT_MM, SWORKS_POWER, contactHeight, contactToClampMm, railClampStatus, railOffsetLimits } from "./saddleModels";
 import type {
   BikeSketch,
   ComponentDeltas,
@@ -70,8 +70,8 @@ export const DEFAULT_TARGETS = {
   cleat: { x: 0, y: -172.5 },
 };
 
-/** Distance (along seat tube) of the visible offset/bend section of the seatpost */
-const SEATPOST_BEND_LENGTH = 40;
+/** Saddle contact x relative to the post head at rail_offset = 0: the rider sits behind the middle of the straight rails. */
+export const SADDLE_CONTACT_TO_CLAMP_MM = contactToClampMm(SWORKS_POWER);
 
 export const MANNEQUIN_PRESETS = {
   endurance: { trunkAngleDeg: 55, backBendDeg: 5, forearmHorizontalBias: 0.2, elbowBarHeightBias: 0.1 },
@@ -662,15 +662,16 @@ export const synthesizeBike = (
     x: -Math.cos(seatAngle) * components.saddle_clamp_offset - components.seatpost_offset,
     y: Math.sin(seatAngle) * components.saddle_clamp_offset,
   };
-  // Seatpost top is at the rail clamp position (no head extension)
+  // The post runs straight up the seat tube; the setback happens in the head (the last SEATPOST_HEAD_HEIGHT_MM)
+  // that clamps the rails, so the head is the only part of the post off the seat-tube line.
   const seatpostTop = { ...saddleClamp };
-  const bendDist = Math.max(0, components.saddle_clamp_offset - SEATPOST_BEND_LENGTH);
+  const bendDist = Math.max(0, components.saddle_clamp_offset - SEATPOST_HEAD_HEIGHT_MM);
   const seatpostBend = {
     x: -Math.cos(seatAngle) * bendDist,
     y: Math.sin(seatAngle) * bendDist,
   };
   const saddle = {
-    x: saddleClamp.x + components.saddle_rail_offset,
+    x: saddleClamp.x + components.saddle_rail_offset + SADDLE_CONTACT_TO_CLAMP_MM,
     y: saddleClamp.y + components.saddle_stack,
   };
   const crankEnd = {
@@ -926,6 +927,8 @@ export const idealContactsFromSaddleHeight = (
 /** Severity thresholds in mm */
 const FIT_WARN_OK = 15;
 const FIT_WARN_BAD = 30;
+/** Clamp overshoot past the straight rail section (mm) at which the warning turns "bad". */
+const RAIL_BAD_OVERSHOOT_MM = 10;
 /** Foot-to-pedal gap (mm) below which the foot counts as on the pedal (numerical noise). */
 const PEDAL_GAP_TOLERANCE_MM = 0.5;
 
@@ -986,9 +989,11 @@ export type FitWarningInputs = {
   /** Highest saddle (mm above BB) at which the foot still reaches the pedal. */
   maxSaddleHeightMm: number;
   bands?: PosturePreset;
+  /** saddle_rail_offset: when given, a clamp past the straight rail section is flagged on the saddle warning. */
+  railOffsetMm?: number;
 };
 
-export const fitWarnings = ({ ideal, bike, hood, stroke, maxSaddleHeightMm, bands = POSTURE_PRESET }: FitWarningInputs): FitWarning[] => {
+export const fitWarnings = ({ ideal, bike, hood, stroke, maxSaddleHeightMm, bands = POSTURE_PRESET, railOffsetMm }: FitWarningInputs): FitWarning[] => {
   // Saddle: distance from the target saddle point.
   const sdx = bike.saddle.x - ideal.saddle.x;
   const sdy = bike.saddle.y - ideal.saddle.y;
@@ -1000,6 +1005,17 @@ export const fitWarnings = ({ ideal, bike, hood, stroke, maxSaddleHeightMm, band
     distance: saddleDistance,
     severity: severityForDistance(saddleDistance),
   };
+  if (railOffsetMm !== undefined) {
+    const rail = railClampStatus(SWORKS_POWER, railOffsetMm);
+    if (!rail.inBounds) {
+      const { min, max } = railOffsetLimits(SWORKS_POWER);
+      saddle.severity = worse(saddle.severity, rail.overshootMm >= RAIL_BAD_OVERSHOOT_MM ? "bad" : "warning");
+      saddle.message =
+        `Saddle is ${rail.overshootMm.toFixed(0)} mm past the ${rail.side === "forward" ? "forward" : "rear"} limit of the straight rail section ` +
+        `(rail offset ${min.toFixed(0)} to +${max.toFixed(0)} mm for this saddle): the clamp would grip the bend of the rails.` +
+        (saddle.distance >= FIT_WARN_OK ? ` Saddle is also ${saddle.distance.toFixed(0)} mm from the target position.` : "");
+    }
+  }
 
   // Hoods: the hands must reach them, with elbow (and shoulder) inside their bands.
   const elbowBand = bands.elbow_flexion;
@@ -1073,7 +1089,7 @@ export const seatpostRecommendation = (
   saddleClamp: ContactPoint,
 ): SeatpostRecommendation => {
   const bbToRailDistance = Math.hypot(saddleClamp.x, saddleClamp.y);
-  const requiredSetback = saddleClamp.x - saddle.x;
+  const requiredSetback = saddleClamp.x - saddle.x + SADDLE_CONTACT_TO_CLAMP_MM;
 
   if (bbToRailDistance > ISP_MAX_BB_TO_RAIL_MM) {
     return {
@@ -1267,8 +1283,9 @@ const _FRAME_EDGES: [string, string][] = [
   // Bilateral fork blades: fork crown → lateral front-dropout points
   ["head_tube_bottom", "fork_r"],
   ["head_tube_bottom", "fork_l"],
-  // Seatpost (straight along seat tube axis to clamp — saddle rendered separately)
-  ["seat_tube_top", "seatpost_top"],
+  // Seatpost: straight along the seat tube to the head base, then the head (setback offset) to the rail clamp
+  ["seat_tube_top", "seatpost_bend"],
+  ["seatpost_bend", "seatpost_top"],
   // Cockpit: steerer/spacers follow head angle, then stem, then handlebar
   ["head_tube_top", "steerer_top"],
   ["steerer_top", "stem_pivot"],
@@ -1326,6 +1343,7 @@ export function buildGeometry3D(
   // Seatpost head extends a short distance past the clamp along the seat
   // tube so the rendered post is not truncated at the rail support.
   const seatAngle = radiansFromDegrees(frame.seat_angle_deg);
+  p("seatpost_bend", bike.seatpostBend);
   p("seatpost_top", {
     x: bike.saddleClamp.x - Math.cos(seatAngle) * _SEATPOST_HEAD_EXTENSION,
     y: bike.saddleClamp.y + Math.sin(seatAngle) * _SEATPOST_HEAD_EXTENSION,

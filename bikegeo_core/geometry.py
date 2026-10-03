@@ -7,6 +7,7 @@ import numpy as np
 
 from .coords import Vec2
 from .models import Components, FrameGeometry
+from .saddle_rails import CONTACT_TO_CLAMP_MM
 
 
 @dataclass
@@ -113,7 +114,7 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         bb.y + seat_dir.y * components.saddle_clamp_offset,
     )
     saddle = Vec2(
-        saddle_clamp.x + components.saddle_rail_offset,
+        saddle_clamp.x + components.saddle_rail_offset + CONTACT_TO_CLAMP_MM,
         saddle_clamp.y + components.saddle_stack,
     )
 

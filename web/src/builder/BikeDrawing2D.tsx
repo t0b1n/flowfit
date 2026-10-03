@@ -84,7 +84,7 @@ export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({
   ) : null;
 
 /** Frame: filled tapered tubes, ENVE-style fork, BB fillet, seatpost, bottle, stem and bars. */
-export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = ({ bike, cockpit }) => {
+export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit; railOutOfBounds?: boolean }> = ({ bike, cockpit, railOutOfBounds }) => {
   const { bb, rearAxle, frontAxle, seatCluster: cl, seatTubeTop, headTubeTop: ht, headTubeBottom: hb } = bike;
   const stUp = norm(sub(cl, bb));
   const htDown = norm(sub(hb, ht));
@@ -116,7 +116,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       {poly("s2d-bottle", tube(b0, b1, 37, 34), "bottle")}
       <line data-part="bottle" className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
       {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]), "seatpost")}
-      {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]), "seatpost")}
+      {/* seatpost head: the last SEATPOST_HEAD_HEIGHT_MM, where the setback offset happens */}
+      {poly("s2d-carbon", slab(bike.seatpostBend, bike.seatpostTop, T.seatpost[1] + 4), "seatpost")}
       {/* spacer stack: the steerer between the head tube and the stem (none at 0 spacers) */}
       {bike.steererTop.y - ht.y > 0.5 && poly("s2d-carbon", slab(ht, bike.steererTop, STEM.spacerR), "spacers")}
       {/* the stem: flat steerer clamp (stem_height tall, along the steerer), tapered arm, round bar clamp */}
@@ -136,7 +137,7 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
           </>
         )}
       </g>
-      <g data-part="saddle"><SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" /></g>
+      <g data-part="saddle"><SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" clampOutOfBounds={!!railOutOfBounds} /></g>
     </g>
   );
 };

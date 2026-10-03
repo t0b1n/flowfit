@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import { SWORKS_POWER, railClampStatus } from "../saddleModels";
 import { BikeFitAnnotations, BikeGeometryAnnotations, type FrameMeasurementVisibility } from "../BikeAnnotations";
 import type { FrameGeometry, SizeData } from "../frameCatalog";
 import type { buildRider, PedalStrokeLUT } from "../geometry";
@@ -212,7 +213,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
       <Wheel axle={bike.frontAxle} radius={R} />
       <DiscBrakes bike={bike} />
       <FarCrank bike={bike} farSpindle={visibleParts.legs ? farPose.spindle : null} />
-      <FrameDrawing bike={bike} cockpit={cockpit} />
+      <FrameDrawing bike={bike} cockpit={cockpit} railOutOfBounds={!railClampStatus(SWORKS_POWER, components.saddle_rail_offset).inBounds} />
       <DriveSide bike={bike} />
       <NearCrank bike={bike} cleatCrankEnd={v(bike.cleat.x + components.cleat_setback, bike.cleat.y)} />
 

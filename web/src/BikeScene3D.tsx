@@ -35,7 +35,7 @@ import { useContextRestore } from "./scene3d/contextLoss";
 import { MatsProvider, useMats, useNeedsNormals } from "./scene3d/materials";
 import { buildBar, buildHoodMeshes } from "./cockpit3d";
 import { buildTracedRailGeometry, buildTracedSaddleGeometry } from "./saddle3d";
-import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, contactX, lerpTable, type SaddleTrace } from "./saddleModels";
+import { SADDLE_CONTACT_U, SEATPOST_CLAMP_WIDTH_MM, SWORKS_POWER, contactHeight, contactX, lerpTable, railMidX, railOffsetLimits, type SaddleTrace } from "./saddleModels";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
 import {
@@ -400,7 +400,13 @@ export function SaddleMesh({
   if (spec.kind === "traced") {
     // Contact = side-profile top at contactU, placed on the world saddle point; y = 0 is the rail centreline
     const cx = contactX(spec.trace, spec.contactU);
-    const rs = lerpTable(spec.trace.railHalfSpread, cx);
+    // Clamp station: the post head grips the rails here (world x = the saddle_clamp point), not under the contact
+    const clampWorld = ptMap.get("saddle_clamp");
+    const clampX = clampWorld ? clampWorld[0] - (sx - cx) : railMidX(spec.trace);
+    const { min: railMin, max: railMax } = railOffsetLimits(spec.trace);
+    const mid = railMidX(spec.trace);
+    const outOfBounds = clampX < mid + (-railMax) - 1e-6 || clampX > mid + (-railMin) + 1e-6;
+    const rs = lerpTable(spec.trace.railHalfSpread, clampX);
     return (
       <group position={[sx - cx, sy - contactHeight(spec.trace, spec.contactU), sz]}>
         {body}
@@ -409,8 +415,11 @@ export function SaddleMesh({
             {dbg("saddle_rail", <primitive object={M.m.saddleRail} attach="material" />)}
           </mesh>
         ))}
-        {/* Clamp crossbar under the contact station */}
-        <RailTube a={new THREE.Vector3(cx, 0, -rs - 7)} b={new THREE.Vector3(cx, 0, rs + 7)} r={5} />
+        {/* Seatpost head clamp on the rails; red when it has slid off the straight section */}
+        <mesh position={[clampX, -5, 0]}>
+          <boxGeometry args={[SEATPOST_CLAMP_WIDTH_MM, 12, 2 * rs + 14]} />
+          {outOfBounds ? <meshStandardMaterial color="#d33" /> : <primitive object={M.m.rail} attach="material" />}
+        </mesh>
       </group>
     );
   }

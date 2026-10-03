@@ -35,6 +35,8 @@ export interface SaddleTrace {
   crownExp: Pt[];
   /** rail half-spread per x (rails splay towards the tail mount, converge into the nose) */
   railHalfSpread: Pt[];
+  /** local x extent of the straight rail section the seatpost clamp can grip (mm); mirrored in bikegeo_core/saddle_rails.py */
+  railStraight: [number, number];
 }
 
 /** Specialized S-Works Power (143) — 240 × 143 mm, carbon rails. */
@@ -53,6 +55,8 @@ export const SWORKS_POWER: SaddleTrace = {
   crown: [[-120, -3], [-60, -3], [-30, 0], [10, 5], [60, 6], [120, 6]],
   crownExp: [[-120, 2], [-30, 1.6], [40, 2], [120, 2]],
   railHalfSpread: [[-82, 30], [-40, 22], [40, 22], [94, 10]],
+  // flat run of the traced rail outline (lower edge x = -32.1 … 35.5); the clamp cannot sit on the bends
+  railStraight: [-32.0, 35.5],
 };
 
 /** Piecewise-linear lookup in an x-sorted [x, v] table, clamped at the ends. */
@@ -84,3 +88,39 @@ export const contactHeight = (s: SaddleTrace, contactU: number) => lerpTable(s.t
 
 /** Rider contact station shared by the 2D and 3D saddles. */
 export const SADDLE_CONTACT_U = 0.68;
+
+/** Seatpost head (rail clamp) height, mm: the setback offset happens in this region only. */
+export const SEATPOST_HEAD_HEIGHT_MM = 30;
+/** Length of rail the clamp grips (mm) — an estimate; the centre must stay this far inside the straight section. */
+export const SEATPOST_CLAMP_WIDTH_MM = 35;
+
+/** Local x of the middle of the straight rail section: `rail_offset = 0` puts the clamp here. */
+export const railMidX = (s: SaddleTrace) => (s.railStraight[0] + s.railStraight[1]) / 2;
+
+/**
+ * Contact station minus clamp station along the saddle at `rail_offset = 0` (negative: the rider sits behind
+ * the clamp). Added to `saddle_rail_offset` to get the saddle contact's x relative to the post head.
+ */
+export const contactToClampMm = (s: SaddleTrace, contactU: number = SADDLE_CONTACT_U) => contactX(s, contactU) - railMidX(s);
+
+/** Allowed `saddle_rail_offset` (mm, + = saddle forward) for the clamp to stay on the straight rail section. */
+export const railOffsetLimits = (s: SaddleTrace, clampWidth: number = SEATPOST_CLAMP_WIDTH_MM) => {
+  const half = Math.max(0, (s.railStraight[1] - s.railStraight[0] - clampWidth) / 2);
+  return { min: -half, max: half };
+};
+
+export interface RailClampStatus {
+  inBounds: boolean;
+  /** how far past the limit (mm); 0 when in bounds */
+  overshootMm: number;
+  /** which end of the rails the clamp has run off: forward = toward the nose */
+  side: "forward" | "rear" | null;
+}
+
+/** + rail_offset slides the saddle forward, i.e. moves the clamp toward the tail: it runs off the rear end. */
+export function railClampStatus(s: SaddleTrace, railOffset: number): RailClampStatus {
+  const { min, max } = railOffsetLimits(s);
+  if (railOffset > max) return { inBounds: false, overshootMm: railOffset - max, side: "rear" };
+  if (railOffset < min) return { inBounds: false, overshootMm: min - railOffset, side: "forward" };
+  return { inBounds: true, overshootMm: 0, side: null };
+}
