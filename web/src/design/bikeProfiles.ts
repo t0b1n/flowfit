@@ -44,6 +44,10 @@ export const STEM = {
 /** Seatstay upper end is moved this far down the seat tube. */
 export const SEATSTAY_DROP = 35;
 
+/** Front hub (mm): shell radius / half-length, spoke flanges (radius, lateral station), thru-axle radius. The 3D hub
+ *  and both 2D views draw these; the dropouts sit at FORK.halfSpread (design/fork.ts). */
+export const HUB = { shellR: 14, shellHalf: 32, flangeR: 24, flangeZ: 28, flangeT: 5, axleR: 6 };
+
 export const RIM = {
   /** Carbon deep rim lathe profile around the axle: [offset below wheel radius R, lateral y]. */
   lathe: [

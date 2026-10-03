@@ -6,7 +6,8 @@ import type { PedalStrokeLUT } from "../geometry";
 import type { BikeSketch, Components, MannequinSketch } from "../types";
 import { DebugLegend, DebugStyle } from "../debug";
 import { ellipse, pts, seg, tube, v } from "./draw2d";
-import { forkFrame, forkFrontOutline } from "../design/fork";
+import { FORK, forkFrame, forkFrontOutline } from "../design/fork";
+import { HUB } from "../design/bikeProfiles";
 import { StageOverlay } from "./StageOverlay";
 import { buildCockpit, type Cockpit } from "../cockpit";
 import { CockpitFront } from "./Cockpit2D";
@@ -156,6 +157,15 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         </g>
 
         {/* front end: wheel, fork, head tube, stem and bars (in front of the legs) */}
+        {/* front hub seen end-on: thru-axle, shell, spoke flanges and the rotor on the rider's left (+x), behind the tyre */}
+        <g data-part="wheel">
+          <rect className="s2d-rotor-front" x={24 - 1.5} y={-(ft.y + 78)} width={3} height={156} />
+          <rect className="s2d-hub" x={-(FORK.halfSpread + 10)} y={-ft.y - HUB.axleR} width={2 * (FORK.halfSpread + 10)} height={2 * HUB.axleR} rx={2} />
+          <rect className="s2d-hub" x={-HUB.shellHalf} y={-ft.y - HUB.shellR} width={2 * HUB.shellHalf} height={2 * HUB.shellR} rx={5} />
+          {[-1, 1].map((sd) => (
+            <rect key={sd} className="s2d-hub" x={sd * HUB.flangeZ - HUB.flangeT / 2} y={-ft.y - HUB.flangeR} width={HUB.flangeT} height={2 * HUB.flangeR} rx={2} />
+          ))}
+        </g>
         <rect data-part="wheel" className="s2d-tyre-front" x={-14} y={-(ft.y + R)} width={28} height={2 * R} rx={14} />
         <rect data-part="wheel" className="s2d-rim-front" x={-11} y={-(ft.y + R - 28)} width={22} height={2 * (R - 28)} rx={6} />
         <rect data-part="head_tube" className="s2d-frame" x={-19} y={-ht.y} width={38} height={ht.y - hb.y} />

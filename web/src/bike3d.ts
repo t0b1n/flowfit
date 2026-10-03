@@ -10,7 +10,7 @@
 
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
-import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
+import { CHAINRING, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { forkFrame, forkSpine } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -345,7 +345,7 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
       w.add(taper(s, e, 1.1, 1.1, mats.spoke, 1));
     }
   }
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 64, 16, 1), mats.alloy);
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(HUB.shellR, HUB.shellR, 2 * HUB.shellHalf, 16, 1), mats.alloy);
   hub.rotation.x = Math.PI / 2;
   w.add(hub);
   // Disc rotor on the rider's left (−Z, non-drive) side: ring + 6 spokes, flat-mount caliper
@@ -467,7 +467,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const zc = (forkR[2] + forkL[2]) / 2;
     const half = Math.abs(forkR[2] - forkL[2]) / 2;
     g.add(new THREE.Mesh(forkGeometry(crown, axle, zc, half), pick("fork", mats.frame)));
-    g.add(cylinder(new THREE.Vector3(axle.x, axle.y, zc - half - 6), new THREE.Vector3(axle.x, axle.y, zc + half + 6), 6, 6, pick("fork", mats.alloy)));
+    g.add(cylinder(new THREE.Vector3(axle.x, axle.y, zc - half - 6), new THREE.Vector3(axle.x, axle.y, zc + half + 6), HUB.axleR, HUB.axleR, pick("fork", mats.alloy)));
   }
 
   // Junction fillets

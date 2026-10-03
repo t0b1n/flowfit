@@ -371,6 +371,10 @@
   stroke-width: 14;
 }
 
+.s2d-rotor-front {
+  fill: var(--rotor);
+}
+
 .s2d-rotor-spoke {
   stroke: var(--rotor);
   stroke-width: 6;

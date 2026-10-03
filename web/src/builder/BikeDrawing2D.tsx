@@ -1,6 +1,6 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
-import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
+import { CHAINRING, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
 import { lerp } from "../design/riderBody";
 import type { BikeSketch } from "../types";
 import type { Cockpit } from "../cockpit";
@@ -107,6 +107,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       {/* head tube: round at the fork crown, flat on top where the spacers / stem sit */}
       {poly("s2d-frame", hullOf(slab(add(hb, htDown, 16), ht, ...T.head_tube), ellipse(add(hb, htDown, 16), T.head_tube[0], T.head_tube[0], 0, 18)), "head_tube")}
       {/* fork (design/fork.ts): one piece, its rounded crown wrapping the head-tube bottom, tapered straight blade, round dropout tip */}
+      {/* front hub, drive side (the rotor is on the far side): spoke flange in front of the far rotor, under the fork */}
+      <circle className="s2d-hub" data-part="wheel" cx={frontAxle.x} cy={-frontAxle.y} r={HUB.flangeR} />
       {poly("s2d-frame", pts(forkOutline(hb, frontAxle)), "fork")}
       <circle className="s2d-hub" data-part="fork" cx={frontAxle.x} cy={-frontAxle.y} r={FORK.axleCapR} />
       <circle className="s2d-frame" cx={bb.x} cy={-bb.y} r={30} data-part="bb_shell" />
