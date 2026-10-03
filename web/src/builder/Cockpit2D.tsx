@@ -150,20 +150,29 @@ export const CockpitFront: React.FC<{ cockpit: Cockpit; ghost?: boolean; showUci
       {([1, -1] as const).map((s) => (
         <path key={`h${s}`} className="s2d-hood-body" data-fill data-part="hood" d={splinePath(hoodShape(s), true)} />
       ))}
-      {showUci && (
-        <g className="s2d-uci">
-          <line x1={-u.innerHoods / 2} x2={u.innerHoods / 2} y1={-(ty + ck.hood.peak + 26)} y2={-(ty + ck.hood.peak + 26)} />
-          <text x={0} y={-(ty + ck.hood.peak + 36)} textAnchor="middle" className={u.ok.innerHoods ? "" : "s2d-uci--out"}>
-            {Math.round(u.innerHoods)} BETWEEN HOODS
-          </text>
-          <line x1={-u.outsideWidth / 2} x2={u.outsideWidth / 2} y1={-(by - 34)} y2={-(by - 34)} />
-          <text x={0} y={-(by - 62)} textAnchor="middle" className={u.ok.outsideWidth ? "" : "s2d-uci--out"}>
-            {Math.round(u.outsideWidth)} OUTSIDE
-          </text>
-        </g>
-      )}
+      {showUci && <UciAnnotation cockpit={ck} />}
       {/* bar centreline reference for the clamp diameter */}
       <circle className="s2d-hood-bolt" cx={0} cy={-cy} r={BAR_RADIUS * 0.25} />
+    </g>
+  );
+};
+
+/** UCI measurement lines (inner hoods, outside width) of the front view, in the front view's mm coordinates. */
+export const UciAnnotation: React.FC<{ cockpit: Cockpit }> = ({ cockpit: ck }) => {
+  const [, tops, , , , , dropBottom] = ck.sagittal;
+  const ty = tops.y;
+  const by = dropBottom.y;
+  const u = ck.uci;
+  return (
+    <g className="s2d-uci">
+      <line x1={-u.innerHoods / 2} x2={u.innerHoods / 2} y1={-(ty + ck.hood.peak + 26)} y2={-(ty + ck.hood.peak + 26)} />
+      <text x={0} y={-(ty + ck.hood.peak + 36)} textAnchor="middle" className={u.ok.innerHoods ? "" : "s2d-uci--out"}>
+        {Math.round(u.innerHoods)} BETWEEN HOODS
+      </text>
+      <line x1={-u.outsideWidth / 2} x2={u.outsideWidth / 2} y1={-(by - 34)} y2={-(by - 34)} />
+      <text x={0} y={-(by - 62)} textAnchor="middle" className={u.ok.outsideWidth ? "" : "s2d-uci--out"}>
+        {Math.round(u.outsideWidth)} OUTSIDE
+      </text>
     </g>
   );
 };

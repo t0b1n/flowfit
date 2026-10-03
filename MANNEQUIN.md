@@ -267,6 +267,8 @@ For visualization, the frontend builds its own 3D mannequin using `buildMannequi
 
 **Orthographic render:** `scene3d/OrthoScene.tsx` draws the same bike and rider meshes through an orthographic camera in flat colours read from the 2D stylesheet (`buildFlatMats`). The frustum comes from the SVG overlay's viewBox (`viewBoxToFrustum`), so the canvas sits exactly under the 2D annotations. Side view: +Z (the rider's right) faces the camera and parts on the −Z side are faded toward the background. Front view: camera looks down −X with a soft light (`flatLit`).
 
+**2D views are the 3D scene (Phase 3):** `Stage2DSide` and `Stage2DFront` render `OrthoScene` under a transparent SVG that keeps only the annotations (angles, dimensions, KOPS, ruler, ideal contacts, warnings, compare ghost, UCI box). The rider in the 2D views is therefore the 3D rider, including the smooth back-bend torso; `buildFrontalMannequin` and the old SVG bike/rider drawing remain reachable with `?legacy2d=1` for one release and are deleted in a follow-up PR.
+
 **Geometry cache:** the 3D mesh builders take an optional shape-keyed `GeometryCache` (`scene3d/geometryCache.ts`), so a slider tick only rebuilds geometry whose shape numbers changed; placement is the mesh transform.
 
 **Contract:** The frontend bilateral expansion must produce the same point names, edge definitions, and Z-spread rules as the backend. This is enforced by regression tests in `tests/test_bilateral_expansion.py`.

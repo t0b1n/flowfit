@@ -15,8 +15,6 @@ import { StageToolbar } from "./builder/StageToolbar";
 import { Stage2DSide } from "./builder/Stage2DSide";
 import { DEFAULT_COMPONENTS_BUILDER, RiderVisibility, DEFAULT_RIDER_VISIBILITY, DEFAULT_FRAME_MEASUREMENT_VISIBILITY, ViewKind, SHOE_PRESETS, SummaryTone, RiderVisibilityPart, PEDAL_PRESETS } from "./builder/shared";
 import { Stage2DFront } from "./builder/Stage2DFront";
-import { OrthoScene } from "./scene3d/OrthoScene";
-import { useTheme } from "./design/useTheme";
 import { metricValues } from "./builder/StageOverlay";
 import { CompareMenu } from "./fits/CompareMenu";
 import { FitHistoryPanel } from "./fits/FitHistoryPanel";
@@ -386,13 +384,6 @@ export const FitBuilderMode: React.FC = () => {
       if (p.bend !== undefined) setBackBendOverride(p.bend);
     };
   }, []);
-  // DEV only: `?ortho=side|front` shows the orthographic render of the 3D scene beside the current 2D view (docs/plans/ortho-views.md).
-  const [theme] = useTheme();
-  const orthoDev = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("ortho") : null;
-  const orthoFrontBox = (() => {
-    const halfW = Math.max(rider.shoulder_width, components.bar_width, components.bar_drop_width ?? 0) / 2 + 150;
-    return `${-halfW} ${-mannequin.head.y - 80} ${halfW * 2} ${groundY + mannequin.head.y + 160}`;
-  })();
 
   const brands = useMemo(
     () => Array.from(new Set(FRAME_CATALOG.map((m) => m.brand))).sort(),
@@ -553,31 +544,7 @@ export const FitBuilderMode: React.FC = () => {
           </div>
         )}
 
-        <div className="visual-stage" style={orthoDev && !view3d ? { display: "flex", gap: 8 } : undefined}>
-          {orthoDev && !view3d && (
-            <div style={{ order: 1, flex: "1 0 320px", position: "relative", minHeight: 520 }} data-testid="ortho-dev">
-              <OrthoScene
-                geo={geo3d}
-                strokeLUT={strokeMetrics}
-                weightKg={riderFit.weight}
-                stanceWidth={components.stance_width ?? 155}
-                view={view === "front" ? "front" : "side"}
-                viewBox={view === "front" ? orthoFrontBox : viewBox}
-                look={view === "front" ? "flatLit" : "flat"}
-                theme={theme}
-                debug={debugParts}
-              />
-              {/* alignment crosshairs at the BB and front axle, in the same viewBox the canvas frustum is derived from */}
-              <svg viewBox={view === "front" ? orthoFrontBox : viewBox} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} data-testid="ortho-cross">
-                {view !== "front" && [bike.bb, bike.frontAxle].map((p, i) => (
-                  <g key={i} data-cross={i ? "front-axle" : "bb"} stroke="#ff0000" strokeWidth={1} vectorEffect="non-scaling-stroke">
-                    <line x1={p.x - 14} x2={p.x + 14} y1={-p.y} y2={-p.y} vectorEffect="non-scaling-stroke" />
-                    <line x1={p.x} x2={p.x} y1={-p.y - 14} y2={-p.y + 14} vectorEffect="non-scaling-stroke" />
-                  </g>
-                ))}
-              </svg>
-            </div>
-          )}
+        <div className="visual-stage">
           {view3d ? (
             <BikeScene3D
               debugParts={debugParts}
@@ -591,8 +558,8 @@ export const FitBuilderMode: React.FC = () => {
               focus={focusCockpit ? "cockpit" : undefined}
             />
           ) : view === "side" ? (
-            <Stage2DSide debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} ghostCockpit={ghostCockpit} showWrist={focusCockpit} />
-          ) : <Stage2DFront debug={debugParts} compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} ghostCockpit={ghostCockpit} showUci={focusCockpit && showUci} zoomCockpit={focusCockpit} />}
+            <Stage2DSide geo3d={geo3d} debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} ghostCockpit={ghostCockpit} showWrist={focusCockpit} />
+          ) : <Stage2DFront geo3d={geo3d} debug={debugParts} compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} ghostCockpit={ghostCockpit} showUci={focusCockpit && showUci} zoomCockpit={focusCockpit} />}
         </div>
       </section>
 

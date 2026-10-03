@@ -5,7 +5,11 @@ import type { buildRider, PedalStrokeLUT } from "../geometry";
 import type { BikeSketch, Components, ContactPoint, FitWarning, MannequinSketch } from "../types";
 import { DebugLegend, DebugStyle } from "../debug";
 import { CockpitDrawing, DiscBrakes, DriveSide, FarCrank, FrameDrawing, NearCrank, Wheel } from "./BikeDrawing2D";
-import { buildFigure, v, type V } from "./draw2d";
+import { buildFigure, figureSkeleton, v, type V } from "./draw2d";
+import { legacy2d } from "./legacy2d";
+import { OrthoScene } from "../scene3d/OrthoScene";
+import type { Geometry3DResponse } from "../bike3d";
+import { useTheme } from "../design/useTheme";
 import { StageOverlay } from "./StageOverlay";
 import { buildCockpit, type Cockpit } from "../cockpit";
 import { CockpitSide, WristMarker } from "./Cockpit2D";
@@ -14,6 +18,8 @@ import type { RiderVisibility } from "./shared";
 import type { CompareTarget } from "../fits/capture";
 
 export interface Stage2DSideProps {
+  /** the 3D scene data: the bike and rider are drawn by rendering it orthographically under this SVG */
+  geo3d: Geometry3DResponse;
   viewBox: string;
   activeBounds: { minX: number; maxX: number; minY: number; maxY: number };
   groundY: number;
@@ -116,6 +122,7 @@ const GhostLines: React.FC<{ compare: CompareTarget }> = ({ compare }) => {
 };
 
 export const Stage2DSide: React.FC<Stage2DSideProps> = ({
+  geo3d,
   debug,
   viewBox,
   activeBounds,
@@ -147,20 +154,39 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   const farPose = strokeMetrics.poses[0];
   // The near foot sits on the pedal unless the leg can't reach it, then it hangs above (cleat = IK ankle − stack).
   const nearFootCleat = v(mannequin.ankle.x, mannequin.ankle.y - components.pedal_stack_height);
-  const fig = buildFigure({
+  const legacy = legacy2d();
+  const [theme] = useTheme();
+  const figInput = {
     ...mannequin,
     cleat: nearFootCleat,
     far: { knee: farPose.knee, ankle: farPose.ankle, cleat: farPose.cleat },
     riderHeightMm: rider.height,
     footLengthMm: rider.foot_length,
     weightKg,
-  });
+  };
+  // outline polygons only for the legacy drawing; the skeleton overlay needs just bones and joints
+  const fig = legacy ? buildFigure(figInput) : { ...figureSkeleton(figInput), farLeg: [], farShoe: "", farArm: [], torso: [], nearLeg: [], nearShoe: "", nearArm: [], head: "", glove: "" };
   const polys = (list: string[], part?: string, cls = "s2d-clay") => list.map((p, i) => <polygon key={i} className={cls} points={p} data-part={part} />);
   const visibleParts = riderVisibility;
 
   return (
     <div className="s2d-wrap">
     {debug && <DebugStyle />}
+    <div className="s2d-stack">
+    {!legacy && (
+      <OrthoScene
+        geo={geo3d}
+        strokeLUT={strokeMetrics}
+        weightKg={weightKg}
+        stanceWidth={components.stance_width ?? 155}
+        view="side"
+        viewBox={viewBox}
+        look="flat"
+        theme={theme}
+        debug={debug}
+        visibility={riderVisibility}
+      />
+    )}
     <svg ref={svgRef} viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}${showWrist ? " s2d--cockpit-focus" : ""}`}>
       <line className="s2d-ground" x1={activeBounds.minX} y1={groundY} x2={activeBounds.maxX} y2={groundY} />
       <Ruler
@@ -174,6 +200,8 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         ]}
       />
 
+      {legacy && (
+        <>
       {/* far (left) side: limbs, brakes and crank behind the frame; the drive side is drawn in front of it */}
       <g className="s2d-far">
         {visibleParts.legs && polys(fig.farLeg, "leg")}
@@ -198,6 +226,8 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
       </g>
       <CockpitDrawing cockpit={cockpit} />
       {visibleParts.arms && <polygon data-part="arm" className="s2d-glove" points={fig.glove} />}
+        </>
+      )}
       {ghostCockpit && <CockpitSide cockpit={ghostCockpit} ghost />}
       {visibleParts.arms && (showWrist || showJointAngles) && <WristMarker mannequin={mannequin} hoodRollDeg={cockpit.hoodRollDeg} />}
 
@@ -283,6 +313,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         />
       )}
     </svg>
+    </div>
       {debug && <DebugLegend />}
       <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} svgRef={svgRef} viewBox={viewBox} was={compare?.metrics} />
     </div>
