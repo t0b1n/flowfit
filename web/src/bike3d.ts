@@ -569,7 +569,10 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const cogTop = new THREE.Vector3(rear[0], rear[1] + 40, 50);
     const cogBot = new THREE.Vector3(rear[0], rear[1] - 40, 50);
     const run = (pts: THREE.Vector3[]) => {
-      for (let i = 0; i < pts.length - 1; i++) g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.alloy), 1));
+      for (let i = 0; i < pts.length - 1; i++) {
+        g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.cassette ?? mats.alloy), 1));
+        if (mats.cassetteEdge && !opts.debug) g.add(taper(pts[i], pts[i + 1], 5, 5, mats.cassetteEdge, 1));
+      }
     };
     run([ringTop, cogTop]);
     run([ringBot, lo.clone().add(new THREE.Vector3(-12, -17, 0)), lo.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(-12, 17, 0)), cogBot]);
