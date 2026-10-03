@@ -25,6 +25,9 @@ export interface Mats {
     alloy: THREE.Material;
     rotor: THREE.Material;
     bottle: THREE.Material;
+    /** silver cassette cogs and the dark back-face shell that outlines each one */
+    cassette: THREE.Material;
+    cassetteEdge: THREE.Material;
     /** matte rubber hood covers */
     hood: THREE.Material;
     /** gloss carbon brake blades */
@@ -58,10 +61,12 @@ export function buildMats(theme: Theme): Mats {
   const saddle = new THREE.MeshStandardMaterial({ color: "#0f0f0f", roughness: 0.88, metalness: 0.04 });
   const rail = new THREE.MeshStandardMaterial({ color: "#c8c8c8", roughness: 0.18, metalness: 0.82 });
   const saddleRail = new THREE.MeshStandardMaterial({ color: "#1c1c1c", roughness: 0.45, metalness: 0.3 });
+  const cassette = new THREE.MeshStandardMaterial({ color: "#c9ccd1", roughness: 0.3, metalness: 0.8 });
+  const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail],
   };
 }
 
@@ -133,10 +138,13 @@ export function buildFlatMats(theme: Theme, lit: boolean): Mats {
   const lever = mk(c.carbon);
   const rail = mk(c.carbon);
   const saddleRail = mk(c.carbon);
+  // silver cogs with a dark edge shell (the depth-edge pass can't see steps this small)
+  const cassette = mk(new THREE.Color().setRGB(0.8, 0.82, 0.85, THREE.SRGBColorSpace));
+  const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail],
   };
 }
 
