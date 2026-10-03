@@ -300,6 +300,9 @@ export interface BikeMaterials {
   rotor: THREE.Material;
   bottle: THREE.Material;
   tape: THREE.Material;
+  /** silver cogs; `cassetteEdge` is a BackSide dark material drawn as a thin outline around each cog */
+  cassette?: THREE.Material;
+  cassetteEdge?: THREE.Material;
 }
 
 type V3 = [number, number, number];
@@ -539,10 +542,18 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const { cassette } = CHAINRING;
     for (let i = 0; i < cassette.rings; i++) {
       const r = lerpN(cassette.outerRadius, cassette.innerRadius, i / (cassette.rings - 1));
-      const c = new THREE.Mesh(prim(`cog|${r}`, () => new THREE.CylinderGeometry(r, r, 2.2, 36)), pick("drivetrain", mats.alloy));
+      const z = 42 + i * 3.9;
+      const c = new THREE.Mesh(prim(`cog|${r}`, () => new THREE.CylinderGeometry(r, r, 2.2, 48)), pick("drivetrain", mats.cassette ?? mats.alloy));
       c.rotation.x = Math.PI / 2;
-      c.position.set(rear[0], rear[1], 42 + i * 3.9);
+      c.position.set(rear[0], rear[1], z);
       g.add(c);
+      if (mats.cassetteEdge && !opts.debug) {
+        // back faces only: the ring just outside the cog's rim shows as a dark edge against the next cog behind
+        const e = new THREE.Mesh(prim(`cogedge|${r}`, () => new THREE.CylinderGeometry(r + 1.4, r + 1.4, 2.2, 48)), mats.cassetteEdge);
+        e.rotation.x = Math.PI / 2;
+        e.position.set(rear[0], rear[1], z);
+        g.add(e);
+      }
     }
     const up = new THREE.Vector3(rear[0] + 8, rear[1] - 58, 58);
     const lo = new THREE.Vector3(rear[0] + 28, rear[1] - 118, 58);
@@ -561,7 +572,10 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const cogTop = new THREE.Vector3(rear[0], rear[1] + 40, 50);
     const cogBot = new THREE.Vector3(rear[0], rear[1] - 40, 50);
     const run = (pts: THREE.Vector3[]) => {
-      for (let i = 0; i < pts.length - 1; i++) g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.alloy), 1));
+      for (let i = 0; i < pts.length - 1; i++) {
+        g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.cassette ?? mats.alloy), 1));
+        if (mats.cassetteEdge && !opts.debug) g.add(taper(pts[i], pts[i + 1], 5, 5, mats.cassetteEdge, 1));
+      }
     };
     run([ringTop, cogTop]);
     run([ringBot, lo.clone().add(new THREE.Vector3(-12, -17, 0)), lo.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(-12, 17, 0)), cogBot]);
