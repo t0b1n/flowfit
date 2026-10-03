@@ -10,7 +10,7 @@
 
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
-import { CHAINRING, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
+import { CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { forkFrame, forkSpine } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -447,6 +447,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const hb = P.get("head_tube_bottom");
   if (!bb || !cl || !ht || !hb) return g;
   const seatDir = vv(cl).sub(vv(bb)).normalize();
+  const htDown = vv(hb).sub(vv(ht)).normalize(); // head-tube axis, top → bottom
 
   // Stem steerer clamp: steerer_top → stem_pivot is its lower half along the head-tube axis (synthesizeBike puts both
   // on it), so the clamp runs steerer_top → 2·stem_pivot − steerer_top: exactly stem_height long, flat ends.
@@ -464,6 +465,8 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       const [r0, r1] = TUBE_PROFILE[t.name as TubeName];
       if (t.name === "head_tube") g.add(cylinder(b, a, r0, r1, pick(t.name, mats.frame))); // bottom → top, flat top under the spacers
       else if (t.name === "seatstay") g.add(taper(a.clone().addScaledVector(seatDir, -SEATSTAY_DROP), b, r0, r1, pick(t.name, mats.frame)));
+      else if (t.name === "top_tube") g.add(taper(a, b.clone().addScaledVector(htDown, HEAD_TUBE_JOIN.top), r0, r1, pick(t.name, mats.frame))); // ends inside the head tube, as in the 2D drawing
+      else if (t.name === "down_tube") g.add(taper(a, b.clone().addScaledVector(htDown, -HEAD_TUBE_JOIN.down), r0, r1, pick(t.name, mats.frame)));
       else g.add(taper(a, b, r0, r1, pick(t.name, mats.frame)));
     } else if (t.name === "seatpost") {
       g.add(taper(a, b, TUBE_PROFILE.seatpost[0], TUBE_PROFILE.seatpost[1], pick("seatpost", mats.carbon)));

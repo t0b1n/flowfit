@@ -1,6 +1,6 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
-import { CHAINRING, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
+import { CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
 import { lerp } from "../design/riderBody";
 import type { BikeSketch } from "../types";
 import type { Cockpit } from "../cockpit";
@@ -102,8 +102,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       {poly("s2d-frame", tube(stayTop, rearAxle, ...T.seatstay), "seatstay")}
       {poly("s2d-frame", tube(bb, cl, ...T.seat_tube), "seat_tube")}
       {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]), "seat_tube")}
-      {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube), "top_tube")}
-      {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube), "down_tube")}
+      {poly("s2d-frame", tube(cl, add(ht, htDown, HEAD_TUBE_JOIN.top), ...T.top_tube), "top_tube")}
+      {poly("s2d-frame", tube(bb, add(hb, htDown, -HEAD_TUBE_JOIN.down), ...T.down_tube), "down_tube")}
       {/* head tube: round at the fork crown, flat on top where the spacers / stem sit */}
       {poly("s2d-frame", hullOf(slab(add(hb, htDown, 16), ht, ...T.head_tube), ellipse(add(hb, htDown, 16), T.head_tube[0], T.head_tube[0], 0, 18)), "head_tube")}
       {/* fork (design/fork.ts): one piece, its rounded crown wrapping the head-tube bottom, tapered straight blade, round dropout tip */}
