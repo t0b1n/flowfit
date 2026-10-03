@@ -28,7 +28,7 @@ import {
   LEG_EDGE_GROUPS,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
-import { DebugProvider, useDbg, useDebugOn, DEBUG_ENABLED } from "./debug";
+import { DebugProvider, debugMaterial, useDbg, useDebugOn } from "./debug";
 import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
 import { GeometryCache } from "./scene3d/geometryCache";
 import { useContextRestore } from "./scene3d/contextLoss";
@@ -360,6 +360,7 @@ function RailTube({
   a: THREE.Vector3; b: THREE.Vector3; r?: number;
 }) {
   const M = useMats();
+  const dbg = useDbg();
   const dir  = new THREE.Vector3().subVectors(b, a);
   const len  = dir.length();
   if (len < 0.5) return null;
@@ -370,7 +371,7 @@ function RailTube({
   return (
     <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
       <cylinderGeometry args={[r, r, len, 8, 1]} />
-      <primitive object={M.m.rail} attach="material" />
+      {dbg("saddle_rail", <primitive object={M.m.rail} attach="material" />)}
     </mesh>
   );
 }
@@ -383,6 +384,7 @@ export function SaddleMesh({
   saddleType: SaddleType;
 }) {
   const M = useMats();
+  const dbg = useDbg();
   const ptMap = new Map(geo.points.map((p) => [p.name, p.pos]));
   const sp = ptMap.get("saddle");
   if (!sp) return null;
@@ -391,7 +393,7 @@ export function SaddleMesh({
   const spec = SADDLE_DETAIL[saddleType];
   const body = (
     <mesh geometry={SADDLE_GEO[saddleType]}>
-      <primitive object={M.m.saddle} attach="material" />
+      {dbg("saddle", <primitive object={M.m.saddle} attach="material" />)}
     </mesh>
   );
 
@@ -404,7 +406,7 @@ export function SaddleMesh({
         {body}
         {TRACED_RAIL_GEO[saddleType]?.map((g, i) => (
           <mesh key={i} geometry={g}>
-            <primitive object={M.m.saddleRail} attach="material" />
+            {dbg("saddle_rail", <primitive object={M.m.saddleRail} attach="material" />)}
           </mesh>
         ))}
         {/* Clamp crossbar under the contact station */}
@@ -493,6 +495,7 @@ export function BikeStatic({
 /** The static clay rider (legs only when no stroke LUT is available; otherwise AnimatedLegs owns them). */
 export function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
   const M = useMats();
+  const debug = useDebugOn();
   const needsNormals = useNeedsNormals();
   const cache = useMemo(() => new GeometryCache(needsNormals), [needsNormals]);
   useEffect(() => () => cache.disposeAll(), [cache]);
@@ -500,10 +503,19 @@ export function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geomet
     const pts = new Map(geo.points.filter((p) => p.group === "mannequin").map((p) => [p.name, p.pos as P3]));
     const heightMm = geo.rider?.height ?? 1800;
     cache.begin();
-    return tPose
+    const built = tPose
       ? buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { weightKg, heightMm, includeLegs: true, feet: true }, cache)
       : buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs, handRollDeg: geo.cockpit?.hoodRollDeg ?? 0 }, cache);
-  }, [geo, weightKg, includeLegs, M, tPose, cache]);
+    if (debug) {
+      // debug colours by body part (the legend's torso / arm / leg / shoe slots; the head is part of "torso")
+      const PART = { torso: "torso", head: "torso", arm: "arm", leg: "leg", shoe: "shoe" } as const;
+      built.traverse((o) => {
+        const part = o.userData.part as keyof typeof PART | undefined;
+        if (part && (o as THREE.Mesh).isMesh) (o as THREE.Mesh).material = debugMaterial(PART[part]);
+      });
+    }
+    return built;
+  }, [geo, weightKg, includeLegs, M, tPose, cache, debug]);
   useEffect(() => cache.end(), [group, cache]);
   return <primitive object={group} />;
 }
@@ -1595,7 +1607,7 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             HQ
           </button>
         )}
-        {DEBUG_ENABLED && (
+        {import.meta.env.DEV && (
         <button
           className={`tab-pill ${devMode ? "tab-pill--active" : ""}`}
           onClick={() => setDevMode((v) => !v)}
