@@ -5,7 +5,8 @@ import { buildFrontalMannequin, buildRider } from "../geometry";
 import type { PedalStrokeLUT } from "../geometry";
 import type { BikeSketch, Components, MannequinSketch } from "../types";
 import { DebugLegend, DebugStyle } from "../debug";
-import { ellipse, seg, tube, v } from "./draw2d";
+import { ellipse, pts, seg, tube, v } from "./draw2d";
+import { forkFrame, forkFrontOutline } from "../design/fork";
 import { StageOverlay } from "./StageOverlay";
 import { buildCockpit, type Cockpit } from "../cockpit";
 import { CockpitFront } from "./Cockpit2D";
@@ -72,6 +73,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const ft = bike.frontAxle;
   const hb = bike.headTubeBottom;
   const ht = bike.headTubeTop;
+  const { u: forkU, len: forkLen } = forkFrame(hb, ft);
+  const forkFront = forkFrontOutline(forkLen);
   // Left leg is the far leg, a half-stroke ahead: its knee and ankle sit at that crank angle's heights (the right leg is at BDC).
   const farPose = strokeMetrics.poses[0];
   const farCleatY = farPose.cleat.y;
@@ -155,10 +158,9 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         {/* front end: wheel, fork, head tube, stem and bars (in front of the legs) */}
         <rect data-part="wheel" className="s2d-tyre-front" x={-14} y={-(ft.y + R)} width={28} height={2 * R} rx={14} />
         <rect data-part="wheel" className="s2d-rim-front" x={-11} y={-(ft.y + R - 28)} width={22} height={2 * (R - 28)} rx={6} />
-        <line data-part="fork" className="s2d-fork-front" x1={-46} y1={-hb.y} x2={-40} y2={-ft.y} />
-        <line data-part="fork" className="s2d-fork-front" x1={46} y1={-hb.y} x2={40} y2={-ft.y} />
-        <rect data-part="fork" className="s2d-carbon" x={-48} y={-hb.y - 14} width={96} height={28} rx={6} />
         <rect data-part="head_tube" className="s2d-frame" x={-19} y={-ht.y} width={38} height={ht.y - hb.y} />
+        {/* fork (design/fork.ts): blades arching into each other under the head tube, one piece */}
+        <polygon data-part="fork" className="s2d-frame" points={pts(forkFront.map(([z, s]) => [z, hb.y + forkU.y * s]))} />
         <rect data-part="spacers" className="s2d-carbon" x={-17} y={-bike.steererTop.y} width={34} height={bike.steererTop.y - ht.y} />
         {/* steerer clamp: steererTop → 2·stemPivot − steererTop, i.e. stem_height along the leaning steerer, seen from the front */}
         <rect data-part="stem" className="s2d-carbon" x={-22} y={-(2 * bike.stemPivot.y - bike.steererTop.y)} width={44} height={2 * (bike.stemPivot.y - bike.steererTop.y)} rx={6} />

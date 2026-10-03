@@ -104,11 +104,11 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]), "seat_tube")}
       {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube), "top_tube")}
       {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube), "down_tube")}
-      {/* fork (design/fork.ts): crown shoulder under the head tube, tapered straight blade, round dropout tip */}
-      {poly("s2d-frame", pts(forkOutline(hb, frontAxle)), "fork")}
-      <circle className="s2d-hub" data-part="fork" cx={frontAxle.x} cy={-frontAxle.y} r={FORK.axleCapR} />
       {/* head tube: round at the fork crown, flat on top where the spacers / stem sit */}
       {poly("s2d-frame", hullOf(slab(add(hb, htDown, 16), ht, ...T.head_tube), ellipse(add(hb, htDown, 16), T.head_tube[0], T.head_tube[0], 0, 18)), "head_tube")}
+      {/* fork (design/fork.ts): one piece, its rounded crown wrapping the head-tube bottom, tapered straight blade, round dropout tip */}
+      {poly("s2d-frame", pts(forkOutline(hb, frontAxle)), "fork")}
+      <circle className="s2d-hub" data-part="fork" cx={frontAxle.x} cy={-frontAxle.y} r={FORK.axleCapR} />
       <circle className="s2d-frame" cx={bb.x} cy={-bb.y} r={30} data-part="bb_shell" />
       <circle className="s2d-frame" cx={cl.x} cy={-cl.y} r={18} data-part="bb_shell" />
       {poly("s2d-bottle", tube(b0, b1, 37, 34), "bottle")}

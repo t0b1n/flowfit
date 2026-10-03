@@ -579,12 +579,6 @@
   fill: var(--s2d-carbon);
 }
 
-.s2d-fork-front {
-  stroke: var(--frame);
-  stroke-width: 22;
-  stroke-linecap: round;
-}
-
 .s2d-hood-front {
   fill: var(--s2d-carbon);
 }
