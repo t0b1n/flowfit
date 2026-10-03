@@ -25,7 +25,6 @@ export interface Tokens {
   rotor: string;
   tyre: string;
   clay: string;
-  bottle: string;
 }
 
 export const TOKENS: Record<Theme, Tokens> = {
@@ -49,7 +48,6 @@ export const TOKENS: Record<Theme, Tokens> = {
     rotor: "#9A9FA6",
     tyre: "#1A1A1A",
     clay: "#8C8276",
-    bottle: "#D6CFC2",
   },
   dark: {
     bg: "#111213",
@@ -71,7 +69,6 @@ export const TOKENS: Record<Theme, Tokens> = {
     rotor: "#9A9FA6",
     tyre: "#1A1A1A",
     clay: "#7D8085",
-    bottle: "#4B4D50",
   },
 };
 

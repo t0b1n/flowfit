@@ -1,7 +1,6 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
-import { CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
-import { lerp } from "../design/riderBody";
+import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius } from "../design/bikeProfiles";
 import type { BikeSketch } from "../types";
 import type { Cockpit } from "../cockpit";
 import { CockpitSide } from "./Cockpit2D";
@@ -39,15 +38,14 @@ export const Wheel: React.FC<{ axle: V; radius: number }> = ({ axle: c, radius: 
 
 /**
  * Drive-side parts (the rider's right, the side facing the viewer when the bike points right): chainrings,
- * cassette, chain, rear derailleur. Drawn in front of the frame, behind the near crank and leg.
+ * 12-speed cassette, chain, rear derailleur. Drawn in front of the frame, behind the near crank and leg.
  */
 export const DriveSide: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const bb = bike.bb;
   const rear = bike.rearAxle;
   const up = v(rear.x + 8, rear.y - 58);
   const lo = v(rear.x + 28, rear.y - 118);
-  const { big, small, cassette } = CHAINRING;
-  const cogs = Array.from({ length: cassette.rings }, (_, i) => lerp(cassette.outerRadius, cassette.innerRadius, i / (cassette.rings - 1)));
+  const { big, small } = CHAINRING;
   const chain = [
     [bb.x, bb.y - big.root],
     [lo.x - 12, lo.y - 17],
@@ -60,9 +58,12 @@ export const DriveSide: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
     <g data-part="drivetrain">
       <polygon className="s2d-ring" points={gear(bb, big.teeth, big.outer, big.root)} />
       <polygon className="s2d-ring" points={gear(bb, small.teeth, small.outer, small.root)} />
-      {cogs.map((r, i) => (
-        <circle key={i} className="s2d-cog" cx={rear.x} cy={-rear.y} r={r} />
-      ))}
+      {/* largest cog first so the smaller, outer ones sit on top */}
+      {CASSETTE.teeth.map((n) => {
+        const tip = cogTipRadius(n);
+        return <polygon key={n} className="s2d-cog" points={gear(rear, n, tip, tip - CASSETTE.toothDepth)} />;
+      })}
+      <circle className="s2d-lockring" cx={rear.x} cy={-rear.y} r={CASSETTE.lockringR} />
       <line className="s2d-chain" x1={bb.x} y1={-(bb.y + big.root)} x2={rear.x} y2={-(rear.y + 40)} />
       <polyline className="s2d-chain" points={chain.map(([x, y]) => `${x},${-y}`).join(" ")} />
       {poly("s2d-carbon", tube(v(rear.x - 6, rear.y - 8), v(rear.x - 22, rear.y - 36), 13, 12))}
@@ -83,7 +84,7 @@ export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({
     </g>
   ) : null;
 
-/** Frame: filled tapered tubes, ENVE-style fork, BB fillet, seatpost, bottle, stem and bars. */
+/** Frame: filled tapered tubes, ENVE-style fork, BB fillet, seatpost, stem and bars. */
 export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = ({ bike, cockpit }) => {
   const { bb, rearAxle, frontAxle, seatCluster: cl, seatTubeTop, headTubeTop: ht, headTubeBottom: hb } = bike;
   const stUp = norm(sub(cl, bb));
@@ -93,9 +94,6 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
   // stemPivot on it). Both are flat-ended so their drawn length is exactly spacer_stack and stem_height.
   const clampTop = add(bike.stemPivot, sub(bike.stemPivot, bike.steererTop));
   const stayTop = add(cl, stUp, -SEATSTAY_DROP);
-  const perp = v(stUp.y, -stUp.x);
-  const b0 = add(add(bb, sub(cl, bb), 0.22), perp, 60);
-  const b1 = add(add(bb, sub(cl, bb), 0.66), perp, 60);
   return (
     <g>
       {poly("s2d-frame", tube(bb, rearAxle, ...T.chainstay), "chainstay")}
@@ -113,8 +111,6 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       <circle className="s2d-hub" data-part="fork" cx={frontAxle.x} cy={-frontAxle.y} r={FORK.axleCapR} />
       <circle className="s2d-frame" cx={bb.x} cy={-bb.y} r={30} data-part="bb_shell" />
       <circle className="s2d-frame" cx={cl.x} cy={-cl.y} r={18} data-part="bb_shell" />
-      {poly("s2d-bottle", tube(b0, b1, 37, 34), "bottle")}
-      <line data-part="bottle" className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
       {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]), "seatpost")}
       {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]), "seatpost")}
       {/* spacer stack: the steerer between the head tube and the stem (none at 0 spacers) */}

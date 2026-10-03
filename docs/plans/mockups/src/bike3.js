@@ -96,9 +96,6 @@ export function buildBike(G, MAT) {
   ch(V(0, -106, -60), lo.clone().add(V(-12, -12, 0)));
   ch(lo.clone().add(V(16, 8, 0)), up.clone().add(V(18, 0, 0)));
   ch(up.clone().add(V(-14, 8, 0)), rear.clone().add(V(-18, -56, -58)));
-  // bottle + cage on the seat tube
-  const perp = V(stUp.y, -stUp.x); const bt0 = cl.clone().multiplyScalar(.22).addScaledVector(perp, 60), bt1 = cl.clone().multiplyScalar(.66).addScaledVector(perp, 60);
-  g.add(limb(bt0, bt1, t => 37 - 6 * bump(t, 1, .08), MAT.bottle));
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }

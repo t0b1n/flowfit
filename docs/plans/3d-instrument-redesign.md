@@ -9,9 +9,9 @@
 > - **Superseded by master plan §5.5:** this plan's §5.2 profile numbers. The rider stays a segmented lathe clay mannequin
 >   (as here), reshaped to the calibrated lean build in master plan §5.5, with muscles deformed into the limb surfaces
 >   (`muscleLimb`). Plain clay head, **no helmet, no facial features, no Fresnel/rim shading** (decided).
-> - **Bike (Phase 6) additions:** a full disc road bike: 52/36 chainrings, front and rear derailleurs, 11-speed cassette,
+> - **Bike (Phase 6) additions:** a full disc road bike: 52/36 chainrings, front and rear derailleurs, 12-speed Dura-Ace 11-34 cassette,
 >   chain through the pulleys, flat-mount calipers, 160/140 rotors on the left, STI hoods + levers, dropped stays,
->   sloping top tube, aero seatpost, bottle + cage. Carbon-black deep rims and black tyres; **no tan walls, no light rim bands**.
+>   sloping top tube, aero seatpost. Carbon-black deep rims and black tyres; **no tan walls, no light rim bands**.
 >   The reference is `mockups/src/bike3d.js`. Colour tokens (frame "Moss", carbon, alloy, rotor, clay) are in master plan §4.1;
 >   the `tanwall`, `rider` and `riderKit` tokens in §2 below are obsolete.
 > - The phases below map to tracks: Phases 1–3 → track C; Phase 4 → D-api (§4.1–4.4) + D-ui (§4.5–4.7) + C (§4.8);
@@ -830,7 +830,6 @@ edge graph.
 
 - [ ] Positions are unchanged: dev-mode "Export JSON" before and after is byte-identical in `points`.
 - [ ] Frontal area with "+ Bike" changes by < 5%.
-- [ ] Disc-wheel toggle still works.
 - [ ] Screenshots in both themes look like the mock-ups' bike (tapered tubes, curved fork, toothed ring, deep rims).
 
 ---

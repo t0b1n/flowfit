@@ -239,7 +239,7 @@ Build the hip, spine joint and shoulder with the same hinge formula as `buildMan
 
 1. **Shadow flags.** In `SceneContent` (`BikeScene3D.tsx`), the `useEffect(() => { scene.traverse(... castShadow
    ...) })` has **no dependency array**, so it walks the whole scene on every render. Give it deps that change
-   when meshes change: `[geo, tPose, showMannequin, discWheels, debugParts]`.
+   when meshes change: `[geo, tPose, showMannequin, debugParts]`.
 2. **Shader compiles.** In DEV, log `gl.info.programs?.length` once per second (`useThree().gl`). Drag a slider:
    - if the count grows, or `getProgramInfoLog` shows in the profile, find materials created during render: search
      `BikeScene3D.tsx`, `AnimatedLegs.tsx` and `scene3d/` for JSX `<mesh…Material` and for `new THREE.*Material(`
@@ -338,13 +338,13 @@ size from `useThree().size`.
 ### Step 3: flat materials
 
 - In `web/src/scene3d/materials.tsx`, add `buildFlatMats(theme, lit: boolean)` returning the **same keys** as
-  `buildMats` (`frame`, `carbon`, `clay`, `tyre`, `spoke`, `tape`, `alloy`, `rotor`, `bottle`, `hood`, `lever`):
+  `buildMats` (`frame`, `carbon`, `clay`, `tyre`, `spoke`, `tape`, `alloy`, `rotor`, `hood`, `lever`):
   - `MeshBasicMaterial`, or `MeshLambertMaterial` when `lit`;
   - colours read from the **2D CSS**, so they match exactly. Create a hidden `<svg class="s2d">` with one
-    `<rect class="s2d-frame">`, `s2d-carbon`, `s2d-clay`, `s2d-tyre`, `s2d-alloy`, `s2d-rotor`, `s2d-bottle`,
+    `<rect class="s2d-frame">`, `s2d-carbon`, `s2d-clay`, `s2d-tyre`, `s2d-alloy`, `s2d-rotor`,
     `s2d-saddle`, … appended to `document.body`, read `getComputedStyle(el).fill` for each, then remove it;
   - map: `frame` ← `s2d-frame`, `carbon` ← `s2d-carbon`, `clay` ← `s2d-clay`, `tyre` ← `s2d-tyre`, `alloy` ←
-    `s2d-alloy`, `rotor` ← `s2d-rotor` (stroke, not fill), `bottle` ← `s2d-bottle`; `spoke`, `tape`, `hood`,
+    `s2d-alloy`, `rotor` ← `s2d-rotor` (stroke, not fill); `spoke`, `tape`, `hood`,
     `lever` ← `s2d-carbon`;
   - re-read when the theme changes.
 - Give `MatsProvider` an optional `look` prop. With `"flat"` or `"flatLit"` it provides `buildFlatMats(...)` under

@@ -33,8 +33,6 @@ export interface OrthoSceneProps {
   look: Look;
   theme: Theme;
   debug?: boolean;
-  /** rear disc wheel (the 3D view's DISC toggle) */
-  discRear?: boolean;
   /** saddle model (the 3D view's default is the traced "power") */
   saddleType?: SaddleType;
   /** thin outline where depth jumps (silhouettes and overlapping parts); default on, `?outline=0` turns it off */
@@ -173,7 +171,7 @@ function DevHandles() {
   return null;
 }
 
-function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false, visibility, saddleType = "power", outline }: OrthoSceneProps) {
+function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, visibility, saddleType = "power", outline }: OrthoSceneProps) {
   const restoreKey = useContextRestore();
   const invalidate = useThree((s) => s.invalidate);
   const crankAngleRef = useRef(0);
@@ -185,11 +183,11 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
   const bb = pt("bb") ?? ([0, 0, 0] as [number, number, number]);
   useEffect(() => {
     invalidate();
-  }, [invalidate, geo, strokeLUT, weightKg, stanceWidth, look, theme, debug, discRear]);
+  }, [invalidate, geo, strokeLUT, weightKg, stanceWidth, look, theme, debug]);
 
   const styleKey = useMemo(() => ({}), [look, theme, debug, restoreKey]);
   const visKey = visibility ? Object.values(visibility).join() : "";
-  const dirtyKey = useMemo(() => ({}), [geo, strokeLUT, weightKg, discRear, styleKey, visKey]);
+  const dirtyKey = useMemo(() => ({}), [geo, strokeLUT, weightKg, styleKey, visKey]);
   const lit = look === "flatLit";
   return (
     <DebugProvider key={restoreKey} value={debug}>
@@ -201,7 +199,7 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
             <directionalLight position={view === "front" ? [1, 1, 0.3] : [0.4, 1, 1]} intensity={1.4} />
           </>
         ) : null}
-        <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discRear} />
+        <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} />
         <SaddleMesh geo={geo} saddleType={saddleType} />
         <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />
         {strokeLUT && hipR && hipL ? (
