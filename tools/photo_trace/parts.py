@@ -1,5 +1,5 @@
 import cv2, numpy as np, json
-from seg import sil
+from outline import sil, polymask, contour
 CFG = {
  "red": dict(path="red.jpg", thr=22,
    body=[(0,0),(600,0),(600,100),(560,110),(530,121),(515,122),(503,119),(501,150),(497,175),(487,199),(468,208),(450,214),(447,222),(442,260),(0,400)],
@@ -12,18 +12,6 @@ CFG = {
    clip=[(89,113),(62,124),(70,160),(108,153)],
    pad_on_lever=True, zoom=[(250,0,385,170),(50,30,200,170),(200,180,340,330),(200,320,300,440)]),
 }
-def polymask(shape, pts):
-    m = np.zeros(shape, np.uint8); cv2.fillPoly(m, [np.array(pts, np.int32)], 255); return m
-def contour(m, eps):
-    m = (cv2.GaussianBlur(m, (5, 5), 1.0) > 127).astype(np.uint8) * 255
-    cs, _ = cv2.findContours(m, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    c = max(cs, key=cv2.contourArea)[:, 0, :].astype(float)
-    # Circular moving average removes pixel stair-steps; window ~5 px keeps corners crisp.
-    w = 5; pad = np.vstack([c[-w:], c, c[:w]])
-    k = np.ones(2 * w + 1) / (2 * w + 1)
-    sm = np.stack([np.convolve(pad[:, i], k, mode="same")[w:-w] for i in (0, 1)], axis=1)
-    ap = cv2.approxPolyDP(sm.astype(np.float32).reshape(-1, 1, 2), eps, True)
-    return [(round(float(p[0][0]), 1), round(float(p[0][1]), 1)) for p in ap]
 out = {}
 for k, c in CFG.items():
     im, g, S = sil(c["path"], c["thr"])

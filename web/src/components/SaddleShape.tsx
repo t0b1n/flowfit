@@ -1,38 +1,29 @@
 import React from "react";
 
 import type { ContactPoint } from "../types";
+import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, contactX, type Pt, type SaddleTrace } from "../saddleModels";
 
-// Saddle silhouette drawn in bike coordinates (y up, flipped to SVG y here).
+const path = (pts: Pt[], at: (p: Pt) => Pt) =>
+  pts.map((p, i) => { const [x, y] = at(p); return `${i ? "L" : "M"} ${x.toFixed(1)},${y.toFixed(1)}`; }).join(" ") + " Z";
+
+// Traced saddle side view drawn in bike coordinates (y up, flipped to SVG y here). The side-profile
+// top at the contact station sits on `contact`, so the rails sit on the clamp when saddle_stack is the
+// traced stack (the default).
 export const SaddleShape: React.FC<{
   contact: ContactPoint; // saddle surface
   clamp: ContactPoint;   // visual seatpost head / rail support
   className?: string;
-}> = ({ contact, clamp, className }) => {
-  const cx = contact.x;
-  const cy = -contact.y;
-  const clampSvgX = clamp.x;
-  const clampSvgY = -clamp.y;
-  const w = 120;
-  const h = 25;
-  const r = 8;
-  const d = [
-    `M ${cx - w + r},${cy}`,
-    `L ${cx + w - r},${cy}`,
-    `Q ${cx + w},${cy} ${cx + w},${cy + r}`,
-    `L ${cx + w},${cy + h - r}`,
-    `Q ${cx + w},${cy + h} ${cx + w - r},${cy + h}`,
-    `L ${cx - w + r},${cy + h}`,
-    `Q ${cx - w},${cy + h} ${cx - w},${cy + h - r}`,
-    `L ${cx - w},${cy + r}`,
-    `Q ${cx - w},${cy} ${cx - w + r},${cy}`,
-    "Z",
-  ].join(" ");
+  trace?: SaddleTrace;
+}> = ({ contact, clamp, className, trace = SWORKS_POWER }) => {
+  const cx = contactX(trace, SADDLE_CONTACT_U);
+  const dx = contact.x - cx;
+  const dy = contact.y - contactHeight(trace, SADDLE_CONTACT_U);
+  const at = ([x, y]: Pt): Pt => [x + dx, -(y + dy)];
   return (
     <g className={className}>
-      <path d={d} className="geometry-saddle-body" />
-      <line x1={cx - 40} y1={cy + h} x2={clampSvgX} y2={clampSvgY} className="geometry-saddle-rail" />
-      <line x1={cx + 40} y1={cy + h} x2={clampSvgX} y2={clampSvgY} className="geometry-saddle-rail" />
-      <circle cx={clampSvgX} cy={clampSvgY} r={4} className="geometry-saddle-clamp" />
+      <path d={path(trace.rail, at)} className="geometry-saddle-railbody" />
+      <path d={path(trace.shell, at)} className="geometry-saddle-body" />
+      <circle cx={clamp.x} cy={-clamp.y} r={4} className="geometry-saddle-clamp" />
     </g>
   );
 };

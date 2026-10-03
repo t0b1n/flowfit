@@ -14,7 +14,7 @@ import type { PedalStrokeLUT } from "../geometry";
 import type { Theme } from "../design/tokens";
 import { DebugProvider } from "../debug";
 import { AnimatedLegs } from "../AnimatedLegs";
-import { BikeStatic, Drivetrain3D, RiderStatic, SaddleMesh, frameTubesFor } from "../BikeScene3D";
+import { BikeStatic, Drivetrain3D, RiderStatic, SaddleMesh, frameTubesFor, type SaddleType } from "../BikeScene3D";
 import { MatsProvider, type Look } from "./materials";
 import { useContextRestore } from "./contextLoss";
 import { viewBoxToFrustum } from "./ortho";
@@ -32,6 +32,8 @@ export interface OrthoSceneProps {
   debug?: boolean;
   /** rear disc wheel (the 3D view's DISC toggle) */
   discRear?: boolean;
+  /** saddle model (the 3D view's default is the traced "power") */
+  saddleType?: SaddleType;
   /** the 2D Layers toggles: hide body parts (default: all shown) */
   visibility?: Partial<Record<"legs" | "torso" | "arms" | "head" | "feet", boolean>>;
 }
@@ -149,7 +151,7 @@ function DevHandles() {
   return null;
 }
 
-function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false, visibility }: OrthoSceneProps) {
+function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false, visibility, saddleType = "power" }: OrthoSceneProps) {
   const restoreKey = useContextRestore();
   const invalidate = useThree((s) => s.invalidate);
   const crankAngleRef = useRef(0);
@@ -181,7 +183,7 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
           debug && <ambientLight intensity={Math.PI} />
         )}
         <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discRear} />
-        <SaddleMesh geo={geo} saddleType="arione" />
+        <SaddleMesh geo={geo} saddleType={saddleType} />
         <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />
         {strokeLUT && hipR && hipL ? (
           <AnimatedLegs
