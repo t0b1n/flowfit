@@ -49,22 +49,34 @@ export const SEATSTAY_DROP = 35;
 export const HUB = { shellR: 14, shellHalf: 32, flangeR: 24, flangeZ: 28, flangeT: 5, axleR: 6 };
 
 export const RIM = {
-  /** Carbon deep rim lathe profile around the axle: [offset below wheel radius R, lateral y]. */
-  lathe: [
-    [27, -12],
-    [60, -10],
-    [72, -4],
-    [73, 0],
-    [72, 4],
-    [60, 10],
-    [27, 12],
+  /**
+   * Carbon deep rim cross-section as one closed polygon, [offset below the wheel radius R (mm), lateral y (mm)]:
+   * the outer skin runs from the left bead hook, down the sidewall, round the spoke bed and up the other sidewall;
+   * then the U of the tyre channel (hook lips 3.5 mm thick, channel floor 8 mm below the hook) closes the loop.
+   * Revolved by `rimGeometry` (bike3d.ts), which orders it so the faces point out of the solid.
+   */
+  section: [
+    [26, -12.5],
+    [40, -13],
+    [58, -12],
+    [68, -8],
+    [72, -3],
+    [72, 3],
+    [68, 8],
+    [58, 12],
+    [40, 13],
+    [26, 12.5],
+    [26, 9],
+    [34, 8.5],
+    [34, -8.5],
+    [26, -9],
   ] as ReadonlyArray<[number, number]>,
+  /** Offset of the spoke bed (inner surface) below R: spokes end here. */
+  spokeBed: 72,
   /** 2D side view: carbon rim band, tyre stroke and spoke widths. */
   band2D: 44,
   tyre2D: 28,
   spoke2D: 2.2,
-  /** Spokes end this far inside the wheel radius (3D). */
-  spokeEnd: 84,
 } as const;
 
 export const CHAINRING = {

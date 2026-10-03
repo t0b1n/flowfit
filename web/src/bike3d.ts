@@ -326,7 +326,24 @@ const cylinderMesh = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number
 
 const FRAME_TUBES = new Set<string>(["down_tube", "seat_tube", "top_tube", "head_tube", "chainstay", "seatstay"]);
 
-function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { disc: boolean; rotorR: number }, cache?: GeometryCache) {
+/**
+ * The rim as a closed solid: `RIM.section` revolved about the axle (axis → Y here, rotated to Z by the mesh).
+ * LatheGeometry points its normals to the right of the profile's direction of travel (x = radius, y = lateral), so the
+ * section is traversed counter-clockwise, which puts the solid on the left and the faces outward on every wall.
+ */
+export function rimGeometry(R: number): THREE.LatheGeometry {
+  let pts = RIM.section.map(([dr, y]) => new THREE.Vector2(R - dr, y));
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i], b = pts[(i + 1) % pts.length];
+    area += a.x * b.y - b.x * a.y;
+  }
+  if (area < 0) pts = pts.reverse(); // clockwise → counter-clockwise
+  pts.push(pts[0].clone()); // close the loop
+  return new THREE.LatheGeometry(pts, 120);
+}
+
+function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { disc: boolean; rotorR: number; caliperAngle: number }, cache?: GeometryCache) {
   const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 6) => taperMesh(a, b, r0, r1, mat, seg, cache);
   /** wheel parts depend only on the wheel radius / rotor radius: placement is the mesh transform */
   const part = <G extends THREE.BufferGeometry>(key: string, build: () => G): G => (cache ? cache.get(`wheel|${key}`, build) : build());
@@ -335,7 +352,7 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
   const tyre = new THREE.Mesh(part(`tyre|${R}`, () => new THREE.TorusGeometry(R - 14, 14, 18, 88)), mats.tyre);
   w.add(tyre);
   // Carbon deep rim: lathe profile around the axle (axis → Z)
-  const rim = new THREE.Mesh(part(`rim|${R}`, () => new THREE.LatheGeometry(RIM.lathe.map(([dr, y]) => new THREE.Vector2(R - dr, y)), 120)), mats.carbon);
+  const rim = new THREE.Mesh(part(`rim|${R}`, () => rimGeometry(R)), mats.carbon);
   rim.rotation.x = Math.PI / 2;
   w.add(rim);
   if (opts.disc) {
@@ -345,9 +362,10 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
   } else {
     for (let i = 0; i < 24; i++) {
       const a = (i / 24) * Math.PI * 2;
-      const flange = i % 2 === 0 ? 16 : -16;
-      const s = new THREE.Vector3(20 * Math.cos(a), 20 * Math.sin(a), flange);
-      const e = new THREE.Vector3((R - RIM.spokeEnd) * Math.cos(a), (R - RIM.spokeEnd) * Math.sin(a), 0);
+      // from the hub flanges (alternating sides) to the spoke bed of the rim
+      const flange = i % 2 === 0 ? HUB.flangeZ : -HUB.flangeZ;
+      const s = new THREE.Vector3(HUB.flangeR * Math.cos(a), HUB.flangeR * Math.sin(a), flange);
+      const e = new THREE.Vector3((R - RIM.spokeBed) * Math.cos(a), (R - RIM.spokeBed) * Math.sin(a), 0);
       w.add(taper(s, e, 1.1, 1.1, mats.spoke, 1));
     }
   }
@@ -366,9 +384,10 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
     const e = new THREE.Vector3((rr - 16) * Math.cos(a), (rr - 16) * Math.sin(a), -24);
     w.add(taper(s, e, 4, 4, mats.rotor, 1));
   }
+  // the caliper straddles the outer edge of the rotor (its long side tangent to it) at the angle the frame or fork puts it
   const cal = new THREE.Mesh(part("caliper", () => new THREE.BoxGeometry(60, 26, 18)), mats.alloy);
-  cal.position.set(Math.cos(0.9) * (rr + 8), Math.sin(0.9) * (rr + 8), -24);
-  cal.rotation.z = 0.9 - Math.PI / 2;
+  cal.position.set(Math.cos(opts.caliperAngle) * (rr - 6), Math.sin(opts.caliperAngle) * (rr - 6), -24);
+  cal.rotation.z = opts.caliperAngle - Math.PI / 2;
   w.add(cal);
   g.add(w);
 }
@@ -506,8 +525,11 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const wheelMats: BikeMaterials = opts.debug
     ? { ...mats, carbon: debugMaterial("wheel"), tyre: debugMaterial("wheel"), spoke: debugMaterial("wheel"), alloy: debugMaterial("wheel"), rotor: debugMaterial("brakes") }
     : mats;
-  if (rear) addWheel(g, rear, wheelRadius, wheelMats, { disc: opts.discRear, rotorR: 70 }, cache);
-  if (front) addWheel(g, front, wheelRadius, wheelMats, { disc: false, rotorR: 80 }, cache);
+  // Calipers (wheel-local angle from +x, counter-clockwise, side view with the bike facing +x): the rear one sits on the
+  // chainstay/seat stay above and ahead of the axle (about 2 o'clock); the front one is on the back of the fork leg,
+  // just above the axle height (about 9:30).
+  if (rear) addWheel(g, rear, wheelRadius, wheelMats, { disc: opts.discRear, rotorR: 70, caliperAngle: 0.87 }, cache);
+  if (front) addWheel(g, front, wheelRadius, wheelMats, { disc: false, rotorR: 80, caliperAngle: 2.7 }, cache);
 
   // Rear cassette, derailleur and chain (drive side = rider's right = +Z; forward +x, up +y makes +Z the right-hand side)
   if (rear) {
