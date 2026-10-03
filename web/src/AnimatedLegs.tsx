@@ -21,6 +21,8 @@ import { PEDAL_BODY, shoeAxis, shoeRadius } from "./design/foot";
 import { PROFILES, MASSES, bump, calAt, lerp } from "./design/riderBody";
 import { legPoseAt, PedalStrokeLUT } from "./geometry";
 import { limbGeometry, muscleLimbGeometry, resolveBulges, segScale, type P3 } from "./riderMesh";
+import { withNormals } from "./scene3d/geometryCache";
+import { useNeedsNormals } from "./scene3d/materials";
 import { useMats } from "./scene3d/materials";
 
 // Scratch objects reused every frame — zero per-frame allocations.
@@ -115,7 +117,8 @@ export function AnimatedLegs({
     p0.knee.x, p0.knee.y, p0.ankle.x, p0.ankle.y, p0.cleat.x, p0.cleat.y, p0.spindle.x, p0.spindle.y, lut.ankleSetbackMm,
     ...hipR, ...hipL, bb[0], bb[1], halfStance, weightKg, heightMm,
   ].map((n) => n.toFixed(2)).join("|");
-  const dims = useMemo(() => {
+  const needsNormals = useNeedsNormals();
+  const dims = useMemo(() => withNormals(needsNormals, () => {
     const hs = heightMm / 1800;
     const drawnAnkleX = p0.ankle.x - lut.ankleSetbackMm;
     const thighLen = dist3(hipR[0], hipR[1], hipR[2], p0.knee.x, p0.knee.y, halfStance);
@@ -147,15 +150,15 @@ export function AnimatedLegs({
       kneeR: MASSES.knee.radius * hs,
       ankleR: MASSES.ankle.radius * hs,
     };
-  }, [dimsKey]);
+  }), [dimsKey, needsNormals]);
   useEffect(() => () => {
     dims.thigh.L.dispose(); dims.thigh.R.dispose(); dims.calf.L.dispose(); dims.calf.R.dispose(); dims.shoe.dispose();
   }, [dims]);
 
   // One crank-arm geometry for both cranks, per crank length (it used to be rebuilt, and leaked, on every render).
   const crankGeom = useMemo(
-    () => limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16),
-    [dims.crankLen],
+    () => withNormals(needsNormals, () => limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16)),
+    [dims.crankLen, needsNormals],
   );
   useEffect(() => () => crankGeom.dispose(), [crankGeom]);
 

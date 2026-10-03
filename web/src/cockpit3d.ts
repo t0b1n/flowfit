@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { BAR_RADIUS, barCenterline3D, type Cockpit, type Vec3 } from "./cockpit";
 import { debugMaterial } from "./debug";
 import type { Pt } from "./hoodModels";
-import { GeometryCache, k1 } from "./scene3d/geometryCache";
+import { GeometryCache, computeNormals, k1 } from "./scene3d/geometryCache";
 
 export interface CockpitMaterials {
   carbon: THREE.Material;
@@ -76,7 +76,7 @@ export function sweepTube(pts: Vec3[], section: SectionFn, opts: { samples?: num
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   g.setIndex(idx);
-  g.computeVertexNormals();
+  computeNormals(g);
   return g;
 }
 
@@ -171,7 +171,7 @@ function extrudeOutline(pts: Pt[], thick: number, bevel: number): THREE.BufferGe
     curveSegments: 4,
   });
   g.translate(0, 0, -(thick - 2 * b) / 2);
-  g.computeVertexNormals();
+  computeNormals(g);
   return g;
 }
 

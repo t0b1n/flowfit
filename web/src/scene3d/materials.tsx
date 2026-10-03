@@ -29,6 +29,9 @@ export interface Mats {
     hood: THREE.Material;
     /** gloss carbon brake blades */
     lever: THREE.Material;
+    /** saddle shell and its rails (SaddleMesh) */
+    saddle: THREE.Material;
+    rail: THREE.Material;
   };
   raw: THREE.Material[];
 }
@@ -50,20 +53,102 @@ export function buildMats(theme: Theme): Mats {
   // Hood rubber: lifted slightly toward clay so the traced shape reads against the black bar.
   const hood = new THREE.MeshStandardMaterial({ color: new THREE.Color(t.tyre).lerp(new THREE.Color(t.clay), 0.18), roughness: 0.88, metalness: 0 });
   const lever = new THREE.MeshPhysicalMaterial({ color: t.carbon, roughness: 0.28, metalness: 0.1, clearcoat: 0.8, clearcoatRoughness: 0.2 });
+  const saddle = new THREE.MeshStandardMaterial({ color: "#0f0f0f", roughness: 0.88, metalness: 0.04 });
+  const rail = new THREE.MeshStandardMaterial({ color: "#c8c8c8", roughness: 0.18, metalness: 0.82 });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail],
+  };
+}
+
+/** "flat": unlit token colours (side view); "flatLit": the same colours under a soft light (front view). */
+export type Look = "flat" | "flatLit";
+
+/** Any CSS colour string (incl. `color-mix()` results) → THREE.Color, via a 1×1 canvas. */
+function cssColor(css: string): THREE.Color {
+  const c = document.createElement("canvas");
+  c.width = c.height = 1;
+  const g = c.getContext("2d", { willReadFrequently: true })!;
+  g.fillStyle = "#ff00ff";
+  g.fillStyle = css;
+  g.fillRect(0, 0, 1, 1);
+  const [r, gr, b] = g.getImageData(0, 0, 1, 1).data;
+  return new THREE.Color().setRGB(r / 255, gr / 255, b / 255, THREE.SRGBColorSpace);
+}
+
+/** Fills the 2D side view uses, read from the real stylesheet so the two renderers cannot drift apart. */
+function readS2dColors(theme: Theme): Record<"frame" | "carbon" | "clay" | "tyre" | "alloy" | "rotor" | "bottle" | "saddle", THREE.Color> {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "s2d");
+  svg.setAttribute("data-theme", theme);
+  svg.style.cssText = "position:absolute;width:0;height:0;visibility:hidden";
+  const parts: Array<[string, string, "fill" | "stroke"]> = [
+    ["frame", "s2d-frame", "fill"], ["carbon", "s2d-carbon", "fill"], ["clay", "s2d-clay", "fill"], ["tyre", "s2d-bar", "stroke"],
+    ["alloy", "s2d-hub", "fill"], ["rotor", "s2d-rotor", "stroke"], ["bottle", "s2d-bottle", "fill"], ["saddle", "s2d-saddle-body", "fill"],
+  ];
+  const els = parts.map(([, cls]) => {
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    // the saddle body is styled as `.s2d-saddle .geometry-saddle-body`
+    if (cls === "s2d-saddle-body") {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("class", "s2d-saddle");
+      r.setAttribute("class", "geometry-saddle-body");
+      g.appendChild(r);
+      svg.appendChild(g);
+    } else {
+      r.setAttribute("class", cls);
+      svg.appendChild(r);
+    }
+    return r;
+  });
+  document.body.appendChild(svg);
+  const out = {} as Record<string, THREE.Color>;
+  parts.forEach(([key, , prop], i) => {
+    out[key] = cssColor(getComputedStyle(els[i])[prop]);
+  });
+  svg.remove();
+  return out as ReturnType<typeof readS2dColors>;
+}
+
+/** Same keys as `buildMats`, in flat colours taken from the 2D stylesheet (`.s2d-*`). Re-read when the theme changes. */
+export function buildFlatMats(theme: Theme, lit: boolean): Mats {
+  const c = readS2dColors(theme);
+  const mk = (color: THREE.Color) => (lit ? new THREE.MeshLambertMaterial({ color }) : new THREE.MeshBasicMaterial({ color }));
+  const frame = mk(c.frame);
+  const carbon = mk(c.carbon);
+  const clay = mk(c.clay);
+  const tyre = mk(c.tyre);
+  const alloy = mk(c.alloy);
+  const rotor = mk(c.rotor);
+  const bottle = mk(c.bottle);
+  const saddle = mk(c.saddle);
+  // spokes, tape, hoods and levers are drawn in carbon in 2D
+  const spoke = mk(c.carbon);
+  const tape = mk(c.carbon);
+  const hood = mk(c.carbon);
+  const lever = mk(c.carbon);
+  const rail = mk(c.carbon);
+  return {
+    frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail],
   };
 }
 
 const MatsContext = createContext<Mats | null>(null);
 
-export const MatsProvider: React.FC<{ theme: Theme; children: React.ReactNode }> = ({ theme, children }) => {
-  const mats = useMemo(() => buildMats(theme), [theme]);
+export const MatsProvider: React.FC<{ theme: Theme; look?: Look; children: React.ReactNode }> = ({ theme, look, children }) => {
+  const mats = useMemo(() => (look ? buildFlatMats(theme, look === "flatLit") : buildMats(theme)), [theme, look]);
   useEffect(() => () => mats.raw.forEach((x) => x.dispose()), [mats]);
   return <MatsContext.Provider value={mats}>{children}</MatsContext.Provider>;
 };
+
+/** Normals are only read by lit materials; the unlit flat look lets the mesh builders skip computing them. */
+export function useNeedsNormals(): boolean {
+  const m = useMats();
+  return !(m.m.clay instanceof THREE.MeshBasicMaterial);
+}
 
 export function useMats(): Mats {
   const m = useContext(MatsContext);

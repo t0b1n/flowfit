@@ -265,6 +265,8 @@ For visualization, the frontend builds its own 3D mannequin using `buildMannequi
 
 **Torso surface and back bend (rendering only):** the solver's hinge turns the upper torso about `spine_joint` by `backBendDeg`, so hip → spine → shoulder is a polyline. The rendered torso (3D `buildRiderMeshes`, 2D `buildFigure`) follows `spinePath()` (`design/riderBody.ts`) instead: straight → circular arc over `SPINE_BEND_LENGTH` (400 mm) → straight, turning by the same angle and ending exactly on the solved shoulder. No joint, metric or angle changes. The 3D lathe is bent onto the path by `bendTorso()` (`riderMesh.ts`); at 0° it reproduces the straight torso.
 
+**Orthographic render:** `scene3d/OrthoScene.tsx` draws the same bike and rider meshes through an orthographic camera in flat colours read from the 2D stylesheet (`buildFlatMats`). The frustum comes from the SVG overlay's viewBox (`viewBoxToFrustum`), so the canvas sits exactly under the 2D annotations. Side view: +Z (the rider's right) faces the camera and parts on the −Z side are faded toward the background. Front view: camera looks down −X with a soft light (`flatLit`).
+
 **Geometry cache:** the 3D mesh builders take an optional shape-keyed `GeometryCache` (`scene3d/geometryCache.ts`), so a slider tick only rebuilds geometry whose shape numbers changed; placement is the mesh transform.
 
 **Contract:** The frontend bilateral expansion must produce the same point names, edge definitions, and Z-spread rules as the backend. This is enforced by regression tests in `tests/test_bilateral_expansion.py`.

@@ -25,7 +25,7 @@ import {
   type SegmentName,
   type SpinePath,
 } from "./design/riderBody";
-import { GeometryCache, k1, k3 } from "./scene3d/geometryCache";
+import { GeometryCache, computeNormals, k1, k3 } from "./scene3d/geometryCache";
 
 export type P3 = [number, number, number];
 
@@ -52,7 +52,7 @@ export function limbGeometry(len: number, prof: (t: number) => number, seg = 28,
     pts.push(new THREE.Vector2(Math.cos(a) * r1, len + Math.sin(a) * r1));
   }
   const g = new THREE.LatheGeometry(pts, lat);
-  g.computeVertexNormals();
+  computeNormals(g);
   return g;
 }
 
@@ -129,7 +129,7 @@ export function muscleLimbGeometry(
     p.setX(i, x * k * scale[0]);
     p.setZ(i, z * k * scale[1]);
   }
-  g.computeVertexNormals();
+  computeNormals(g);
   return g;
 }
 
@@ -165,7 +165,7 @@ export function bendTorso(geom: THREE.BufferGeometry, path: SpinePath): THREE.Bu
     p.setXYZ(i, c.x + t.y * x, c.y - t.x * x, p.getZ(i));
   }
   p.needsUpdate = true;
-  geom.computeVertexNormals();
+  computeNormals(geom);
   geom.computeBoundingSphere();
   geom.computeBoundingBox();
   return geom;
@@ -222,7 +222,7 @@ export function headMesh(headCenter: P3, neckBase: P3, mat: THREE.Material, cach
       const [X, Y2, Z] = headDeform(p.getX(i), p.getY(i), p.getZ(i));
       p.setXYZ(i, X, Y2, Z);
     }
-    g.computeVertexNormals();
+    computeNormals(g);
     return g;
   };
   const g = cache ? cache.get("head", build) : build();
@@ -265,7 +265,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
       tp.setX(i, tp.getX(i) * torsoDepth(t) * calAt("torso", t));
       tp.setZ(i, tp.getZ(i) * torsoWidth(t));
     }
-    tg.computeVertexNormals();
+    computeNormals(tg);
     return tg;
   };
   const rest = cache ? cache.get(`torso|${k1(path.len)}|${k3(kt)}`, buildTorso) : buildTorso();
