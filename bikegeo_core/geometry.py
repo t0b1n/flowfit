@@ -31,6 +31,11 @@ def _head_tube_direction(frame: FrameGeometry) -> Vec2:
     return Vec2(cos(angle_rad), -sin(angle_rad))
 
 
+def stem_angle_from_horizontal(stem_angle_deg, head_angle_deg: float):
+    """Stem rating (degrees from the steerer normal, as printed on the stem) -> angle above horizontal."""
+    return stem_angle_deg + (90.0 - head_angle_deg)
+
+
 def pedal_spindle_at_angle(bb: Vec2, crank_length: float, crank_angle_deg: float) -> Vec2:
     """Pedal spindle position for a crank at the given angle.
 
@@ -53,16 +58,13 @@ SLIDE_DY = -0.9
 SLIDE_PITCH_DEG = -0.45
 
 
-def stem_angle_above_horizontal(stem_angle_deg, head_angle_deg: float):
-    """Stem direction above horizontal (deg) for a stem angle quoted against the steerer perpendicular."""
-    return np.asarray(stem_angle_deg) + (90.0 - head_angle_deg)
+def effective_bar_roll(components: Components) -> float:
+    """Bar roll in effect: the clamp-to-hood reach line angle (deg).
 
-
-def effective_bar_roll(components: Components):
-    """Bar roll in effect: the clamp-to-hood reach line angle (deg). Broadcasts over array stem angles."""
-    if components.bar_roll_deg is not None:
-        return components.bar_roll_deg
-    return np.maximum(8.0, np.asarray(components.stem_angle_deg) + 6.0)
+    None = 0: bar reach is horizontal and fitters rotate the bar to the rider's setup independently of the stem,
+    so by default the hoods sit straight ahead of the clamp.
+    """
+    return components.bar_roll_deg if components.bar_roll_deg is not None else 0.0
 
 
 def hood_contact(bar_clamp: Vec2, components: Components) -> Vec2:
@@ -70,7 +72,9 @@ def hood_contact(bar_clamp: Vec2, components: Components) -> Vec2:
 
     base    = R(roll)·(bar_reach + 0.35 s, -0.9 s) + (0, bar_rise)
     pitch   = roll - 0.45° s
-    contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, bar_drop + hood_drop_offset)
+    contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, hood_drop_offset)
+
+    bar_drop describes the drops, not the hoods, so it does not move the contact.
     """
     s = components.hood_slide_mm
     roll = np.radians(effective_bar_roll(components))
@@ -81,7 +85,7 @@ def hood_contact(bar_clamp: Vec2, components: Components) -> Vec2:
     base_y = bar_clamp.y + bx * np.sin(roll) + by * np.cos(roll) + components.bar_rise
     return Vec2(
         base_x + components.hood_reach_offset * np.cos(pitch),
-        base_y + components.hood_reach_offset * np.sin(pitch) + components.bar_drop + components.hood_drop_offset,
+        base_y + components.hood_reach_offset * np.sin(pitch) + components.hood_drop_offset,
     )
 
 
@@ -113,21 +117,27 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         saddle_clamp.y + components.saddle_stack,
     )
 
+    # Spacers and the stem clamp stack along the steerer (the head-tube axis, leaning back), not straight up.
+    head_dir = _head_tube_direction(frame)
+    steerer_up = Vec2(-head_dir.x, -head_dir.y)
     steerer_top = Vec2(
-        bb.x + frame.reach,
-        bb.y + frame.stack + components.spacer_stack,
+        bb.x + frame.reach + steerer_up.x * components.spacer_stack,
+        bb.y + frame.stack + steerer_up.y * components.spacer_stack,
+    )
+    # The clamp's bottom sits on the spacer stack; its pivot is half the stem height further up the steerer.
+    stem_pivot = Vec2(
+        steerer_top.x + steerer_up.x * components.stem_height / 2.0,
+        steerer_top.y + steerer_up.y * components.stem_height / 2.0,
     )
 
+    # stem_angle_deg is the manufacturer rating, measured from the normal to the steerer.
     # numpy trig so array-valued stem parameters (the solver's component
     # grid) broadcast through; identical doubles for plain floats.
-    # Stem angle is quoted like the stem makers do: relative to the perpendicular of the steerer,
-    # so a -6° stem on a 73° head tube points 11° above horizontal (and a -17° stem is level).
-    stem_angle_rad = np.radians(stem_angle_above_horizontal(components.stem_angle_deg, frame.head_angle_deg))
+    stem_angle_rad = np.radians(stem_angle_from_horizontal(components.stem_angle_deg, frame.head_angle_deg))
     stem_dir = Vec2(np.cos(stem_angle_rad), np.sin(stem_angle_rad))
-    # The stem's bottom sits on the spacer stack; its clamp pivot is half the stem height above it.
     bar_clamp = Vec2(
-        steerer_top.x + stem_dir.x * components.stem_length,
-        steerer_top.y + components.stem_height / 2.0 + stem_dir.y * components.stem_length,
+        stem_pivot.x + stem_dir.x * components.stem_length,
+        stem_pivot.y + stem_dir.y * components.stem_length,
     )
 
     hoods = hood_contact(bar_clamp, components)

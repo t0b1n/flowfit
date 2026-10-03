@@ -10,7 +10,7 @@
 
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
-import { CHAINRING, RIM, SEATSTAY_DROP, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
+import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import type { Cockpit } from "./cockpit";
 
@@ -310,6 +310,15 @@ const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: 
   return m;
 };
 
+/** Flat-ended cylinder a → b (radius r0 at a, r1 at b): exactly |a→b| long, unlike `taper`'s round caps. */
+const cylinder = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material): THREE.Mesh => {
+  const len = a.distanceTo(b);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 28), mat);
+  m.position.copy(a).lerp(b, 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+  return m;
+};
+
 const FRAME_TUBES = new Set<string>(["down_tube", "seat_tube", "top_tube", "head_tube", "chainstay", "seatstay"]);
 
 function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { disc: boolean; rotorR: number }) {
@@ -376,17 +385,11 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const seatDir = vv(cl).sub(vv(bb)).normalize();
   const htDown = vv(hb).sub(vv(ht)).normalize();
 
-  // Stem steerer clamp: centred on stem_pivot, along the head-tube axis, bottom flush on the head tube top
+  // Stem steerer clamp: steerer_top → stem_pivot is its lower half along the head-tube axis (synthesizeBike puts both
+  // on it), so the clamp runs steerer_top → 2·stem_pivot − steerer_top: exactly stem_height long, flat ends.
   const sTop = P.get("steerer_top");
   const sPiv = P.get("stem_pivot");
-  let clamp: { bottom: THREE.Vector3; top: THREE.Vector3 } | null = null;
-  if (sTop && sPiv) {
-    const axis = vv(ht).sub(vv(hb)).normalize();
-    const half = vv(sPiv).distanceTo(vv(sTop)); // stem_pivot sits half the clamp height above steerer_top
-    const raw = vv(sPiv).addScaledVector(axis, -half);
-    const lift = Math.max(0, 2 - raw.clone().sub(vv(ht)).dot(axis));
-    clamp = { bottom: raw.addScaledVector(axis, lift), top: vv(sPiv).addScaledVector(axis, half + lift) };
-  }
+  const clamp = sTop && sPiv ? { bottom: vv(sTop), top: vv(sPiv).multiplyScalar(2).sub(vv(sTop)) } : null;
 
   // Frame tubes (tapered), seatpost, steerer, stem
   for (const t of tubes) {
@@ -396,20 +399,27 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     if (t.name === "bar" || t.name === "bar_ramp" || t.name === "bar_drop") continue; // swept handlebar in the scene
     if (FRAME_TUBES.has(t.name)) {
       const [r0, r1] = TUBE_PROFILE[t.name as TubeName];
-      if (t.name === "head_tube") g.add(taper(b, a, r0, r1, pick(t.name, mats.frame))); // profile runs bottom → top
+      if (t.name === "head_tube") g.add(cylinder(b, a, r0, r1, pick(t.name, mats.frame))); // bottom → top, flat top under the spacers
       else if (t.name === "seatstay") g.add(taper(a.clone().addScaledVector(seatDir, -SEATSTAY_DROP), b, r0, r1, pick(t.name, mats.frame)));
       else g.add(taper(a, b, r0, r1, pick(t.name, mats.frame)));
     } else if (t.name === "seatpost") {
       g.add(taper(a, b, TUBE_PROFILE.seatpost[0], TUBE_PROFILE.seatpost[1], pick("seatpost", mats.carbon)));
     } else if (t.name === "steerer") {
       // spacer stack: the steerer between the head tube top and the stem, along the head-tube axis (none at 0 spacers)
-      if (clamp && clamp.bottom.distanceTo(vv(ht)) > 1) g.add(taper(vv(ht), clamp.bottom, 17, 17, pick("spacers", mats.carbon)));
+      if (clamp && clamp.bottom.distanceTo(vv(ht)) > 0.5) g.add(cylinder(vv(ht), clamp.bottom, STEM.spacerR, STEM.spacerR, pick("spacers", mats.carbon)));
     } else if (t.name === "stem_clamp") {
       // the stem is one object: this steerer clamp plus the arm below
-      if (clamp) g.add(taper(clamp.bottom, clamp.top, 21, 21, pick("stem", mats.carbon)));
+      if (clamp) g.add(cylinder(clamp.bottom, clamp.top, STEM.clampR, STEM.clampR, pick("stem", mats.carbon)));
     } else if (t.name === "stem") {
       // a one-piece bar-stem draws its own fused arm (cockpit3d.ts)
-      if (!opts.integratedStem) g.add(taper(a, b, 15, 12.5, pick("stem", mats.carbon)));
+      if (!opts.integratedStem) {
+        g.add(taper(a, b, STEM.armR[0], STEM.armR[1], pick("stem", mats.carbon)));
+        // bar clamp body around the bar (the bar itself is drawn in the scene)
+        const bc = new THREE.Mesh(new THREE.CylinderGeometry(STEM.barClampR, STEM.barClampR, STEM.barClampWidth, 28), pick("stem", mats.carbon));
+        bc.position.copy(b);
+        bc.rotation.x = Math.PI / 2; // axis along the bar (lateral, Z)
+        g.add(bc);
+      }
     } else {
       g.add(taper(a, b, t.radius, t.radius, pick(t.name, mats.frame)));
     }

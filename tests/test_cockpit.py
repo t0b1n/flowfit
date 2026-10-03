@@ -7,7 +7,6 @@ cases run through the TypeScript implementation (web/src/cockpit.test.ts), so
 from __future__ import annotations
 
 import json
-import math
 from pathlib import Path
 
 import numpy as np
@@ -39,13 +38,14 @@ def _components(**overrides) -> Components:
     return Components(**base)
 
 
-def test_legacy_default_matches_historical_frontend_formula() -> None:
-    comp = _components()
-    p = hood_contact(Vec2(500.0, 600.0), comp)
-    ang = math.radians(max(8, comp.stem_angle_deg + 6))
-    length = comp.bar_reach + comp.hood_reach_offset
-    assert p.x == pytest.approx(500.0 + math.cos(ang) * length, abs=1e-9)
-    assert p.y == pytest.approx(600.0 + math.sin(ang) * length, abs=1e-9)
+def test_default_puts_hoods_straight_ahead_of_the_clamp() -> None:
+    # No cockpit fields set: bar reach is horizontal, independent of the stem angle, and bar_drop
+    # (which describes the drops) does not move the hoods.
+    for stem in (-17.0, -6.0, 10.0):
+        comp = _components(stem_angle_deg=stem, bar_drop=-40.0)
+        p = hood_contact(Vec2(500.0, 600.0), comp)
+        assert p.x == pytest.approx(500.0 + comp.bar_reach + comp.hood_reach_offset, abs=1e-9)
+        assert p.y == pytest.approx(600.0, abs=1e-9)
 
 
 def test_rise_lifts_hoods_by_exactly_the_rise() -> None:
@@ -61,11 +61,14 @@ def test_hood_roll_has_no_sagittal_effect() -> None:
     assert (a.x, a.y) == (b.x, b.y)
 
 
-def test_broadcasts_over_array_stem_angles() -> None:
-    comp = _components().model_copy(update=dict(stem_angle_deg=np.array([-17.0, -6.0, 6.0])))
-    p = hood_contact(Vec2(0, 0), comp)
-    for i, sa in enumerate([-17.0, -6.0, 6.0]):
-        single = hood_contact(Vec2(0, 0), _components(stem_angle_deg=sa))
+def test_broadcasts_over_array_bar_clamps() -> None:
+    # In the solver grid the searched axes reach hood_contact through the bar clamp position.
+    xs = np.array([480.0, 500.0, 520.0])
+    ys = np.array([590.0, 600.0, 640.0])
+    comp = _components(bar_roll_deg=6.0, hood_slide_mm=4.0, bar_rise=15.0)
+    p = hood_contact(Vec2(xs, ys), comp)
+    for i in range(3):
+        single = hood_contact(Vec2(float(xs[i]), float(ys[i])), comp)
         assert p.x[i] == pytest.approx(single.x)
         assert p.y[i] == pytest.approx(single.y)
 

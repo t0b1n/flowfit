@@ -1,12 +1,12 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
-import { CHAINRING, RIM, SEATSTAY_DROP, TUBE_PROFILE } from "../design/bikeProfiles";
+import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
 import { lerp } from "../design/riderBody";
 import type { BikeSketch } from "../types";
 import type { Cockpit } from "../cockpit";
 import { CockpitSide } from "./Cockpit2D";
 import { SaddleShape } from "../components/SaddleShape";
-import { add, gear, norm, seg, sub, tube, v, type V } from "./draw2d";
+import { add, ellipse, gear, hullOf, norm, seg, slab, sub, tube, v, type V } from "./draw2d";
 
 const P = (x: number, y: number) => `${x.toFixed(1)} ${(-y).toFixed(1)}`;
 const poly = (cls: string, points: string, part?: string) => <polygon className={cls} points={points} data-part={part} />;
@@ -82,40 +82,15 @@ export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({
     </g>
   ) : null;
 
-/** Steerer clamp half-width (≈40 mm fore-aft over a 1⅛" steerer) and bar-clamp boss radius (31.8 mm clamp + wall). */
-const STEM_CLAMP_HALF_WIDTH = 20;
-const STEM_BOSS_RADIUS = 18;
-
-/** Straight tapered band a→b with flat ends (no round caps, so the drawn length is the real length). */
-const band = (a: V, b: V, r0: number, r1: number): string => {
-  const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-  const nx = -(b.y - a.y) / L;
-  const ny = (b.x - a.x) / L;
-  return [
-    [a.x + nx * r0, a.y + ny * r0],
-    [b.x + nx * r1, b.y + ny * r1],
-    [b.x - nx * r1, b.y - ny * r1],
-    [a.x - nx * r0, a.y - ny * r0],
-  ]
-    .map(([x, y]) => `${x.toFixed(1)},${(-y).toFixed(1)}`)
-    .join(" ");
-};
-
 /** Frame: filled tapered tubes, curved fork, BB fillet, seatpost, bottle, stem and bars. */
 export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = ({ bike, cockpit }) => {
   const { bb, rearAxle, frontAxle, seatCluster: cl, seatTubeTop, headTubeTop: ht, headTubeBottom: hb } = bike;
   const stUp = norm(sub(cl, bb));
   const htDown = norm(sub(hb, ht));
   const T = TUBE_PROFILE;
-  // Steerer clamp of the stem, drawn along the head-tube axis so its flat bottom sits flush on the head tube top
-  // (a vertical clamp would cut into the leaning head tube). Slid up the axis if it would still overlap it.
-  const htUp = v(-htDown.x, -htDown.y);
-  const htTop = add(ht, htUp, 4); // where the drawn head tube ends
-  const halfH = bike.stemPivot.y - bike.steererTop.y;
-  const rawBottom = add(bike.stemPivot, htUp, -halfH);
-  const lift = Math.max(0, 4 - ((rawBottom.x - ht.x) * htUp.x + (rawBottom.y - ht.y) * htUp.y));
-  const clampBottom = add(rawBottom, htUp, lift);
-  const clampTop = add(bike.stemPivot, htUp, halfH + lift);
+  // Spacers and the stem's steerer clamp stack along the head-tube axis (synthesizeBike puts steererTop and
+  // stemPivot on it). Both are flat-ended so their drawn length is exactly spacer_stack and stem_height.
+  const clampTop = add(bike.stemPivot, sub(bike.stemPivot, bike.steererTop));
   const stayTop = add(cl, stUp, -SEATSTAY_DROP);
   const perp = v(stUp.y, -stUp.x);
   const b0 = add(add(bb, sub(cl, bb), 0.22), perp, 60);
@@ -128,8 +103,8 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]), "seat_tube")}
       {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube), "top_tube")}
       {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube), "down_tube")}
-      {/* flat-ended: the head tube top is cut square where the headset and spacers sit */}
-      {poly("s2d-frame", band(add(hb, htDown, 16), htTop, ...T.head_tube), "head_tube")}
+      {/* head tube: round at the fork crown, flat on top where the spacers / stem sit */}
+      {poly("s2d-frame", hullOf(slab(add(hb, htDown, 16), ht, ...T.head_tube), ellipse(add(hb, htDown, 16), T.head_tube[0], T.head_tube[0], 0, 18)), "head_tube")}
       <path
         className="s2d-fork"
         data-part="fork"
@@ -142,22 +117,22 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       <line data-part="bottle" className="s2d-cage" x1={b0.x} y1={-b0.y} x2={b1.x} y2={-b1.y} />
       {poly("s2d-carbon", tube(seatTubeTop, bike.seatpostBend, T.seatpost[0], T.seatpost[1]), "seatpost")}
       {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]), "seatpost")}
-      {/* spacer stack: only the bit of steerer showing between the head tube and the stem (none at 0 spacers) */}
-      {Math.hypot(clampBottom.x - htTop.x, clampBottom.y - htTop.y) > 0.5 && poly("s2d-carbon", band(htTop, clampBottom, 17, 17), "spacers")}
-      {/* the stem: a true-size steerer clamp (stem_height × 40 mm), a tapered arm and the bar-clamp boss */}
+      {/* spacer stack: the steerer between the head tube and the stem (none at 0 spacers) */}
+      {bike.steererTop.y - ht.y > 0.5 && poly("s2d-carbon", slab(ht, bike.steererTop, STEM.spacerR), "spacers")}
+      {/* the stem: flat steerer clamp (stem_height tall, along the steerer), tapered arm, round bar clamp */}
       <g data-part="stem">
-        {poly("s2d-carbon", band(clampBottom, clampTop, STEM_CLAMP_HALF_WIDTH, STEM_CLAMP_HALF_WIDTH), "stem")}
+        {poly("s2d-carbon", slab(bike.steererTop, clampTop, STEM.clampR), "stem")}
         {cockpit?.build === "integrated" ? (
           /* one-piece bar-stem: the arm runs straight into the riser and on to the aero tops */
           <>
-            {poly("s2d-carbon", band(bike.stemPivot, bike.barClamp, 15, 12), "stem")}
-            {cockpit.rise > 0.5 && poly("s2d-carbon", band(bike.barClamp, v(bike.barClamp.x + 6, bike.barClamp.y + cockpit.rise), 12, 11), "stem")}
+            {poly("s2d-carbon", slab(bike.stemPivot, bike.barClamp, 15, 12), "stem")}
+            {cockpit.rise > 0.5 && poly("s2d-carbon", slab(bike.barClamp, v(bike.barClamp.x + 6, bike.barClamp.y + cockpit.rise), 12, 11), "stem")}
             <circle className="s2d-carbon" data-part="stem" data-fill cx={bike.barClamp.x} cy={-bike.barClamp.y} r={12} />
           </>
         ) : (
           <>
-            {poly("s2d-carbon", band(bike.stemPivot, bike.barClamp, 14, 12), "stem")}
-            <circle className="s2d-carbon" data-part="stem" data-fill cx={bike.barClamp.x} cy={-bike.barClamp.y} r={STEM_BOSS_RADIUS} />
+            {poly("s2d-carbon", slab(bike.stemPivot, bike.barClamp, 14, 12), "stem")}
+            <circle className="s2d-carbon" data-part="stem" data-fill cx={bike.barClamp.x} cy={-bike.barClamp.y} r={STEM.barClampR} />
           </>
         )}
       </g>

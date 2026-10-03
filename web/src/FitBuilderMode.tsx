@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { type FrameMeasurementId, type FrameMeasurementVisibility } from "./BikeAnnotations";
 import { useCatalog } from "./catalog/CatalogContext";
 import { HOOD_PRESETS } from "./components/hoodPresets";
-import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements, angleAtPoint, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, idealContactsFromRider, idealContactsFromSaddleHeight, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
+import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, hoodFit, idealContactsFromRider, idealContactsFromSaddleHeight, saddleForKneeExtension, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
 import { buildCockpit, hoodPitchDeg } from "./cockpit";
@@ -105,7 +105,11 @@ export const FitBuilderMode: React.FC = () => {
     backBendOverride !== null ? backBendOverride : MANNEQUIN_PRESETS[preset].backBendDeg;
   const targetKneeExtension = 180 - riderFit.targetKneeFlexDeg;
 
-  const idealContacts = useMemo(
+  // Saddle x relative to the seat-tube line (setback post / rail position): the IK hip sits above the real saddle.
+  const saddleXOffset = components.saddle_rail_offset - components.seatpost_offset;
+
+  // Saddle (and cleat) targets; the hood target depends on the solved rider and is added below.
+  const idealBase = useMemo(
     () => {
       if (fitMode === "saddle_height") {
         return idealContactsFromSaddleHeight(
@@ -115,7 +119,9 @@ export const FitBuilderMode: React.FC = () => {
           components.crank_length,
           effectiveFrame.seat_angle_deg,
           components.bar_width,
-          components.saddle_stack
+          components.saddle_stack,
+          components.cleat_setback,
+          saddleXOffset
         );
       }
       return idealContactsFromRider(
@@ -126,10 +132,22 @@ export const FitBuilderMode: React.FC = () => {
         effectiveFrame.seat_angle_deg,
         components.bar_width,
         components.pedal_stack_height,
-        components.saddle_stack
+        components.saddle_stack,
+        components.cleat_setback,
+        saddleXOffset
       );
     },
-    [fitMode, rider, targetSaddleHeightMm, targetKneeExtension, targetTrunkAngleDeg, components.crank_length, effectiveFrame.seat_angle_deg, components.bar_width, components.pedal_stack_height, components.saddle_stack]
+    [fitMode, rider, targetSaddleHeightMm, targetKneeExtension, targetTrunkAngleDeg, components.crank_length, effectiveFrame.seat_angle_deg, components.bar_width, components.pedal_stack_height, components.saddle_stack, components.cleat_setback, saddleXOffset]
+  );
+
+  // Highest saddle at which the straight leg still reaches the pedal at the bottom of the stroke.
+  const maxSaddleHeightMm = useMemo(
+    () =>
+      saddleForKneeExtension(
+        rider, 180, components.crank_length, effectiveFrame.seat_angle_deg,
+        components.pedal_stack_height, components.saddle_stack, components.cleat_setback, saddleXOffset
+      ).y,
+    [rider, components.crank_length, effectiveFrame.seat_angle_deg, components.pedal_stack_height, components.saddle_stack, components.cleat_setback, saddleXOffset]
   );
 
   // Build mannequin: hip/cleat at actual bike contacts (so seatpost/rail offsets move the body),
@@ -165,16 +183,9 @@ export const FitBuilderMode: React.FC = () => {
     return { cockpit: ck, mannequin: m };
   }, [startComponents, sizeData, effectiveFrame, rider, targetTrunkAngleDeg, backBendDeg]);
 
-  const warnings = useMemo(() => fitWarnings(idealContacts, bike), [idealContacts, bike]);
-
   const seatpostRec = useMemo(
     () => seatpostRecommendation(bike.saddle, bike.saddleClamp),
     [bike.saddle, bike.saddleClamp]
-  );
-
-  const barReachNeededValue = useMemo(
-    () => barReachNeeded(idealContacts.hoods, bike.barClamp, components.hood_reach_offset),
-    [idealContacts.hoods, bike.barClamp, components.hood_reach_offset]
   );
 
   // Auto-seatpost: keep saddle_clamp_offset in sync with the ideal saddle position.
@@ -182,11 +193,11 @@ export const FitBuilderMode: React.FC = () => {
   // it tracks the user's target height.
   useEffect(() => {
     const seatAngle = radiansFromDegrees(effectiveFrame.seat_angle_deg);
-    const clampY = idealContacts.saddle.y - components.saddle_stack;
+    const clampY = idealBase.saddle.y - components.saddle_stack;
     const offset = clampY / Math.sin(seatAngle);
     setComponents((c) => ({ ...c, saddle_clamp_offset: Math.max(400, Math.min(950, offset)) }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idealContacts.saddle.y, effectiveFrame.seat_angle_deg, components.saddle_stack]);
+  }, [idealBase.saddle.y, effectiveFrame.seat_angle_deg, components.saddle_stack]);
 
   // Close the layers popover on outside click
   useEffect(() => {
@@ -222,7 +233,25 @@ export const FitBuilderMode: React.FC = () => {
     [effectiveFrame, components, rider, bike, mannequin, strokeMetrics]
   );
 
-  const kneeExtension = angleAtPoint(mannequin.hip, mannequin.knee, mannequin.ankle);
+  // Hood target: where the hands sit on the hoods with elbow flex inside its band, from the rider's actual shoulder.
+  const hood = useMemo(
+    () => hoodFit(mannequin, bike.hoods, rider, components.bar_width),
+    [mannequin, bike.hoods, rider, components.bar_width]
+  );
+  const idealContacts = useMemo(() => ({ ...idealBase, hoods: hood.target }), [idealBase, hood.target]);
+
+  const warnings = useMemo(
+    () => fitWarnings({ ideal: idealContacts, bike, hood, stroke: strokeMetrics, maxSaddleHeightMm }),
+    [idealContacts, bike, hood, strokeMetrics, maxSaddleHeightMm]
+  );
+
+  const barReachNeededValue = useMemo(
+    () => barReachNeeded(idealContacts.hoods, bike.barClamp, components.hood_reach_offset),
+    [idealContacts.hoods, bike.barClamp, components.hood_reach_offset]
+  );
+
+  // Knee targets are measured at the most extended point of the stroke (≈ 5 o'clock).
+  const kneeExtension = strokeMetrics.kneeExtensionMaxDeg;
   const kneeFlex = 180 - kneeExtension;
 
   const idealSaddleY = idealContacts.saddle.y;
@@ -367,7 +396,7 @@ export const FitBuilderMode: React.FC = () => {
 
   const handleFitModeChange = (mode: FitMode) => {
     if (mode === "saddle_height" && fitMode === "contact") {
-      setTargetSaddleHeightMm(Math.round(idealContacts.saddle.y));
+      setTargetSaddleHeightMm(Math.round(idealBase.saddle.y));
     }
     setFitMode(mode);
   };
@@ -484,7 +513,7 @@ export const FitBuilderMode: React.FC = () => {
   ) : null;
   const ghostCockpit = focusCockpit && showGhost && start ? start.cockpit : null;
 
-  const controlPanels = <ControlsColumn mobilePanel={mobilePanel} fullscreen={fullscreen} fitMode={fitMode} handleFitModeChange={handleFitModeChange} idealSaddleY={idealSaddleY} kneeFlex={kneeFlex} riderFit={riderFit} setRiderFit={setRiderFit} targetSaddleHeightMm={targetSaddleHeightMm} setTargetSaddleHeightMm={setTargetSaddleHeightMm} rider={rider} updateBodyMeasurement={updateBodyMeasurement} setBodyMeasurements={setBodyMeasurements} trunkAngleOverride={trunkAngleOverride} backBendOverride={backBendOverride} preset={preset} setPreset={setPreset} setTrunkAngleOverride={setTrunkAngleOverride} setBackBendOverride={setBackBendOverride} targetTrunkAngleDeg={targetTrunkAngleDeg} backBendDeg={backBendDeg} currentBrand={currentBrand} FRAME_CATALOG={FRAME_CATALOG} setSelection={setSelection} brands={brands} selection={selection} getModelById={getModelById} modelsForBrand={modelsForBrand} model={model} sizeData={sizeData} components={components} updateComponent={updateComponent} resetComponent={resetComponent} hoodPresetId={hoodPresetId} setHoodPresetId={setHoodPresetId} tyreSize={tyreSize} setTyreSize={setTyreSize} pedalPresetId={pedalPresetId} handlePedalPreset={handlePedalPreset} shoePresetId={shoePresetId} handleShoePreset={handleShoePreset} setPedalPresetId={setPedalPresetId} setShoePresetId={setShoePresetId} />;
+  const controlPanels = <ControlsColumn mobilePanel={mobilePanel} fullscreen={fullscreen} fitMode={fitMode} handleFitModeChange={handleFitModeChange} idealSaddleY={idealSaddleY} kneeFlex={kneeFlex} riderFit={riderFit} setRiderFit={setRiderFit} targetSaddleHeightMm={targetSaddleHeightMm} setTargetSaddleHeightMm={setTargetSaddleHeightMm} pedalGapMm={strokeMetrics.maxPedalGapMm} maxSaddleHeightMm={maxSaddleHeightMm} rider={rider} updateBodyMeasurement={updateBodyMeasurement} setBodyMeasurements={setBodyMeasurements} trunkAngleOverride={trunkAngleOverride} backBendOverride={backBendOverride} preset={preset} setPreset={setPreset} setTrunkAngleOverride={setTrunkAngleOverride} setBackBendOverride={setBackBendOverride} targetTrunkAngleDeg={targetTrunkAngleDeg} backBendDeg={backBendDeg} currentBrand={currentBrand} FRAME_CATALOG={FRAME_CATALOG} setSelection={setSelection} brands={brands} selection={selection} getModelById={getModelById} modelsForBrand={modelsForBrand} model={model} sizeData={sizeData} components={components} updateComponent={updateComponent} resetComponent={resetComponent} hoodPresetId={hoodPresetId} setHoodPresetId={setHoodPresetId} tyreSize={tyreSize} setTyreSize={setTyreSize} pedalPresetId={pedalPresetId} handlePedalPreset={handlePedalPreset} shoePresetId={shoePresetId} handleShoePreset={handleShoePreset} setPedalPresetId={setPedalPresetId} setShoePresetId={setShoePresetId} />;
 
   const metricsPanel = <ResultsColumn historySlot={historySlot} mannequin={mannequin} mobilePanel={mobilePanel} fullscreen={fullscreen} issueCount={issueCount} actualSaddleY={actualSaddleY} saddleDelta={saddleDelta} idealSaddleY={idealSaddleY} saddleWarning={saddleWarning} severityTone={severityTone} kneeFlex={kneeFlex} fitMode={fitMode} riderFit={riderFit} kneeTone={kneeTone} hoodsWarning={hoodsWarning} barReachNeededValue={barReachNeededValue} barReachDelta={barReachDelta} components={components} barReachTone={barReachTone} bbToSaddleDistance={bbToSaddleDistance} seatpostExtension={seatpostExtension} strokeMetrics={strokeMetrics} targetTrunkAngleDeg={targetTrunkAngleDeg} preset={preset} warnings={warnings} bike={bike} seatpostRec={seatpostRec} frameGeometryRows={frameGeometryRows} />;
 

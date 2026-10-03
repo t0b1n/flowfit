@@ -72,7 +72,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const ft = bike.frontAxle;
   const hb = bike.headTubeBottom;
   const ht = bike.headTubeTop;
-  // Right leg is the far leg, a half-stroke ahead: its knee and ankle sit at that crank angle's heights (the left leg is at BDC).
+  // Left leg is the far leg, a half-stroke ahead: its knee and ankle sit at that crank angle's heights (the right leg is at BDC).
   const farPose = strokeMetrics.poses[0];
   const farCleatY = farPose.cleat.y;
   const kneeL = v(fm.kneeL.x, farPose.knee.y);
@@ -160,7 +160,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         <rect data-part="fork" className="s2d-carbon" x={-48} y={-hb.y - 14} width={96} height={28} rx={6} />
         <rect data-part="head_tube" className="s2d-frame" x={-19} y={-ht.y} width={38} height={ht.y - hb.y} />
         <rect data-part="spacers" className="s2d-carbon" x={-17} y={-bike.steererTop.y} width={34} height={bike.steererTop.y - ht.y} />
-        <rect data-part="stem" className="s2d-carbon" x={-22} y={-bike.stemPivot.y - components.stem_height / 2} width={44} height={components.stem_height} rx={6} />
+        {/* steerer clamp: steererTop → 2·stemPivot − steererTop, i.e. stem_height along the leaning steerer, seen from the front */}
+        <rect data-part="stem" className="s2d-carbon" x={-22} y={-(2 * bike.stemPivot.y - bike.steererTop.y)} width={44} height={2 * (bike.stemPivot.y - bike.steererTop.y)} rx={6} />
         <CockpitFront cockpit={cockpit} showUci={showUci} />
         {ghostCockpit && <CockpitFront cockpit={ghostCockpit} ghost />}
 

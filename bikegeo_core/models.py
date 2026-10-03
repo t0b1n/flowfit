@@ -37,9 +37,9 @@ class Components(BaseModel):
     saddle_rail_length: float
     saddle_clamp_offset: float
     stem_length: float
-    stem_angle_deg: float = Field(..., description="Stem angle as quoted by stem makers: relative to the perpendicular of the steerer, in degrees.")
-    spacer_stack: float
-    stem_height: float = Field(40.0, ge=0, description="Vertical depth of the stem clamp in mm; 0 spacers puts its bottom on the head tube top.")
+    stem_angle_deg: float = Field(description="Manufacturer rating: degrees from the normal to the steerer (-6 is a typical road stem), not from horizontal.")
+    spacer_stack: float = Field(description="Spacer stack height in mm, measured along the steerer.")
+    stem_height: float = Field(40.0, ge=0, description="Height of the stem's steerer clamp in mm, along the steerer; 0 spacers puts its bottom on the head tube top.")
     bar_reach: float
     bar_drop: float
     hood_reach_offset: float
@@ -64,7 +64,7 @@ class Components(BaseModel):
     bar_backsweep_deg: float = Field(0.0, description="Backsweep of the tops toward the rider, in degrees.")
     bar_roll_deg: Optional[float] = Field(
         None,
-        description="Angle of the clamp-to-hood reach line above horizontal, in degrees; None = max(8, stem_angle + 6).",
+        description="Angle of the clamp-to-hood reach line above horizontal, in degrees; None = 0 (hoods straight ahead of the clamp).",
     )
     hood_slide_mm: float = Field(0.0, description="Hood position along the bend in mm (+ = lower, further round).")
     hood_roll_deg: float = Field(0.0, description="Inward hood rotation in degrees (lateral only; no sagittal effect).")

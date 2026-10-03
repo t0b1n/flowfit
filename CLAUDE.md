@@ -43,7 +43,7 @@ SetupInput → solver.py::solve_setup()
 
 **Coordinate system:** Origin = bottom bracket. X = forward (positive away from rider), Y = up.
 
-**`synthesize_bike(frame, components)`** builds `BikePoints` in this order: BB → wheel axles → saddle (along seat tube + rail offset) → steerer top (frame.reach, frame.stack + spacer_stack) → bar clamp (stem vector) → hoods (bar reach + drop) → cleat (below BB by crank_length).
+**`synthesize_bike(frame, components)`** builds `BikePoints` in this order: BB → wheel axles → saddle (along seat tube + rail offset) → steerer top (frame.reach, frame.stack + spacer_stack) → bar clamp (stem vector) → hoods (horizontal: bar_reach + hood_reach_offset ahead of the clamp, hood_drop_offset up; independent of stem angle) → cleat (below BB by crank_length).
 
 **`solve_pose_2d_full()`** runs 6-step IK: hip (above saddle) → ankle (above cleat) → knee (circle intersection) → shoulder (circle intersection) → elbow → derived joints. All joints solved in 2D sagittal plane.
 
@@ -60,7 +60,7 @@ SetupInput → solver.py::solve_setup()
 - `geometry.ts` — frontend geometry: `synthesizeBike()` (SVG coordinate transform, Y-inverted), saddle targeting, mannequin construction, and `buildGeometry3D()` which builds the whole 3D point/edge graph (bike + bilateral mannequin) from the same `BikeSketch`/`MannequinSketch` the 2D view renders — 2D and 3D agree by construction
 - `bike3d.ts` — Three.js mesh builders; mannequin radii scale with rider weight via power law
 - `types.ts` — `Components`, `BikeSketch`, `MannequinSketch`, `RiderFit`, `SetupResult`
-- `cockpit.ts` — the single source of cockpit geometry: `hoodContact()` (the hand contact; mirrored line for line by `bikegeo_core/geometry.py::hood_contact`, parity pinned by `cockpit.fixtures.json`), `buildCockpit()` (bar centreline, hood station/pitch/rotation, UCI report) and `barCenterline3D()`. New cockpit fields on `Components` are optional; `bar_roll_deg: null` keeps the historical `max(8°, stem + 6°)` hood line
+- `cockpit.ts` — the single source of cockpit geometry: `hoodContact()` (the hand contact; mirrored line for line by `bikegeo_core/geometry.py::hood_contact`, parity pinned by `cockpit.fixtures.json`), `buildCockpit()` (bar centreline, hood station/pitch/rotation, UCI report) and `barCenterline3D()`. New cockpit fields on `Components` are optional; `bar_roll_deg: null` = 0, i.e. hoods straight ahead of the bar clamp (bar reach is horizontal, independent of the stem); `bar_drop` describes the drops and never moves the hoods
 - `hoodModels.ts` — Dura-Ace R9270 / Red E1 hood, lever and pad outlines edge-extracted from side photos (`tools/hood_trace/`); `cockpit3d.ts` extrudes them and sweeps the bar; `builder/Cockpit2D.tsx` draws the same shapes in 2D
 
 ### Data tools (`tools/`, `reference_data/`)
@@ -71,8 +71,9 @@ SetupInput → solver.py::solve_setup()
 
 ### Non-obvious conventions
 
-- **Stem angle** is quoted like stem makers do: relative to the perpendicular of the steerer (`stemAngleAboveHorizontal` / `stem_angle_above_horizontal`), so −6° on a 73° head tube points 11° up and −17° is level. The "auto" bar roll `max(8°, stem + 6°)` uses the angle as entered.
+- **Stem angle** is quoted like stem makers do: relative to the perpendicular of the steerer (`stemAngleFromHorizontal` / `stem_angle_from_horizontal`), so −6° on a 73° head tube points 11° up and −17° is level. Spacers and the stem clamp stack along the steerer.
 - **Hip joint offset** (~95 mm vertical rise from saddle contact to femoral head) is distinct from saddle height and is critical to the IK chain but not exposed in the main UI.
 - **Preset → fine-tune pattern:** button pills set a value, a slider allows override. Used for Riding Intent, Hood Reach, and Pedal/Shoe Stack — not a shared component.
 - **`wheel_radius`** in frame catalog entries should always be the identifier `defaultWheelRadius` (340 for 700c), not a literal number, so the constant stays in sync.
+- **Stem / spacers:** `spacer_stack` and `stem_height` are measured along the steerer (head-tube axis), not vertically. `stem_angle_deg` is the manufacturer rating, measured from the normal to the steerer (`stemAngleFromHorizontal()` / `stem_angle_from_horizontal()`), so on a 73° head tube a −6° stem rises 11° above horizontal.
 - No ESLint, Prettier, Black, or isort configs exist in this repo.

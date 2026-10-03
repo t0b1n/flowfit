@@ -41,12 +41,12 @@ const compute = () =>
   });
 
 describe("hoodContact", () => {
-  it("reproduces the historical frontend formula when no cockpit fields are set", () => {
-    const p = hoodContact({ x: 500, y: 600 }, BASE);
-    const a = (Math.max(8, BASE.stem_angle_deg + 6) * Math.PI) / 180;
-    const L = BASE.bar_reach + BASE.hood_reach_offset;
-    expect(p.x).toBeCloseTo(500 + Math.cos(a) * L, 9);
-    expect(p.y).toBeCloseTo(600 + Math.sin(a) * L, 9);
+  it("puts the hoods straight ahead of the clamp when no cockpit fields are set, whatever the stem or bar_drop", () => {
+    for (const stem of [-17, -6, 10]) {
+      const p = hoodContact({ x: 500, y: 600 }, { ...BASE, stem_angle_deg: stem, bar_drop: -40 });
+      expect(p.x).toBeCloseTo(500 + BASE.bar_reach + BASE.hood_reach_offset, 9);
+      expect(p.y).toBeCloseTo(600, 9);
+    }
   });
 
   it("rise lifts the hoods by exactly the rise", () => {

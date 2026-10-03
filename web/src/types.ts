@@ -9,10 +9,11 @@ export type Components = {
   saddle_rail_length: number;
   saddle_clamp_offset: number;
   stem_length: number;
-  /** stem angle as quoted by stem makers: relative to the perpendicular of the steerer (−6° on a 73° head tube = 11° up) */
+  /** manufacturer rating: degrees from the normal to the steerer (−6 is a typical road stem), not from horizontal */
   stem_angle_deg: number;
+  /** spacer stack height, measured along the steerer */
   spacer_stack: number;
-  /** vertical depth of the stem clamp; 0 spacers puts its bottom on the head tube top (standard 40 mm) */
+  /** height of the stem's steerer clamp along the steerer; 0 spacers puts its bottom on the head tube top (standard 40 mm) */
   stem_height: number;
   bar_reach: number;
   bar_drop: number;
@@ -34,7 +35,7 @@ export type Components = {
   bar_drop_width?: number | null;
   /** backsweep of the tops toward the rider (deg) */
   bar_backsweep_deg?: number;
-  /** bar roll in the clamp (deg) = angle of the clamp→hood reach line; null = legacy max(8°, stem + 6°) */
+  /** bar roll in the clamp (deg) = angle of the clamp→hood reach line; null = 0 (hoods straight ahead of the clamp) */
   bar_roll_deg?: number | null;
   /** hood position along the bend (mm, + = lower / further round) */
   hood_slide_mm?: number;
@@ -88,7 +89,7 @@ export type BikeSketch = {
   cleat: ContactPoint;
   crankEnd: ContactPoint;
   steererTop: ContactPoint;
-  /** centre of the stem's steerer clamp: steererTop + stem_height / 2 */
+  /** centre of the stem's steerer clamp: steererTop + stem_height / 2 along the steerer */
   stemPivot: ContactPoint;
   barClamp: ContactPoint;
   hoods: ContactPoint;
@@ -105,6 +106,10 @@ export type MannequinSketch = {
   head: ContactPoint;
   neckBase: ContactPoint;
   spineJoint: ContactPoint;
+  /** How far the foot stops short of the pedal at this crank position (0 = on the pedal). */
+  pedalGapMm?: number;
+  /** How far the hands stop short of the hoods with the arms straight (0 = on the hoods). */
+  handGapMm?: number;
 };
 
 export type RiderFit = {
@@ -123,6 +128,8 @@ export type HoodPreset = {
 
 export type FitWarning = {
   contact: "saddle" | "hoods" | "cleat";
+  /** Plain-language explanation shown instead of the generic "N mm off". */
+  message?: string;
   deltaX: number;
   deltaY: number;
   distance: number;

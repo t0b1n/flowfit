@@ -8,12 +8,13 @@
  *
  * Sagittal model (x forward, y up, origin at the bar clamp centre):
  *   θ  = bar roll: the angle of the clamp→hood reach line above horizontal.
- *        null keeps the historical default max(8°, stem angle + 6°).
+ *        null = 0: the hoods sit straight ahead of the clamp, independent of the stem.
  *   s  = hood slide along the bend (+ = lower, further round the curve).
  *   base    = R(θ)·(bar_reach + 0.35 s, −0.9 s) + (0, bar_rise)
  *   pitch   = θ − 0.45°·s
- *   contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, bar_drop + hood_drop_offset)
- * With rise = slide = 0 and bar_roll = null this is exactly the old formula.
+ *   contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, hood_drop_offset)
+ * bar_drop describes the drops, not the hoods. With rise = slide = 0 and bar_roll = null this is
+ * clamp + (bar_reach + hood_reach_offset, hood_drop_offset).
  */
 import type { Components, ContactPoint } from "./types";
 import { HOOD_MODELS, hoodModelFor, type HoodModel } from "./hoodModels";
@@ -40,8 +41,12 @@ export const UCI = { minOutsideWidth: 400, minInnerHoods: 280, maxDropBox: 65, m
 
 export const BAR_RADIUS = 11.9; // 23.8 mm bar
 
+/**
+ * Bar roll in effect. null = 0: bar reach is horizontal and fitters rotate the bar to the rider's setup
+ * independently of the stem, so by default the hoods sit straight ahead of the clamp.
+ */
 export function effectiveBarRoll(c: Components): number {
-  return c.bar_roll_deg ?? Math.max(8, c.stem_angle_deg + 6);
+  return c.bar_roll_deg ?? 0;
 }
 
 export function hoodPitchDeg(c: Components): number {
@@ -64,7 +69,7 @@ export function hoodBase(barClamp: ContactPoint, c: Components): ContactPoint {
 export function hoodContact(barClamp: ContactPoint, c: Components): ContactPoint {
   const base = hoodBase(barClamp, c);
   const off = rot(c.hood_reach_offset, 0, hoodPitchDeg(c));
-  return { x: base.x + off.x, y: base.y + off.y + (c.bar_drop ?? 0) + c.hood_drop_offset };
+  return { x: base.x + off.x, y: base.y + off.y + c.hood_drop_offset };
 }
 
 export type CockpitBuild = "two_piece" | "integrated";

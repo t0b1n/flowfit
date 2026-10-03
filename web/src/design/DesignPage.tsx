@@ -45,6 +45,9 @@ const SAMPLE_LUT = {
   kneeFlexionTdcDeg: 108,
   kneeFlexionBdcDeg: 31,
   kneeExtensionMaxDeg: 149,
+  maxExtensionIndex: 34,
+  pedalGapMm: [],
+  maxPedalGapMm: 0,
   crankLength: 170,
   hip: SAMPLE_M.hip,
   ankleSetbackMm: 0,
@@ -127,7 +130,7 @@ const Samples: React.FC = () => {
       <Block title="Readout">
         <Readout
           size="big"
-          eyebrow="J3 · KNEE EXTENSION · BDC"
+          eyebrow="J3 · KNEE EXTENSION · MAX"
           value={formatMetric("knee_ext_bdc", kv)}
           unit="°"
           delta={formatDelta("knee_ext_bdc", kv - WAS.knee_ext_bdc!)}
