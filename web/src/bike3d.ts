@@ -409,7 +409,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       if (clamp) g.add(taper(clamp.bottom, clamp.top, 21, 21, pick("stem", mats.carbon)));
     } else if (t.name === "stem") {
       // a one-piece bar-stem draws its own fused arm (cockpit3d.ts)
-      if (!opts.integratedStem) g.add(taper(a, b, 19, 16, pick("stem", mats.carbon)));
+      if (!opts.integratedStem) g.add(taper(a, b, 15, 12.5, pick("stem", mats.carbon)));
     } else {
       g.add(taper(a, b, t.radius, t.radius, pick(t.name, mats.frame)));
     }
