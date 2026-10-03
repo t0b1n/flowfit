@@ -23,6 +23,7 @@ const K = 8;            // columns per side reserved for the hole span
 const SHELL = 6;        // shell thickness at the rim (mm)
 const ROLL = 5;         // how far the top rolls down into the flank at the rim (mm)
 const OUT_OF_HOLE_S = 0.25; // |s| of column K on rows without a hole (uniform spacing)
+const SPAN_EASE = 12;       // mm over which column K eases from a hole end to uniform spacing
 
 export function buildTracedSaddleGeometry(s: SaddleTrace): THREE.BufferGeometry {
   const V = 2 * HALF, V1 = V + 1, nPts = (U + 1) * V1;
@@ -43,18 +44,26 @@ export function buildTracedSaddleGeometry(s: SaddleTrace): THREE.BufferGeometry 
     const crown = lerpTable(s.crown, x);
     const exp = Math.max(0.1, lerpTable(s.crownExp, x));
     const ch = yTop - Math.max(0, crown);
-    // recessed channel: around the hole, rounding off just behind it, and running on ahead of it
-    // (carbon base visible) to frontX, shallowing out over the last 15 mm
+    // recessed channel: around the hole (shallowing to nothing at its rear end, so the rear of the hole
+    // cuts cleanly through the cover), and running on ahead of it (carbon base visible) to frontX,
+    // shallowing out over the last 15 mm
     let r = 0, d = depth;
-    if (hh > 0) r = hh + lip;
-    else if (x > holeFrontX && x < frontX) {
+    if (hh > 0) {
+      r = hh + lip;
+      d = depth * smoothstep(holeRearX, holeRearX + 3 * lip, x);
+    } else if (x > holeFrontX && x < frontX) {
       r = (holeFrontHW + lip) * Math.sqrt(1 - (x - holeFrontX) / (frontX - holeFrontX));
       d = depth * (1 - smoothstep(frontX - 15, frontX, x));
-    } else if (x < holeRearX && x > holeRearX - 2 * lip) {
-      r = (holeRearHW + lip) * Math.sqrt(1 - (holeRearX - x) / (2 * lip));
     }
-    // column K sits on the hole edge, or on the channel edge where there is no hole
-    const sh = Math.min(0.9, hh > 0 ? hh / hw : r > 0 ? r / hw : OUT_OF_HOLE_S);
+    // Column K sits on the hole edge. Off the hole its span eases from the hole's end width out to the
+    // uniform spacing over SPAN_EASE mm (never collapsing to a point, which fans into slivers), and
+    // always covers the channel.
+    let span = hh;
+    if (hh <= 0) {
+      const [endW, past] = x < holeRearX ? [holeRearHW, holeRearX - x] : [holeFrontHW, x - holeFrontX];
+      span = Math.max(r, endW + (OUT_OF_HOLE_S * hw - endW) * smoothstep(0, SPAN_EASE, past));
+    }
+    const sh = Math.min(0.9, span / hw);
 
     for (let vi = 0; vi <= V; vi++) {
       const k = vi - HALF, a = Math.abs(k);
