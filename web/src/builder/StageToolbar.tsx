@@ -156,7 +156,7 @@ export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, vie
             )}
             <span className="stage-bar__spacer" />
             {DEBUG_ENABLED && toggleDebug && (
-              <Pill variant={debug ? "active" : "ghost"} onClick={toggleDebug} title="Dev only: colour each component">
+              <Pill variant={debug ? "active" : "ghost"} onClick={toggleDebug} title="Colour each component (bike and rider parts)">
                 Debug
               </Pill>
             )}

@@ -12,6 +12,17 @@
   gap: 10px;
 }
 
+/* One shrinkable column: an auto track sizes to its widest item's min-content, which made a card wider than the panel
+   and gave the whole controls column a horizontal scrollbar. */
+.slider-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.slider-grid > *,
+.slider-card {
+  min-width: 0;
+}
+
 .bike-card__meta span {
   font-size: 0.8rem;
 }
@@ -293,6 +304,7 @@
 .viz-toolbar {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2);
   min-width: 0;

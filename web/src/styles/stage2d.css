@@ -592,6 +592,31 @@
   padding-right: 14px;
 }
 
+/* Desktop: the metric rail shares the stage width instead of scrolling; chips shrink and labels truncate. */
+@media (min-width: 761px) {
+  .stage-overlay__rail .ff-rail {
+    overflow: hidden;
+  }
+
+  .stage-overlay__rail .ff-chip {
+    flex: 1 1 0;
+    padding: 8px 5px 7px;
+  }
+
+  .stage-overlay__rail .ff-chip__label {
+    padding-right: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stage-overlay__rail .ff-chip__value {
+    font-size: 15px;
+    white-space: nowrap;
+  }
+}
+
 /* Front view parts */
 
 .s2d-tyre-front {
