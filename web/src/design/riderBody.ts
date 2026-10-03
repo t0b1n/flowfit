@@ -159,3 +159,80 @@ export const REFERENCE_WIDTHS_MM = {
   torso: [224, 239, 255], // stomach is built at 80% (184), a design choice
   neck: [106],
 } as const;
+
+// ── Spine ───────────────────────────────────────────────────────────────────
+
+/** mm: the back bend is spread over this arc length (30–50 cm). */
+export const SPINE_BEND_LENGTH = 400;
+
+export interface SpinePath {
+  /** total length, hip → shoulder along the path */
+  len: number;
+  /** point and unit tangent at arc length s (s < 0 / s > len extrapolate straight along the end tangents) */
+  at(s: number): { p: { x: number; y: number }; t: { x: number; y: number } };
+}
+
+type Pt2 = { x: number; y: number };
+
+const straightPath = (hip: Pt2, shoulder: Pt2): SpinePath => {
+  const dx = shoulder.x - hip.x;
+  const dy = shoulder.y - hip.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const t = { x: dx / len, y: dy / len };
+  return { len, at: (s) => ({ p: { x: hip.x + t.x * s, y: hip.y + t.y * s }, t }) };
+};
+
+/**
+ * Hip → shoulder spine as straight → circular arc → straight, ending exactly at `shoulder`. The lower straight
+ * runs along hip → spineJoint (the solver's hinge) and the upper one along spineJoint → shoulder, so the path
+ * turns by the same angle as the solver's hinge but spreads it over `L` mm. Shoulder (and every metric) unchanged.
+ */
+export function spinePath(hip: Pt2, spineJoint: Pt2, shoulder: Pt2, L = SPINE_BEND_LENGTH): SpinePath {
+  const l0 = Math.hypot(spineJoint.x - hip.x, spineJoint.y - hip.y);
+  const l1 = Math.hypot(shoulder.x - spineJoint.x, shoulder.y - spineJoint.y);
+  if (l0 < 1 || l1 < 1) return straightPath(hip, shoulder);
+  const d0 = { x: (spineJoint.x - hip.x) / l0, y: (spineJoint.y - hip.y) / l0 };
+  const d1 = { x: (shoulder.x - spineJoint.x) / l1, y: (shoulder.y - spineJoint.y) / l1 };
+  const phi = Math.atan2(d0.x * d1.y - d0.y * d1.x, d0.x * d1.x + d0.y * d1.y);
+  if (Math.abs(phi) < (0.5 * Math.PI) / 180) return straightPath(hip, shoulder);
+  const n0 = { x: -d0.y, y: d0.x };
+  const sin = Math.sin(phi);
+  const cos = Math.cos(phi);
+  const det = sin;
+
+  let arc = L;
+  let a = -1;
+  let b = -1;
+  let C = { x: 0, y: 0 };
+  for (; arc >= 50; arc *= 0.8) {
+    C = { x: (arc / phi) * (sin * d0.x + (1 - cos) * n0.x), y: (arc / phi) * (sin * d0.y + (1 - cos) * n0.y) };
+    const rx = shoulder.x - hip.x - C.x;
+    const ry = shoulder.y - hip.y - C.y;
+    a = (rx * d1.y - ry * d1.x) / det;
+    b = (d0.x * ry - d0.y * rx) / det;
+    if (a >= 0 && b >= 0) break;
+  }
+  if (!(a >= 0 && b >= 0)) {
+    // the arc does not fit between the two legs: fall back to the solver's hinge
+    arc = 0;
+    a = l0;
+    b = l1;
+    C = { x: 0, y: 0 };
+  }
+  const A = { x: hip.x + a * d0.x, y: hip.y + a * d0.y };
+  const B = arc > 0 ? { x: A.x + C.x, y: A.y + C.y } : A;
+  const len = a + arc + b;
+  return {
+    len,
+    at(s) {
+      if (s <= a) return { p: { x: hip.x + d0.x * s, y: hip.y + d0.y * s }, t: d0 };
+      if (s >= a + arc) return { p: { x: B.x + d1.x * (s - a - arc), y: B.y + d1.y * (s - a - arc) }, t: d1 };
+      const psi = (phi * (s - a)) / arc;
+      const k = arc / phi;
+      return {
+        p: { x: A.x + k * (Math.sin(psi) * d0.x + (1 - Math.cos(psi)) * n0.x), y: A.y + k * (Math.sin(psi) * d0.y + (1 - Math.cos(psi)) * n0.y) },
+        t: { x: Math.cos(psi) * d0.x + Math.sin(psi) * n0.x, y: Math.cos(psi) * d0.y + Math.sin(psi) * n0.y },
+      };
+    },
+  };
+}

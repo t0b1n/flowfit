@@ -14,13 +14,24 @@
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Html, Line } from "@react-three/drei";
+import { Html, Line as DreiLine } from "@react-three/drei";
 import * as THREE from "three";
 import { PedalStrokeLUT, angleAtPoint, legPoseAt } from "./geometry";
 import { TOKENS, type Theme } from "./design/tokens";
 import type { ContactPoint } from "./types";
 
 const OVER = { depthTest: false, renderOrder: 9 } as const;
+
+/**
+ * drei's Line disposes its material together with the old geometry whenever `points` changes identity, and the shader
+ * program is then relinked on the next frame (~15 ms per slider tick). Callers build fresh point arrays every render,
+ * so keep the previous array while the numbers (to 0.01 mm) are equal.
+ */
+function Line(props: React.ComponentProps<typeof DreiLine>) {
+  const key = JSON.stringify(props.points, (_, x) => (typeof x === "number" ? Math.round(x * 100) / 100 : x));
+  const points = useMemo(() => props.points, [key]);
+  return <DreiLine {...props} points={points} />;
+}
 const ARC_SEGMENTS = 32;
 
 /** Interior-angle arc parameters at vertex v between rays to a and c. */
