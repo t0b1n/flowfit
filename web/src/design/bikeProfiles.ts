@@ -11,9 +11,7 @@ export type TubeName =
   | "head_tube"
   | "chainstay"
   | "seatstay"
-  | "seatpost"
-  | "fork_blade"
-  | "fork_crown";
+  | "seatpost";
 
 /** Radius at the start and end of each tube, in the edge-graph direction named in the comment. */
 export const TUBE_PROFILE: Record<TubeName, [r0: number, r1: number]> = {
@@ -24,8 +22,6 @@ export const TUBE_PROFILE: Record<TubeName, [r0: number, r1: number]> = {
   chainstay: [13, 8],
   seatstay: [9, 6], // upper end sits 35 mm down the seat tube ("dropped stays")
   seatpost: [13, 13], // aero post, alloy
-  fork_blade: [11, 11], // curved: quadratic Bézier crown → dropout
-  fork_crown: [20, 20],
 };
 
 /**
@@ -47,6 +43,10 @@ export const STEM = {
 
 /** Seatstay upper end is moved this far down the seat tube. */
 export const SEATSTAY_DROP = 35;
+
+/** Front hub (mm): shell radius / half-length, spoke flanges (radius, lateral station), thru-axle radius. The 3D hub
+ *  and both 2D views draw these; the dropouts sit at FORK.halfSpread (design/fork.ts). */
+export const HUB = { shellR: 14, shellHalf: 32, flangeR: 24, flangeZ: 28, flangeT: 5, axleR: 6 };
 
 export const RIM = {
   /** Carbon deep rim lathe profile around the axle: [offset below wheel radius R, lateral y]. */

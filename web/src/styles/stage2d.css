@@ -371,6 +371,10 @@
   stroke-width: 14;
 }
 
+.s2d-rotor-front {
+  fill: var(--rotor);
+}
+
 .s2d-rotor-spoke {
   stroke: var(--rotor);
   stroke-width: 6;
@@ -400,12 +404,6 @@
 
 .s2d-frame {
   fill: var(--frame);
-}
-
-.s2d-fork {
-  fill: none;
-  stroke: var(--frame);
-  stroke-linecap: round;
 }
 
 .s2d-bottle {
@@ -583,12 +581,6 @@
 
 .s2d-rim-front {
   fill: var(--s2d-carbon);
-}
-
-.s2d-fork-front {
-  stroke: var(--frame);
-  stroke-width: 22;
-  stroke-linecap: round;
 }
 
 .s2d-hood-front {

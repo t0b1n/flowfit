@@ -13,6 +13,7 @@ import type {
 import type { Geometry3DPoint, Geometry3DEdge, Geometry3DResponse } from "./bike3d";
 import { FrameGeometry } from "./frameCatalog";
 import { buildCockpit, hoodContact } from "./cockpit";
+import { FORK } from "./design/fork";
 
 export const DEFAULT_TYRE_SIZE = 28;
 
@@ -1278,9 +1279,8 @@ const _FRAME_EDGES: [string, string][] = [
   ["hoods_l", "bar_drop_l"],
 ];
 
-/** Lateral half-spread of the rear dropouts / fork dropouts (mm). */
+/** Lateral half-spread of the rear dropouts (mm); the fork's is FORK.halfSpread (design/fork.ts). */
 const _CHAINSTAY_HALF_SPREAD = 38;
-const _FORK_HALF_SPREAD = 25;
 /** Visual seatpost head extension above the rail clamp centre (mm). */
 const _SEATPOST_HEAD_EXTENSION = 5;
 
@@ -1338,8 +1338,8 @@ export function buildGeometry3D(
   p("cleat_l", bike.cleat, -halfStance);
   p("chainstay_r", bike.rearAxle, +_CHAINSTAY_HALF_SPREAD);
   p("chainstay_l", bike.rearAxle, -_CHAINSTAY_HALF_SPREAD);
-  p("fork_r", bike.frontAxle, +_FORK_HALF_SPREAD);
-  p("fork_l", bike.frontAxle, -_FORK_HALF_SPREAD);
+  p("fork_r", bike.frontAxle, +FORK.halfSpread);
+  p("fork_l", bike.frontAxle, -FORK.halfSpread);
   const [, ckTops, , , , , ckDropBottom] = cockpit.sagittal;
   p("bar_top_r", ckTops, +cockpit.hoodWidth / 2);
   p("bar_top_l", ckTops, -cockpit.hoodWidth / 2);
