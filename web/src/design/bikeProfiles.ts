@@ -103,7 +103,7 @@ export const CASSETTE = {
   spacing: 3.4,
   thickness: 2.2,
   /** black lockring on the smallest cog */
-  lockringR: 15,
+  lockringR: 19,
   /** the first this-many cogs (34T down to 21T) are the darker titanium-coloured ones */
   bigCogs: 5,
 } as const;

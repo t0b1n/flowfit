@@ -399,11 +399,13 @@
 .s2d-cog {
   fill: var(--s2d-alloy);
   stroke: var(--s2d-carbon);
-  stroke-width: 0.8;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
 }
 
-.s2d-cog--big {
-  fill: color-mix(in srgb, var(--s2d-alloy) 70%, var(--s2d-carbon));
+.s2d-cog-hole {
+  fill: var(--s2d-carbon);
+  opacity: 0.55;
 }
 
 .s2d-lockring {

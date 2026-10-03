@@ -61,7 +61,19 @@ export const DriveSide: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       {/* largest cog first so the smaller, outer ones sit on top */}
       {CASSETTE.teeth.map((n, i) => {
         const tip = cogTipRadius(n);
-        return <polygon key={n} className={i < CASSETTE.bigCogs ? "s2d-cog s2d-cog--big" : "s2d-cog"} points={gear(rear, n, tip, tip - CASSETTE.toothHeight * 1.6)} />;
+        const big = i < CASSETTE.bigCogs;
+        // darkest at the 34T, lightest at the 11T; the big cogs also get a ring of lightening holes between hub and teeth
+        const tone = 100 - (i / (CASSETTE.teeth.length - 1)) * 100;
+        const holeR = (tip + CASSETTE.lockringR) / 2;
+        return (
+          <g key={n}>
+            <polygon className="s2d-cog" style={{ fill: `color-mix(in srgb, var(--s2d-alloy) ${100 - tone * 0.45}%, var(--s2d-carbon))` }} points={gear(rear, n, tip, tip - CASSETTE.toothHeight * 1.6)} />
+            {big && Array.from({ length: 5 }, (_, k) => {
+              const a = (k / 5) * Math.PI * 2 + i;
+              return <circle key={k} className="s2d-cog-hole" cx={rear.x + Math.cos(a) * holeR} cy={-(rear.y + Math.sin(a) * holeR)} r={Math.max(2.5, (tip - CASSETTE.lockringR) * 0.16)} />;
+            })}
+          </g>
+        );
       })}
       <circle className="s2d-lockring" cx={rear.x} cy={-rear.y} r={CASSETTE.lockringR} />
       <line className="s2d-chain" x1={bb.x} y1={-(bb.y + big.root)} x2={rear.x} y2={-(rear.y + 40)} />
