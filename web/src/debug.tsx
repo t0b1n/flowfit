@@ -1,12 +1,14 @@
 /**
- * Debug mode: colours every bike component differently (2D side/front and 3D) so overlaps and mis-placed parts
- * are easy to spot. Dev builds only: `DEBUG_ENABLED` is `import.meta.env.DEV`, so production builds never show the
- * toggle, the legend or the palette. Colours come from the `--debug-N` tokens in design/tokens.css.
+ * Debug mode: colours every bike and rider component differently (2D side/front and 3D) so overlaps and mis-placed
+ * parts are easy to spot. Colours come from the `--debug-N` tokens in design/tokens.css and are drawn unlit in 3D, so
+ * a part is exactly its legend colour. The toggle is shown in every build for now (`DEBUG_ENABLED`); it defaults to
+ * on in dev builds and off in production, and the choice is remembered.
  */
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import * as THREE from "three";
 
-export const DEBUG_ENABLED: boolean = import.meta.env.DEV;
+/** The DEBUG toggle is available in all builds for now; flip this to `import.meta.env.DEV` to make it dev-only again. */
+export const DEBUG_ENABLED = true;
 
 /** Part id → palette slot (`--debug-N`). Ids are used as `data-part` in the 2D SVG and as 3D tube names. */
 export const DEBUG_PARTS = [
@@ -25,6 +27,7 @@ export const DEBUG_PARTS = [
   ["lever", "Brake lever"],
   ["seatpost", "Seatpost"],
   ["saddle", "Saddle"],
+  ["saddle_rail", "Saddle rails"],
   ["bottle", "Bottle"],
   ["wheel", "Wheel"],
   ["brakes", "Disc brakes (left)"],
@@ -47,26 +50,26 @@ const TUBE_PART: Record<string, DebugPart> = { stem_clamp: "stem", steerer: "spa
 export const partForTube = (name: string): string => TUBE_PART[name] ?? name;
 
 const matCache = new Map<string, THREE.Material>();
-/** Flat 3D material for a part, coloured from the `--debug-N` token. */
+/** Unlit 3D material for a part, coloured from the `--debug-N` token. */
 export function debugMaterial(part: string): THREE.Material {
   let m = matCache.get(part);
   if (!m) {
     const css = getComputedStyle(document.documentElement).getPropertyValue(`--debug-${slot(part) || 1}`).trim();
-    m = new THREE.MeshStandardMaterial({ color: new THREE.Color(css || "#ff00ff"), roughness: 0.6, metalness: 0 });
+    m = new THREE.MeshBasicMaterial({ color: new THREE.Color(css || "#ff00ff") });
     matCache.set(part, m);
   }
   return m;
 }
 
-/** Debug on/off, persisted; always false outside dev builds. */
+/** Debug on/off, persisted ("1" / "0"); with nothing stored it is on in dev builds and off in production. */
 export function useDebugParts(): [boolean, () => void] {
   const [on, setOn] = useState<boolean>(() => {
     if (!DEBUG_ENABLED) return false;
     try {
-      // On by default in dev builds until switched off ("0" is stored when toggled off)
-      return localStorage.getItem("flowfit.debug") !== "0";
+      const v = localStorage.getItem("flowfit.debug");
+      return v === "1" ? true : v === "0" ? false : import.meta.env.DEV;
     } catch {
-      return true;
+      return import.meta.env.DEV;
     }
   });
   const toggle = useCallback(() => {

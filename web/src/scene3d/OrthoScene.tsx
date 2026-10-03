@@ -178,10 +178,7 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
             <hemisphereLight args={["#ffffff", "#8a8478", 1.6]} />
             <directionalLight position={view === "front" ? [1, 1, 0.3] : [0.4, 1, 1]} intensity={1.4} />
           </>
-        ) : (
-          // debug part colours are lit materials: a flat ambient keeps them at their authored colour
-          debug && <ambientLight intensity={Math.PI} />
-        )}
+        ) : null}
         <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discRear} />
         <SaddleMesh geo={geo} saddleType={saddleType} />
         <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />
