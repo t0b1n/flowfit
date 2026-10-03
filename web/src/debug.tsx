@@ -82,7 +82,7 @@ export function useDebugParts(): [boolean, () => void] {
   return [DEBUG_ENABLED && on, toggle];
 }
 
-/** Rules colouring `[data-part]` elements inside `.s2d-debug` (fill for shapes, stroke for lines and rings). */
+/** Rules colouring `[data-part]` elements inside `.s2d-debug` (fill for shapes, stroke for lines and rings; `data-fill` marks filled circles/paths). */
 export const DebugStyle: React.FC = () => (
   <style>
     {DEBUG_PARTS.map(([id]) => {
@@ -91,6 +91,8 @@ export const DebugStyle: React.FC = () => (
       return (
         `${P}:is(polygon,rect,ellipse),${P} :is(polygon,rect,ellipse){fill:${c}!important;stroke:${c}!important}` +
         `${P}:is(line,polyline,path,circle),${P} :is(line,polyline,path,circle){stroke:${c}!important}` +
+        // filled circles/paths (stem boss, traced hoods, levers) opt in with data-fill
+        `${P}[data-fill],${P} [data-fill]{fill:${c}!important}` +
         (id === "saddle" ? `${P} path{fill:${c}!important}` : "")
       );
     }).join("\n")}

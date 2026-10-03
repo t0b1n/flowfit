@@ -1,8 +1,10 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
 import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE } from "../design/bikeProfiles";
-import { lerp, bump } from "../design/riderBody";
+import { lerp } from "../design/riderBody";
 import type { BikeSketch } from "../types";
+import type { Cockpit } from "../cockpit";
+import { CockpitSide } from "./Cockpit2D";
 import { SaddleShape } from "../components/SaddleShape";
 import { add, ellipse, gear, hullOf, norm, seg, slab, sub, tube, v, type V } from "./draw2d";
 
@@ -81,7 +83,7 @@ export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({
   ) : null;
 
 /** Frame: filled tapered tubes, curved fork, BB fillet, seatpost, bottle, stem and bars. */
-export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
+export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = ({ bike, cockpit }) => {
   const { bb, rearAxle, frontAxle, seatCluster: cl, seatTubeTop, headTubeTop: ht, headTubeBottom: hb } = bike;
   const stUp = norm(sub(cl, bb));
   const htDown = norm(sub(hb, ht));
@@ -117,8 +119,23 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       {poly("s2d-carbon", tube(bike.seatpostBend, bike.seatpostTop, T.seatpost[0], T.seatpost[1]), "seatpost")}
       {/* spacer stack: the steerer between the head tube and the stem (none at 0 spacers) */}
       {bike.steererTop.y - ht.y > 0.5 && poly("s2d-carbon", slab(ht, bike.steererTop, STEM.spacerR), "spacers")}
-      {/* the stem is one object: flat steerer clamp (stem_height tall) + arm + rounded bar clamp around the bar */}
-      {poly("s2d-carbon", hullOf(slab(bike.steererTop, clampTop, STEM.clampR), ellipse(bike.barClamp, STEM.barClampR, STEM.barClampR, 0, 24)), "stem")}
+      {/* the stem: flat steerer clamp (stem_height tall, along the steerer), tapered arm, round bar clamp */}
+      <g data-part="stem">
+        {poly("s2d-carbon", slab(bike.steererTop, clampTop, STEM.clampR), "stem")}
+        {cockpit?.build === "integrated" ? (
+          /* one-piece bar-stem: the arm runs straight into the riser and on to the aero tops */
+          <>
+            {poly("s2d-carbon", slab(bike.stemPivot, bike.barClamp, 15, 12), "stem")}
+            {cockpit.rise > 0.5 && poly("s2d-carbon", slab(bike.barClamp, v(bike.barClamp.x + 6, bike.barClamp.y + cockpit.rise), 12, 11), "stem")}
+            <circle className="s2d-carbon" data-part="stem" data-fill cx={bike.barClamp.x} cy={-bike.barClamp.y} r={12} />
+          </>
+        ) : (
+          <>
+            {poly("s2d-carbon", slab(bike.stemPivot, bike.barClamp, 14, 12), "stem")}
+            <circle className="s2d-carbon" data-part="stem" data-fill cx={bike.barClamp.x} cy={-bike.barClamp.y} r={STEM.barClampR} />
+          </>
+        )}
+      </g>
       <g data-part="saddle"><SaddleShape contact={bike.saddle} clamp={bike.seatpostTop} className="s2d-saddle" /></g>
     </g>
   );
@@ -160,23 +177,5 @@ export const NearCrank: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({ bi
   </g>
 );
 
-/** Drop bar, STI hood and lever. The near-side glove is drawn after this. */
-export const CockpitDrawing: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
-  const hood = bike.hoods;
-  const clp = bike.barClamp;
-  return (
-    <g>
-      <path
-        className="s2d-bar"
-        data-part="bar"
-        d={`M${P(clp.x, clp.y)} C ${P(clp.x + 60, clp.y)} ${P(hood.x + 6, hood.y - 20)} ${P(hood.x + 8, hood.y - 60)} S ${P(clp.x + 44, clp.y - 126)} ${P(clp.x - 4, clp.y - 126)}`}
-      />
-      {poly("s2d-hood", seg(v(hood.x - 26, hood.y - 26), v(hood.x + 46, hood.y + 14), (t) => 16 + 10 * bump(t, 0.7, 0.2) + 4 * bump(t, 0.95, 0.08)), "hood")}
-      <path
-        className="s2d-lever"
-        data-part="lever"
-        d={`M${P(hood.x + 44, hood.y + 4)} C ${P(hood.x + 58, hood.y - 40)} ${P(hood.x + 46, hood.y - 100)} ${P(hood.x + 20, hood.y - 130)}`}
-      />
-    </g>
-  );
-};
+/** Drop bar, STI hood and lever (from the cockpit model). The near-side glove is drawn after this. */
+export const CockpitDrawing: React.FC<{ cockpit: Cockpit }> = ({ cockpit }) => <CockpitSide cockpit={cockpit} />;

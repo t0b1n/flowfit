@@ -26,6 +26,25 @@ export type Components = {
   seatpost_offset: number;
   saddle_rail_offset: number;
   pedal_stack_height: number;
+  // ── Cockpit (all optional: saved fits predate them; see cockpit.ts for defaults) ──
+  /** vertical rise of the bar tops above the clamp centre (mm) */
+  bar_rise?: number;
+  /** vertical depth from the tops to the drops centreline (mm), default 125 */
+  bar_drop_depth?: number;
+  /** drop centre-to-centre width (mm); null = same as the hoods */
+  bar_drop_width?: number | null;
+  /** backsweep of the tops toward the rider (deg) */
+  bar_backsweep_deg?: number;
+  /** bar roll in the clamp (deg) = angle of the clamp→hood reach line; null = 0 (hoods straight ahead of the clamp) */
+  bar_roll_deg?: number | null;
+  /** hood position along the bend (mm, + = lower / further round) */
+  hood_slide_mm?: number;
+  /** inward hood rotation (deg); UCI limit 10° */
+  hood_roll_deg?: number;
+  /** draw option: separate stem + bar, or a one-piece bar-stem */
+  cockpit_build?: "two_piece" | "integrated";
+  /** hood model id (hoodModels.ts) */
+  hood_model?: string;
 };
 
 export type SetupResult = {

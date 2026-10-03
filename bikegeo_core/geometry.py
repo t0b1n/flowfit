@@ -52,6 +52,43 @@ def cleat_at_crank_angle(bb: Vec2, components: Components, crank_angle_deg: floa
     return Vec2(spindle.x - components.cleat_setback, spindle.y)
 
 
+# Hood slide: forward/down travel of the hood per mm along the bend, and its nose-down tilt per mm.
+SLIDE_DX = 0.35
+SLIDE_DY = -0.9
+SLIDE_PITCH_DEG = -0.45
+
+
+def effective_bar_roll(components: Components) -> float:
+    """Bar roll in effect: the clamp-to-hood reach line angle (deg).
+
+    None = 0: bar reach is horizontal and fitters rotate the bar to the rider's setup independently of the stem,
+    so by default the hoods sit straight ahead of the clamp.
+    """
+    return components.bar_roll_deg if components.bar_roll_deg is not None else 0.0
+
+
+def hood_contact(bar_clamp: Vec2, components: Components) -> Vec2:
+    """Hand contact on the hoods. Mirrors web/src/cockpit.ts::hoodContact line for line:
+
+    base    = R(roll)·(bar_reach + 0.35 s, -0.9 s) + (0, bar_rise)
+    pitch   = roll - 0.45° s
+    contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, hood_drop_offset)
+
+    bar_drop describes the drops, not the hoods, so it does not move the contact.
+    """
+    s = components.hood_slide_mm
+    roll = np.radians(effective_bar_roll(components))
+    pitch = roll + np.radians(SLIDE_PITCH_DEG * s)
+    bx = components.bar_reach + SLIDE_DX * s
+    by = SLIDE_DY * s
+    base_x = bar_clamp.x + bx * np.cos(roll) - by * np.sin(roll)
+    base_y = bar_clamp.y + bx * np.sin(roll) + by * np.cos(roll) + components.bar_rise
+    return Vec2(
+        base_x + components.hood_reach_offset * np.cos(pitch),
+        base_y + components.hood_reach_offset * np.sin(pitch) + components.hood_drop_offset,
+    )
+
+
 def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
     bb = Vec2(0.0, 0.0)
 
@@ -103,12 +140,7 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
         stem_pivot.y + stem_dir.y * components.stem_length,
     )
 
-    # Bar reach is horizontal from the clamp centre and the bar is rotated to the rider's setup independently of the
-    # stem angle, so the hoods sit straight ahead of the clamp. bar_drop describes the drops, not the hoods.
-    hoods = Vec2(
-        bar_clamp.x + components.bar_reach + components.hood_reach_offset,
-        bar_clamp.y + components.hood_drop_offset,
-    )
+    hoods = hood_contact(bar_clamp, components)
 
     # BDC = crank pointing straight down (crank angle 180°)
     cleat = Vec2(

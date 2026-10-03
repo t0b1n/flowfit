@@ -7,6 +7,8 @@ import type { BikeSketch, Components, MannequinSketch } from "../types";
 import { DebugLegend, DebugStyle } from "../debug";
 import { ellipse, seg, tube, v } from "./draw2d";
 import { StageOverlay } from "./StageOverlay";
+import { buildCockpit, type Cockpit } from "../cockpit";
+import { CockpitFront } from "./Cockpit2D";
 import type { RiderVisibility } from "./shared";
 
 export interface Stage2DFrontProps {
@@ -23,6 +25,10 @@ export interface Stage2DFrontProps {
   compare?: import("../fits/capture").CompareTarget | null;
   /** dev-only: colour every component (see src/debug.tsx) */
   debug?: boolean;
+  ghostCockpit?: Cockpit | null;
+  showUci?: boolean;
+  /** frame the cockpit and hands instead of the whole bike (cockpit focus) */
+  zoomCockpit?: boolean;
 }
 
 
@@ -45,15 +51,24 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   wheelRadius: R,
   compare,
   debug,
+  ghostCockpit,
+  showUci,
+  zoomCockpit,
 }) => {
   const hs = rider.height / 1800;
   const wk = (sens: number) => hs * Math.pow(weightKg / 75, sens);
-  const halfW = Math.max(rider.shoulder_width, components.bar_width) / 2 + 150;
+  const cockpit = buildCockpit(bike.barClamp, components);
+  const halfW = Math.max(rider.shoulder_width, components.bar_width, components.bar_drop_width ?? 0) / 2 + 150;
   const svgTop = -mannequin.head.y - 80;
   const svgH = groundY + mannequin.head.y + 160;
-  const viewBox = `${-halfW} ${svgTop} ${halfW * 2} ${svgH}`;
-  const hw = components.bar_width / 2;
-  const hy = mannequin.hands.y;
+  const viewBox = zoomCockpit
+    ? (() => {
+        const cw = Math.max(cockpit.dropWidth, cockpit.hoodWidth, rider.shoulder_width * 0.8) / 2 + 150;
+        const top = Math.max(mannequin.elbow.y, cockpit.sagittal[1].y + cockpit.hood.peak) + 90;
+        const bottom = cockpit.sagittal[6].y - 140;
+        return `${-cw} ${-top} ${cw * 2} ${top - bottom}`;
+      })()
+    : `${-halfW} ${svgTop} ${halfW * 2} ${svgH}`;
   const ft = bike.frontAxle;
   const hb = bike.headTubeBottom;
   const ht = bike.headTubeTop;
@@ -81,7 +96,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   return (
     <div className="s2d-wrap">
       {debug && <DebugStyle />}
-      <svg viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}`}>
+      <svg viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}${zoomCockpit ? " s2d--cockpit-focus" : ""}`}>
         <line className="s2d-ground" x1={-halfW} y1={groundY} x2={halfW} y2={groundY} />
         <line className="s2d-gap" x1={0} y1={groundY} x2={0} y2={svgTop} />
 
@@ -147,13 +162,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         <rect data-part="spacers" className="s2d-carbon" x={-17} y={-bike.steererTop.y} width={34} height={bike.steererTop.y - ht.y} />
         {/* steerer clamp: steererTop → 2·stemPivot − steererTop, i.e. stem_height along the leaning steerer, seen from the front */}
         <rect data-part="stem" className="s2d-carbon" x={-22} y={-(2 * bike.stemPivot.y - bike.steererTop.y)} width={44} height={2 * (bike.stemPivot.y - bike.steererTop.y)} rx={6} />
-        <path
-          className="s2d-bar"
-          data-part="bar"
-          d={`M ${-hw + 30} ${-hy} L ${-hw} ${-hy} L ${-hw} ${-hy + 110} M ${hw - 30} ${-hy} L ${hw} ${-hy} L ${hw} ${-hy + 110} M ${-hw} ${-hy} L ${hw} ${-hy}`}
-        />
-        <circle data-part="hood" className="s2d-hood-front" cx={-hw} cy={-hy} r={24} />
-        <circle data-part="hood" className="s2d-hood-front" cx={hw} cy={-hy} r={24} />
+        <CockpitFront cockpit={cockpit} showUci={showUci} />
+        {ghostCockpit && <CockpitFront cockpit={ghostCockpit} ghost />}
 
         {riderVisibility.arms && (
           <>

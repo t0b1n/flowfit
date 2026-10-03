@@ -7,7 +7,6 @@ Tests are parametrized over (kneeFlexDeg, trunkAngleDeg) and exercise both:
 
 Expected bugs:
   - ~4° knee flex error from saddle X offset (idealContactsFromRider ignores saddle_stack)
-  - hoods formula mismatch between frontend angular projection and backend additive offsets
 """
 from __future__ import annotations
 

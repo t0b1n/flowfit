@@ -7,6 +7,8 @@ import { DebugLegend, DebugStyle } from "../debug";
 import { CockpitDrawing, DiscBrakes, DriveSide, FarCrank, FrameDrawing, NearCrank, Wheel } from "./BikeDrawing2D";
 import { buildFigure, v, type V } from "./draw2d";
 import { StageOverlay } from "./StageOverlay";
+import { buildCockpit, type Cockpit } from "../cockpit";
+import { CockpitSide, WristMarker } from "./Cockpit2D";
 import { METRICS, useMetricFocus } from "../fitMetrics";
 import type { RiderVisibility } from "./shared";
 import type { CompareTarget } from "../fits/capture";
@@ -35,6 +37,10 @@ export interface Stage2DSideProps {
   showKops?: boolean;
   /** dev-only: colour every component (see src/debug.tsx) */
   debug?: boolean;
+  /** cockpit to draw as a dashed ghost (cockpit focus compare) */
+  ghostCockpit?: Cockpit | null;
+  /** always show the wrist-angle marker (cockpit focus); otherwise it follows the ANGLES layer */
+  showWrist?: boolean;
 }
 
 /** mm ruler along the ground: 25 mm minor ticks, 100 mm major, accent ticks at the axles and BB. */
@@ -131,7 +137,10 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   frameMeasurementVisibility,
   compare,
   showKops,
+  ghostCockpit,
+  showWrist,
 }) => {
+  const cockpit = buildCockpit(bike.barClamp, components);
   const svgRef = useRef<SVGSVGElement>(null);
   const { focused, pinned } = useMetricFocus();
   const R = effectiveFrame.wheel_radius;
@@ -152,7 +161,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   return (
     <div className="s2d-wrap">
     {debug && <DebugStyle />}
-    <svg ref={svgRef} viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}`}>
+    <svg ref={svgRef} viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}${showWrist ? " s2d--cockpit-focus" : ""}`}>
       <line className="s2d-ground" x1={activeBounds.minX} y1={groundY} x2={activeBounds.maxX} y2={groundY} />
       <Ruler
         minX={activeBounds.minX}
@@ -175,7 +184,7 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
       <Wheel axle={bike.frontAxle} radius={R} />
       <DiscBrakes bike={bike} />
       <FarCrank bike={bike} farSpindle={visibleParts.legs ? farPose.spindle : null} />
-      <FrameDrawing bike={bike} />
+      <FrameDrawing bike={bike} cockpit={cockpit} />
       <DriveSide bike={bike} />
       <NearCrank bike={bike} cleatCrankEnd={v(bike.cleat.x + components.cleat_setback, bike.cleat.y)} />
 
@@ -187,8 +196,10 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
         {visibleParts.arms && polys(fig.nearArm, "arm")}
         {visibleParts.head && <polygon data-part="torso" className="s2d-clay" points={fig.head} />}
       </g>
-      <CockpitDrawing bike={bike} />
+      <CockpitDrawing cockpit={cockpit} />
       {visibleParts.arms && <polygon data-part="arm" className="s2d-glove" points={fig.glove} />}
+      {ghostCockpit && <CockpitSide cockpit={ghostCockpit} ghost />}
+      {visibleParts.arms && (showWrist || showJointAngles) && <WristMarker mannequin={mannequin} hoodRollDeg={cockpit.hoodRollDeg} />}
 
       {/* skeleton overlay (with ANGLES) */}
       {showJointAngles && (

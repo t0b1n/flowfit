@@ -12,6 +12,7 @@ import type {
 } from "./types";
 import type { Geometry3DPoint, Geometry3DEdge, Geometry3DResponse } from "./bike3d";
 import { FrameGeometry } from "./frameCatalog";
+import { buildCockpit, hoodContact } from "./cockpit";
 
 export const DEFAULT_TYRE_SIZE = 28;
 
@@ -182,6 +183,24 @@ export const circleIntersections = (
   return preferUpper ? (p1.y > p2.y ? [p1, p2] : [p2, p1]) : p1.y < p2.y ? [p1, p2] : [p2, p1];
 };
 
+/** The palm drapes this far below the hood platform line (deg). */
+export const HAND_DRAPE_DEG = 26;
+/** Wrist-to-contact distance as a fraction of palm length (the contact is mid-palm). */
+const HAND_WRIST_FRACTION = 0.62;
+
+/**
+ * Wrist angle (deg) in the sagittal plane: the hand's direction (wrist→hands) relative to the forearm (elbow→wrist).
+ * Positive = extension (hand tipped up, back of the hand toward the forearm), negative = flexion.
+ */
+export const wristAngleDeg = (m: MannequinSketch): number => {
+  const fa = Math.atan2(m.wrist.y - m.elbow.y, m.wrist.x - m.elbow.x);
+  const ha = Math.atan2(m.hands.y - m.wrist.y, m.hands.x - m.wrist.x);
+  let d = ((ha - fa) * 180) / Math.PI;
+  while (d > 180) d -= 360;
+  while (d <= -180) d += 360;
+  return d;
+};
+
 /**
  * Two-bone leg IK from the hip joint to the pedal target (the IK "ankle": the
  * pedal spindle plus the shoe/pedal stack). The knee is the anterior solution.
@@ -232,6 +251,8 @@ export const buildMannequin = (
   pedalStackHeight: number = 0,
   targetTrunkAngleDeg?: number,
   backBendDeg: number = 0,
+  /** hood platform pitch (deg): when given, the hand lies along the hood instead of continuing the forearm */
+  hoodPitchDeg?: number,
 ): MannequinSketch => {
   // The ischial tuberosity (sit bones) contacts the saddle; the hip joint centre
   // (femoral head) is hip_joint_offset mm above, where the femur actually rotates.
@@ -327,10 +348,17 @@ export const buildMannequin = (
   const elbowToHandsDx = hands.x - elbow.x;
   const elbowToHandsDy = hands.y - elbow.y;
   const elbowToHandsDist = Math.max(Math.hypot(elbowToHandsDx, elbowToHandsDy), 1e-6);
-  const wrist: ContactPoint = {
-    x: elbow.x + (elbowToHandsDx / elbowToHandsDist) * forearmNoPalm,
-    y: elbow.y + (elbowToHandsDy / elbowToHandsDist) * forearmNoPalm,
-  };
+  // Hands follow the hood: the palm lies along the hood platform, draped HAND_DRAPE_DEG below it, and the
+  // wrist sits one palm length behind the contact. The elbow (and so every arm metric) is unchanged.
+  const wrist: ContactPoint = hoodPitchDeg === undefined
+    ? {
+        x: elbow.x + (elbowToHandsDx / elbowToHandsDist) * forearmNoPalm,
+        y: elbow.y + (elbowToHandsDy / elbowToHandsDist) * forearmNoPalm,
+      }
+    : {
+        x: hands.x - Math.cos(radiansFromDegrees(hoodPitchDeg - HAND_DRAPE_DEG)) * palmLength * HAND_WRIST_FRACTION,
+        y: hands.y - Math.sin(radiansFromDegrees(hoodPitchDeg - HAND_DRAPE_DEG)) * palmLength * HAND_WRIST_FRACTION,
+      };
 
   // Head direction: use upper-torso angle (spine_joint → shoulder) for head orientation
   const upperTrunkAngle = Math.atan2(shoulder.y - spineJoint.y, shoulder.x - spineJoint.x);
@@ -665,12 +693,8 @@ export const synthesizeBike = (
     x: stemPivot.x + Math.cos(stemAngle) * components.stem_length,
     y: stemPivot.y + Math.sin(stemAngle) * components.stem_length,
   };
-  // Bar reach is a horizontal distance from the clamp centre, and the bar is rotated to the rider's setup (drops /
-  // hood platform roughly level) independently of the stem angle, so the hoods sit straight ahead of the clamp.
-  const hoods = {
-    x: barClamp.x + components.bar_reach + components.hood_reach_offset,
-    y: barClamp.y + components.hood_drop_offset,
-  };
+  // Hood contact from the shared cockpit model (mirrored in bikegeo_core/geometry.py).
+  const hoods = hoodContact(barClamp, components);
 
   return {
     bb,
@@ -1202,13 +1226,12 @@ export function buildMannequin3DPoints(
   p("elbow_r", mannequin.elbow.x, mannequin.elbow.y, +halfShoulder);
   p("elbow_l", mannequin.elbow.x, mannequin.elbow.y, -halfShoulder);
 
-  // Wrists at ±half_hood
-  p("wrist_r", mannequin.wrist.x, mannequin.wrist.y, +halfHood);
-  p("wrist_l", mannequin.wrist.x, mannequin.wrist.y, -halfHood);
-
-  // Hands at ±half_hood
-  p("hand_r", mannequin.hands.x, mannequin.hands.y, +halfHood);
-  p("hand_l", mannequin.hands.x, mannequin.hands.y, -halfHood);
+  // Wrists and hands on the hoods; inward hood rotation moves the palm toward the centreline.
+  const handHalf = buildCockpit({ x: 0, y: 0 }, components).contactHalfWidth;
+  p("wrist_r", mannequin.wrist.x, mannequin.wrist.y, +(halfHood + handHalf) / 2);
+  p("wrist_l", mannequin.wrist.x, mannequin.wrist.y, -(halfHood + handHalf) / 2);
+  p("hand_r", mannequin.hands.x, mannequin.hands.y, +handHalf);
+  p("hand_l", mannequin.hands.x, mannequin.hands.y, -handHalf);
 
   const edges: Geometry3DEdge[] = [];
   for (const [a, b, group] of _MANNEQUIN_EDGES) {
@@ -1258,8 +1281,6 @@ const _FRAME_EDGES: [string, string][] = [
 /** Lateral half-spread of the rear dropouts / fork dropouts (mm). */
 const _CHAINSTAY_HALF_SPREAD = 38;
 const _FORK_HALF_SPREAD = 25;
-/** Vertical depth of the handlebar drops below the hoods (mm). */
-const _DROP_DEPTH = 130;
 /** Visual seatpost head extension above the rail clamp centre (mm). */
 const _SEATPOST_HEAD_EXTENSION = 5;
 
@@ -1279,7 +1300,6 @@ export function buildGeometry3D(
   const hoodW = components.hood_width ?? components.bar_width;
   const stanceW = components.stance_width ?? _DEFAULT_STANCE_WIDTH;
   const halfHood = hoodW / 2;
-  const halfBar = components.bar_width / 2;
   const halfStance = stanceW / 2;
 
   const points: Geometry3DPoint[] = [];
@@ -1310,18 +1330,21 @@ export function buildGeometry3D(
   });
 
   // Bilateral frame points (positive Z = rider's left)
-  p("hoods_r", bike.hoods, +halfHood);
-  p("hoods_l", bike.hoods, -halfHood);
+  // Cockpit points from the shared cockpit model (the 3D bar and hood meshes read `cockpit` directly).
+  const cockpit = buildCockpit(bike.barClamp, components);
+  p("hoods_r", bike.hoods, +cockpit.contactHalfWidth);
+  p("hoods_l", bike.hoods, -cockpit.contactHalfWidth);
   p("cleat_r", bike.cleat, +halfStance);
   p("cleat_l", bike.cleat, -halfStance);
   p("chainstay_r", bike.rearAxle, +_CHAINSTAY_HALF_SPREAD);
   p("chainstay_l", bike.rearAxle, -_CHAINSTAY_HALF_SPREAD);
   p("fork_r", bike.frontAxle, +_FORK_HALF_SPREAD);
   p("fork_l", bike.frontAxle, -_FORK_HALF_SPREAD);
-  p("bar_top_r", bike.barClamp, +halfBar);
-  p("bar_top_l", bike.barClamp, -halfBar);
-  p("bar_drop_r", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, +halfHood);
-  p("bar_drop_l", { x: bike.hoods.x, y: bike.hoods.y - _DROP_DEPTH }, -halfHood);
+  const [, ckTops, , , , , ckDropBottom] = cockpit.sagittal;
+  p("bar_top_r", ckTops, +cockpit.hoodWidth / 2);
+  p("bar_top_l", ckTops, -cockpit.hoodWidth / 2);
+  p("bar_drop_r", ckDropBottom, +cockpit.dropWidth / 2);
+  p("bar_drop_l", ckDropBottom, -cockpit.dropWidth / 2);
 
   // Mannequin — the same bilateral expansion the 2D mannequin drives.
   // Pushed after the frame points so duplicate names (cleat_r/cleat_l)
@@ -1363,5 +1386,6 @@ export function buildGeometry3D(
     components: _numericEntries(components),
     rider: _numericEntries(rider),
     constraints: {},
+    cockpit,
   };
 }

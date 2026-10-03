@@ -36,6 +36,9 @@ const Header: React.FC = () => {
         <NavLink to="/" end className={tab}>
           Fit Builder
         </NavLink>
+        <NavLink to="/cockpit" className={tab}>
+          Cockpit
+        </NavLink>
         <NavLink to="/transfer" className={tab}>
           Fit Transfer
         </NavLink>
@@ -85,14 +88,17 @@ export const App: React.FC = () => (
           {import.meta.env.DEV && <Route path="/design" element={<DesignRoute />} />}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          {/* One builder instance for both: cockpit focus shares the fit's state. */}
           <Route
-            path="/"
             element={
               <Shell bleed>
                 <FitBuilderMode />
               </Shell>
             }
-          />
+          >
+            <Route path="/" element={null} />
+            <Route path="/cockpit" element={null} />
+          </Route>
           <Route
             path="/transfer"
             element={

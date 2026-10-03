@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
 import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
+import type { Cockpit } from "./cockpit";
 
 export interface Geometry3DPoint {
   name: string;
@@ -34,6 +35,8 @@ export interface Geometry3DResponse {
   components: Record<string, number>;
   rider: Record<string, number>;
   constraints: Record<string, unknown>;
+  /** cockpit model (bar centreline, hood placement); absent in older JSON exports */
+  cockpit?: Cockpit;
 }
 
 export interface Tube3D {
@@ -368,7 +371,7 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
  * calipers), rear cassette, derailleurs and chain, bottle and cage. The swept handlebar and the saddle stay
  * in BikeScene3D. Named "bike-root".
  */
-export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], wheelRadius: number, mats: BikeMaterials, opts: { discRear: boolean; debug?: boolean }): THREE.Group {
+export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], wheelRadius: number, mats: BikeMaterials, opts: { discRear: boolean; debug?: boolean; integratedStem?: boolean }): THREE.Group {
   const g = new THREE.Group();
   g.name = "bike-root";
   const P = new Map(points.map((p) => [p.name, p.pos as V3]));
@@ -408,12 +411,15 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       // the stem is one object: this steerer clamp plus the arm below
       if (clamp) g.add(cylinder(clamp.bottom, clamp.top, STEM.clampR, STEM.clampR, pick("stem", mats.carbon)));
     } else if (t.name === "stem") {
-      g.add(taper(a, b, STEM.armR[0], STEM.armR[1], pick("stem", mats.carbon)));
-      // bar clamp body around the bar (the bar itself is drawn in the scene)
-      const bc = new THREE.Mesh(new THREE.CylinderGeometry(STEM.barClampR, STEM.barClampR, STEM.barClampWidth, 28), pick("stem", mats.carbon));
-      bc.position.copy(b);
-      bc.rotation.x = Math.PI / 2; // axis along the bar (lateral, Z)
-      g.add(bc);
+      // a one-piece bar-stem draws its own fused arm (cockpit3d.ts)
+      if (!opts.integratedStem) {
+        g.add(taper(a, b, STEM.armR[0], STEM.armR[1], pick("stem", mats.carbon)));
+        // bar clamp body around the bar (the bar itself is drawn in the scene)
+        const bc = new THREE.Mesh(new THREE.CylinderGeometry(STEM.barClampR, STEM.barClampR, STEM.barClampWidth, 28), pick("stem", mats.carbon));
+        bc.position.copy(b);
+        bc.rotation.x = Math.PI / 2; // axis along the bar (lateral, Z)
+        g.add(bc);
+      }
     } else {
       g.add(taper(a, b, t.radius, t.radius, pick(t.name, mats.frame)));
     }

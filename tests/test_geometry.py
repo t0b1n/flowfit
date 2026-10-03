@@ -109,3 +109,4 @@ def test_cleat_setback_moves_cleat_behind_pedal_spindle() -> None:
     assert no_setback.cleat.x == 0.0
     assert setback.cleat.x == -15.0
     assert setback.cleat.y == no_setback.cleat.y
+

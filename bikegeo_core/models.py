@@ -57,6 +57,19 @@ class Components(BaseModel):
     seatpost_offset: float = Field(0.0, description="Horizontal setback of the clamp from the seat-tube centreline, in mm (positive = rearward).")
     saddle_rail_offset: float = Field(0.0, description="Forward/backward slide of the saddle on its rails relative to the clamp, in mm (positive = forward).")
     pedal_stack_height: float = Field(11.0, description="Height from pedal axle to cleat contact in mm.")
+    # Cockpit (mirrors web/src/cockpit.ts; all optional so older payloads stay valid)
+    bar_rise: float = Field(0.0, description="Vertical rise of the bar tops above the clamp centre, in mm.")
+    bar_drop_depth: float = Field(125.0, description="Vertical depth from the tops to the drops centreline, in mm.")
+    bar_drop_width: Optional[float] = Field(None, description="Drop centre-to-centre width in mm; defaults to the hood width.")
+    bar_backsweep_deg: float = Field(0.0, description="Backsweep of the tops toward the rider, in degrees.")
+    bar_roll_deg: Optional[float] = Field(
+        None,
+        description="Angle of the clamp-to-hood reach line above horizontal, in degrees; None = 0 (hoods straight ahead of the clamp).",
+    )
+    hood_slide_mm: float = Field(0.0, description="Hood position along the bend in mm (+ = lower, further round).")
+    hood_roll_deg: float = Field(0.0, description="Inward hood rotation in degrees (lateral only; no sagittal effect).")
+    cockpit_build: Optional[str] = Field(None, description="Draw option: 'two_piece' or 'integrated' (render only).")
+    hood_model: Optional[str] = Field(None, description="Hood model id (render only).")
 
 
 class ContactPoint(BaseModel):

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { type FrameMeasurementId, type FrameMeasurementVisibility } from "./BikeAnnotations";
 import { useCatalog } from "./catalog/CatalogContext";
 import { HOOD_PRESETS } from "./components/hoodPresets";
 import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, hoodFit, idealContactsFromRider, idealContactsFromSaddleHeight, saddleForKneeExtension, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
+import { buildCockpit, hoodPitchDeg } from "./cockpit";
+import { CockpitControls, CockpitReadouts } from "./builder/CockpitPanels";
 import { useDebugParts } from "./debug";
 import { ControlsColumn } from "./builder/ControlsColumn";
 import { ResultsColumn } from "./builder/ResultsColumn";
@@ -64,6 +66,22 @@ export const FitBuilderMode: React.FC = () => {
   const [targetSaddleHeightMm, setTargetSaddleHeightMm] = useState(700);
 
   const view3d = view === "3d";
+  // Cockpit focus: /cockpit is the same builder (same state) with the cockpit controls and a zoomed stage.
+  const location = useLocation();
+  const navigate = useNavigate();
+  const focusCockpit = location.pathname === "/cockpit";
+  const [showGhost, setShowGhost] = useState(true);
+  const [showUci, setShowUci] = useState(true);
+  const [startComponents, setStartComponents] = useState<Components | null>(null);
+  useEffect(() => {
+    if (focusCockpit) setStartComponents((s) => s ?? components);
+    else setStartComponents(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusCockpit]);
+  // The hood preset picks the hood model drawn in 2D and 3D.
+  useEffect(() => {
+    setComponents((c) => (c.hood_model === hoodPresetId ? c : { ...c, hood_model: hoodPresetId }));
+  }, [hoodPresetId]);
 
   const model = getModelById(selection.modelId);
   const sizeData = useMemo(
@@ -144,14 +162,26 @@ export const FitBuilderMode: React.FC = () => {
     [bike]
   );
 
+  const cockpit = useMemo(() => buildCockpit(bike.barClamp, components), [bike.barClamp, components]);
+  // Hands sit on the hoods: lateral at the hood contact (inward rotation moves the palm in), palm along the hood.
+  const handWidth = 2 * cockpit.contactHalfWidth;
+  const handPitch = hoodPitchDeg(components);
   const mannequin = useMemo(
-    () => buildMannequin(bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg),
-    [bikeForMannequin, rider, components.bar_width, components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg]
+    () => buildMannequin(bikeForMannequin, rider, handWidth, components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg, handPitch),
+    [bikeForMannequin, rider, handWidth, components.pedal_stack_height, targetTrunkAngleDeg, backBendDeg, handPitch]
   );
   const frontalMannequin = useMemo(
-    () => buildFrontalMannequin(mannequin, rider, components.bar_width),
-    [mannequin, rider, components.bar_width]
+    () => buildFrontalMannequin(mannequin, rider, handWidth),
+    [mannequin, rider, handWidth]
   );
+  // Starting cockpit (captured on entering cockpit focus) for the ghost and the "vs start" readouts.
+  const start = useMemo(() => {
+    if (!startComponents) return null;
+    const b = synthesizeBike(sizeData, effectiveFrame, startComponents);
+    const ck = buildCockpit(b.barClamp, startComponents);
+    const m = buildMannequin(b, rider, 2 * ck.contactHalfWidth, startComponents.pedal_stack_height, targetTrunkAngleDeg, backBendDeg, hoodPitchDeg(startComponents));
+    return { cockpit: ck, mannequin: m };
+  }, [startComponents, sizeData, effectiveFrame, rider, targetTrunkAngleDeg, backBendDeg]);
 
   const seatpostRec = useMemo(
     () => seatpostRecommendation(bike.saddle, bike.saddleClamp),
@@ -307,6 +337,22 @@ export const FitBuilderMode: React.FC = () => {
   );
 
   const activeBounds = useMemo(() => {
+    if (focusCockpit) {
+      // Cockpit focus: frame the stem, bar, hoods and the forearm/hand.
+      const pts = [
+        bike.steererTop, bike.stemPivot, bike.barClamp, bike.hoods, ...cockpit.sagittal,
+        mannequin.wrist, mannequin.hands,
+        ...(start ? start.cockpit.sagittal : []),
+      ];
+      const xs = pts.map((p) => p.x);
+      const ys = pts.map((p) => p.y);
+      return {
+        minX: Math.min(...xs) - 140,
+        maxX: Math.max(...xs) + 200,
+        minY: Math.min(...ys) - 90,
+        maxY: Math.max(...ys) + 170,
+      };
+    }
     if (!fullscreen) return bounds;
     const pts = [
       bike.bb, bike.seatCluster, bike.seatTubeTop, bike.headTubeBottom, bike.headTubeTop,
@@ -323,7 +369,7 @@ export const FitBuilderMode: React.FC = () => {
       minY: Math.min(...ys) - 140,
       maxY: Math.max(...ys) + 100,
     };
-  }, [fullscreen, bounds, bike, mannequin, idealContacts]);
+  }, [fullscreen, bounds, bike, mannequin, idealContacts, focusCockpit, cockpit, start]);
 
   const viewBox = `${activeBounds.minX} ${-activeBounds.maxY} ${activeBounds.maxX - activeBounds.minX} ${activeBounds.maxY - activeBounds.minY}`;
   const groundY = effectiveFrame.wheel_radius - effectiveFrame.bb_drop;
@@ -343,6 +389,7 @@ export const FitBuilderMode: React.FC = () => {
 
   const updateComponent = (key: keyof Components, value: number) =>
     setComponents((c) => ({ ...c, [key]: value }));
+  const patchComponents = (p: Partial<Components>) => setComponents((c) => ({ ...c, ...p }));
 
   const resetComponent = (key: keyof Components) =>
     updateComponent(key, DEFAULT_COMPONENTS_BUILDER[key] as number);
@@ -446,6 +493,26 @@ export const FitBuilderMode: React.FC = () => {
     { id: "3d", label: "3D" },
   ];
 
+  const cockpitControls = (
+    <CockpitControls components={components} patch={patchComponents} hoodPresetId={hoodPresetId} setHoodPresetId={setHoodPresetId} mobilePanel={mobilePanel} fullscreen={fullscreen} onExit={() => navigate("/")} />
+  );
+  const cockpitReadouts = start ? (
+    <CockpitReadouts
+      cockpit={cockpit}
+      start={start}
+      mannequin={mannequin}
+      idealHoods={idealContacts.hoods}
+      mobilePanel={mobilePanel}
+      fullscreen={fullscreen}
+      showGhost={showGhost}
+      setShowGhost={setShowGhost}
+      showUci={showUci}
+      setShowUci={setShowUci}
+      onResetStart={() => setStartComponents(components)}
+    />
+  ) : null;
+  const ghostCockpit = focusCockpit && showGhost && start ? start.cockpit : null;
+
   const controlPanels = <ControlsColumn mobilePanel={mobilePanel} fullscreen={fullscreen} fitMode={fitMode} handleFitModeChange={handleFitModeChange} idealSaddleY={idealSaddleY} kneeFlex={kneeFlex} riderFit={riderFit} setRiderFit={setRiderFit} targetSaddleHeightMm={targetSaddleHeightMm} setTargetSaddleHeightMm={setTargetSaddleHeightMm} pedalGapMm={strokeMetrics.maxPedalGapMm} maxSaddleHeightMm={maxSaddleHeightMm} rider={rider} updateBodyMeasurement={updateBodyMeasurement} setBodyMeasurements={setBodyMeasurements} trunkAngleOverride={trunkAngleOverride} backBendOverride={backBendOverride} preset={preset} setPreset={setPreset} setTrunkAngleOverride={setTrunkAngleOverride} setBackBendOverride={setBackBendOverride} targetTrunkAngleDeg={targetTrunkAngleDeg} backBendDeg={backBendDeg} currentBrand={currentBrand} FRAME_CATALOG={FRAME_CATALOG} setSelection={setSelection} brands={brands} selection={selection} getModelById={getModelById} modelsForBrand={modelsForBrand} model={model} sizeData={sizeData} components={components} updateComponent={updateComponent} resetComponent={resetComponent} hoodPresetId={hoodPresetId} setHoodPresetId={setHoodPresetId} tyreSize={tyreSize} setTyreSize={setTyreSize} pedalPresetId={pedalPresetId} handlePedalPreset={handlePedalPreset} shoePresetId={shoePresetId} handleShoePreset={handleShoePreset} setPedalPresetId={setPedalPresetId} setShoePresetId={setShoePresetId} />;
 
   const metricsPanel = <ResultsColumn historySlot={historySlot} mannequin={mannequin} mobilePanel={mobilePanel} fullscreen={fullscreen} issueCount={issueCount} actualSaddleY={actualSaddleY} saddleDelta={saddleDelta} idealSaddleY={idealSaddleY} saddleWarning={saddleWarning} severityTone={severityTone} kneeFlex={kneeFlex} fitMode={fitMode} riderFit={riderFit} kneeTone={kneeTone} hoodsWarning={hoodsWarning} barReachNeededValue={barReachNeededValue} barReachDelta={barReachDelta} components={components} barReachTone={barReachTone} bbToSaddleDistance={bbToSaddleDistance} seatpostExtension={seatpostExtension} strokeMetrics={strokeMetrics} targetTrunkAngleDeg={targetTrunkAngleDeg} preset={preset} warnings={warnings} bike={bike} seatpostRec={seatpostRec} frameGeometryRows={frameGeometryRows} />;
@@ -453,7 +520,7 @@ export const FitBuilderMode: React.FC = () => {
   return (
     <div className={`mode-layout mode-layout--builder${fullscreen ? " mode-layout--fullscreen" : ""}`}>
 
-      {controlPanels}
+      {focusCockpit ? cockpitControls : controlPanels}
 
       {/* ── Centre: visualization ── */}
       <section className="visual-panel builder-center">
@@ -477,14 +544,15 @@ export const FitBuilderMode: React.FC = () => {
               stanceWidth={components.stance_width ?? 155}
               postureBands={POSTURE_PRESET}
               compare={history.compareTo ?? sessionSnapshot}
+              focus={focusCockpit ? "cockpit" : undefined}
             />
           ) : view === "side" ? (
-            <Stage2DSide debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} />
-          ) : <Stage2DFront debug={debugParts} compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} />}
+            <Stage2DSide debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} ghostCockpit={ghostCockpit} showWrist={focusCockpit} />
+          ) : <Stage2DFront debug={debugParts} compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} ghostCockpit={ghostCockpit} showUci={focusCockpit && showUci} zoomCockpit={focusCockpit} />}
         </div>
       </section>
 
-      {metricsPanel}
+      {focusCockpit ? cockpitReadouts : metricsPanel}
 
       {/* ── Mobile: bottom bar toggling controls/results sheets ── */}
       <div className="builder-mobilebar">
