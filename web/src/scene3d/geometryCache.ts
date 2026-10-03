@@ -6,6 +6,9 @@ export function computeNormals(g: THREE.BufferGeometry) {
   if (!skipNormals) g.computeVertexNormals();
 }
 
+/** Whether geometry being built right now should carry normals (false inside an unlit `GeometryCache`). */
+export const normalsWanted = () => !skipNormals;
+
 /** Run `build` with normal computation switched off when `normals` is false (for geometry that is not cached). */
 export function withNormals<T>(normals: boolean, build: () => T): T {
   const prev = skipNormals;

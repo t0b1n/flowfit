@@ -25,12 +25,81 @@ import {
   type SegmentName,
   type SpinePath,
 } from "./design/riderBody";
-import { GeometryCache, computeNormals, k1, k3 } from "./scene3d/geometryCache";
+import { GeometryCache, computeNormals, k1, k3, normalsWanted, withNormals } from "./scene3d/geometryCache";
 
 export type P3 = [number, number, number];
 
 const Y = new THREE.Vector3(0, 1, 0);
 const v3 = (p: P3) => new THREE.Vector3(p[0], p[1], p[2]);
+
+// ── Reference limbs ─────────────────────────────────────────────────────────
+//
+// A body lathe's shape is a function of t = y / len (radius profile, muscle bulges, calibration), times the size factor k
+// for radii and bulge heights. So one reference limb, built once at length `len0` and k = 1, becomes any rider's limb by a
+// vertex remap: x, z × k; the shaft's y × len / len0; the two rounded end caps (y < 0, y > len0) × k, so they keep their
+// shape. Normals follow with the inverse transpose (shaft) or unchanged (caps). No lathe build, bulge loop or
+// computeVertexNormals per slider tick. `?unitlimbs=0` (DEV) switches back to building every limb from scratch.
+
+export const UNIT_LIMBS: boolean = !(
+  import.meta.env.DEV &&
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("unitlimbs") === "0"
+);
+
+const unitRefs = new Map<string, THREE.BufferGeometry>();
+const unitRef = (key: string, build: () => THREE.BufferGeometry) => {
+  let g = unitRefs.get(key);
+  if (!g) {
+    g = withNormals(true, build);
+    unitRefs.set(key, g);
+  }
+  return g;
+};
+
+/** Remap the reference lathe `unit` (built at `len0`, k = 1) to length `len` and size factor `k`. */
+export function scaleLathe(unit: THREE.BufferGeometry, len0: number, len: number, k: number): THREE.BufferGeometry {
+  const s = len / len0;
+  const up = unit.attributes.position as THREE.BufferAttribute;
+  const un = unit.attributes.normal as THREE.BufferAttribute | undefined;
+  const pos = new Float32Array(up.count * 3);
+  const nrm = un && normalsWanted() ? new Float32Array(up.count * 3) : null;
+  for (let i = 0; i < up.count; i++) {
+    const y = up.getY(i);
+    const cap = y < 0 || y > len0;
+    pos[i * 3] = up.getX(i) * k;
+    pos[i * 3 + 1] = y < 0 ? y * k : y > len0 ? len + (y - len0) * k : y * s;
+    pos[i * 3 + 2] = up.getZ(i) * k;
+    if (nrm && un) {
+      const nx = un.getX(i), ny = un.getY(i), nz = un.getZ(i);
+      if (cap) {
+        nrm[i * 3] = nx; nrm[i * 3 + 1] = ny; nrm[i * 3 + 2] = nz;
+      } else {
+        const a = nx / k, b = ny / s, c = nz / k;
+        const l = Math.hypot(a, b, c) || 1;
+        nrm[i * 3] = a / l; nrm[i * 3 + 1] = b / l; nrm[i * 3 + 2] = c / l;
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  if (nrm) g.setAttribute("normal", new THREE.BufferAttribute(nrm, 3));
+  // own copies: disposing this geometry must not free buffers shared with the reference
+  if (unit.attributes.uv) g.setAttribute("uv", unit.attributes.uv.clone());
+  if (unit.index) g.setIndex(unit.index.clone());
+  return g;
+}
+
+/**
+ * A body lathe for a rider: from the cached reference when `UNIT_LIMBS`, else `exact()`. `unitKey` identifies the
+ * reference shape (everything but length and size); `unit()` builds it at `len0`, k = 1.
+ */
+function bodyLathe(unitKey: string, len0: number, len: number, k: number, unit: () => THREE.BufferGeometry, exact: () => THREE.BufferGeometry): THREE.BufferGeometry {
+  if (!UNIT_LIMBS) return exact();
+  return scaleLathe(unitRef(unitKey, unit), len0, len, k);
+}
+
+/** Reference lengths (mm at 1800 mm / 75 kg) the shared reference limbs are built at. */
+export const LIMB_LEN0 = { thigh: 440, calf: 430, upperArm: 300, forearm: 260, torso: 520, neck: 120, trap: 110, hand: 120, pelvis: 280, shoe: 270 } as const;
 
 // ── Lathe limbs ─────────────────────────────────────────────────────────────
 
@@ -171,6 +240,22 @@ export function bendTorso(geom: THREE.BufferGeometry, path: SpinePath): THREE.Bu
   return geom;
 }
 
+const roundBulges = (b: LocalBulge[]) => JSON.stringify(b, (_, x) => (typeof x === "number" ? Math.round(x * 1000) / 1000 : x));
+
+/** The muscled lathe for body segment `seg` at length `len` and size factor `k` (`bulges` resolved, amplitudes at k = 1). */
+export function muscleLimb(seg: SegmentName, len: number, k: number, bulges: LocalBulge[]): THREE.BufferGeometry {
+  const prof = PROFILES[seg];
+  const len0 = LIMB_LEN0[seg as keyof typeof LIMB_LEN0] as number;
+  return bodyLathe(
+    `limb|${seg}|${roundBulges(bulges)}|${prof.scale}`,
+    len0,
+    len,
+    k,
+    () => muscleLimbGeometry(len0, (t) => prof.radius(t), bulges, (t) => calAt(seg, t), prof.scale),
+    () => muscleLimbGeometry(len, (t) => prof.radius(t) * k, bulges.map((u) => ({ ...u, amp: u.amp * k })), (t) => calAt(seg, t), prof.scale),
+  );
+}
+
 /** Mesh for one limb segment a→b, from the shared profile table. Positioned at `a`; local +Y runs a→b. */
 export function limbMesh(
   seg: SegmentName,
@@ -183,9 +268,9 @@ export function limbMesh(
   const prof = PROFILES[seg];
   const k = segScale(seg, opts.weightKg, opts.heightMm);
   const len = v3(a).distanceTo(v3(b));
-  const bulges = resolveBulges(prof.bulges, a, b, opts.anteriorWorld, opts.sideZ).map((u) => ({ ...u, amp: u.amp * k }));
-  const build = () =>
-    muscleLimbGeometry(len, (t) => prof.radius(t) * k, bulges, (t) => calAt(seg, t), prof.scale);
+  const unitBulges = resolveBulges(prof.bulges, a, b, opts.anteriorWorld, opts.sideZ);
+  const bulges = unitBulges.map((u) => ({ ...u, amp: u.amp * k }));
+  const build = () => muscleLimb(seg, len, k, unitBulges);
   const geom = cache
     ? cache.get(`limb|${seg}|${k1(len)}|${k3(k)}|${JSON.stringify(bulges, (_, x) => (typeof x === "number" ? Math.round(x * 1000) / 1000 : x))}|${prof.scale}`, build)
     : build();
@@ -257,17 +342,19 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   // as a smooth curve (spinePath); the shoulder is the solver's, only the surface bends.
   const path = spinePath({ x: hipC[0], y: hipC[1] }, spine ? { x: spine[0], y: spine[1] } : { x: (hipC[0] + shC[0]) / 2, y: (hipC[1] + shC[1]) / 2 }, { x: shC[0], y: shC[1] });
   const kt = segScale("torso", opts.weightKg, opts.heightMm);
-  const buildTorso = () => {
-    const tg = limbGeometry(path.len, (t) => PROFILES.torso.radius(t) * kt, 40, 56);
+  const torsoLathe = (len: number, k: number) => {
+    const tg = limbGeometry(len, (t) => PROFILES.torso.radius(t) * k, 40, 56);
     const tp = tg.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < tp.count; i++) {
-      const t = Math.min(1, Math.max(0, tp.getY(i) / path.len));
+      const t = Math.min(1, Math.max(0, tp.getY(i) / len));
       tp.setX(i, tp.getX(i) * torsoDepth(t) * calAt("torso", t));
       tp.setZ(i, tp.getZ(i) * torsoWidth(t));
     }
     computeNormals(tg);
     return tg;
   };
+  const buildTorso = () =>
+    bodyLathe("torso", LIMB_LEN0.torso, path.len, kt, () => torsoLathe(LIMB_LEN0.torso, 1), () => torsoLathe(path.len, kt));
   const rest = cache ? cache.get(`torso|${k1(path.len)}|${k3(kt)}`, buildTorso) : buildTorso();
   // The bent surface is in world coordinates, so its key carries the three spine points as well as the rest shape.
   const bentKey = `torsoBent|${k1(path.len)}|${k3(kt)}|${[hipC, spine ?? hipC, shC].map((q) => `${k1(q[0])},${k1(q[1])}`).join("|")}`;
@@ -286,7 +373,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   if (hipR && hipL) {
     const pr = 46 * hs; // reference-matched pelvis: end caps must not read as hip balls
     const pelLen = Math.abs(hipR[2] - hipL[2]) + 2 * pr;
-    const pelGeom = () => limbGeometry(pelLen, () => pr, 8, 36);
+    const pelGeom = () => bodyLathe("pelvis", LIMB_LEN0.pelvis, pelLen, pr / 46, () => limbGeometry(LIMB_LEN0.pelvis, () => 46, 8, 36), () => limbGeometry(pelLen, () => pr, 8, 36));
     const pel = new THREE.Mesh(cache ? cache.get(`lathe|pelvis|${k1(pelLen)}|${k1(pr)}`, pelGeom) : pelGeom(), mat);
     pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipR[2]) + pr));
     pel.rotation.x = Math.PI / 2;
@@ -321,7 +408,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     g.add(limbMesh("forearm", el, wr, mat, { ...o, anteriorWorld: sagittalNormal(el, wr, true), sideZ: s }, cache));
     if (hd) {
       const handLen = v3(wr).distanceTo(v3(hd)) + 28;
-      const handGeom = () => limbGeometry(handLen, (t) => lerp(24, 21, t) * hs, 8, 24);
+      const handGeom = () => bodyLathe("hand", LIMB_LEN0.hand, handLen, hs, () => limbGeometry(LIMB_LEN0.hand, (t) => lerp(24, 21, t), 8, 24), () => limbGeometry(handLen, (t) => lerp(24, 21, t) * hs, 8, 24));
       const hm = new THREE.Mesh(cache ? cache.get(`lathe|hand|${k1(handLen)}|${k3(hs)}`, handGeom) : handGeom(), mat);
       hm.scale.set(0.78, 1, 1.3);
       orientBetween(hm, v3(wr), v3(hd).add(v3(hd).sub(v3(wr)).normalize().multiplyScalar(28)));
@@ -335,7 +422,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     const sh = get(shoulderName(s));
     if (!sh) continue;
     const trapLen = v3(neckBase).distanceTo(v3(sh));
-    const trapGeom = () => limbGeometry(trapLen, (t) => lerp(42, 36, t) * hs, 8, 24);
+    const trapGeom = () => bodyLathe("trap", LIMB_LEN0.trap, trapLen, hs, () => limbGeometry(LIMB_LEN0.trap, (t) => lerp(42, 36, t), 8, 24), () => limbGeometry(trapLen, (t) => lerp(42, 36, t) * hs, 8, 24));
     const tm = new THREE.Mesh(cache ? cache.get(`lathe|trap|${k1(trapLen)}|${k3(hs)}`, trapGeom) : trapGeom(), mat);
     orientBetween(tm, v3(neckBase).add(new THREE.Vector3(-20, -6, 0)), v3(sh).add(new THREE.Vector3(0, 0, s * 18 * hs)));
     g.add(tm);
@@ -343,7 +430,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   // neck + plain clay head
   const kn = segScale("neck", opts.weightKg, opts.heightMm) * calAt("neck", 0.5);
   const neckLen = v3(neckBase).distanceTo(v3(head));
-  const neckGeom = () => limbGeometry(neckLen, (t) => lerp(44, 40, t) * kn, 8, 24);
+  const neckGeom = () => bodyLathe("neck", LIMB_LEN0.neck, neckLen, kn, () => limbGeometry(LIMB_LEN0.neck, (t) => lerp(44, 40, t), 8, 24), () => limbGeometry(neckLen, (t) => lerp(44, 40, t) * kn, 8, 24));
   const neck = new THREE.Mesh(cache ? cache.get(`lathe|neck|${k1(neckLen)}|${k3(kn)}`, neckGeom) : neckGeom(), mat);
   orientBetween(neck, v3(shC).add(new THREE.Vector3(-12, -22, 0)), v3(head).add(new THREE.Vector3(-26, -44, 0)));
   neck.userData.seg = "neck";

@@ -375,6 +375,17 @@ export const FitBuilderMode: React.FC = () => {
 
   const viewBox = `${activeBounds.minX} ${-activeBounds.maxY} ${activeBounds.maxX - activeBounds.minX} ${activeBounds.maxY - activeBounds.minY}`;
   const groundY = effectiveFrame.wheel_radius - effectiveFrame.bb_drop;
+  // DEV only: set rider parameters from a script (original-vs-new comparison sheets).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    (window as unknown as { __fit?: unknown }).__fit = (p: { riderFit?: Partial<RiderFit>; body?: Partial<BodyMeasurements>; trunk?: number | null; bend?: number | null }) => {
+      if (p.riderFit) setRiderFit((f) => ({ ...f, ...p.riderFit }));
+      if (p.body === null) setBodyMeasurements({});
+      else if (p.body) setBodyMeasurements((b) => ({ ...b, ...p.body }));
+      if (p.trunk !== undefined) setTrunkAngleOverride(p.trunk);
+      if (p.bend !== undefined) setBackBendOverride(p.bend);
+    };
+  }, []);
   // DEV only: `?ortho=side|front` shows the orthographic render of the 3D scene beside the current 2D view (docs/plans/ortho-views.md).
   const [theme] = useTheme();
   const orthoDev = import.meta.env.DEV ? new URLSearchParams(window.location.search).get("ortho") : null;
@@ -544,7 +555,7 @@ export const FitBuilderMode: React.FC = () => {
 
         <div className="visual-stage" style={orthoDev && !view3d ? { display: "flex", gap: 8 } : undefined}>
           {orthoDev && !view3d && (
-            <div style={{ order: 1, flex: 1, position: "relative", minHeight: 520 }} data-testid="ortho-dev">
+            <div style={{ order: 1, flex: "1 0 320px", position: "relative", minHeight: 520 }} data-testid="ortho-dev">
               <OrthoScene
                 geo={geo3d}
                 strokeLUT={strokeMetrics}
