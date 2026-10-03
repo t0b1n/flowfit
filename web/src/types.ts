@@ -9,6 +9,7 @@ export type Components = {
   saddle_rail_length: number;
   saddle_clamp_offset: number;
   stem_length: number;
+  /** stem angle as quoted by stem makers: relative to the perpendicular of the steerer (−6° on a 73° head tube = 11° up) */
   stem_angle_deg: number;
   spacer_stack: number;
   /** vertical depth of the stem clamp; 0 spacers puts its bottom on the head tube top (standard 40 mm) */

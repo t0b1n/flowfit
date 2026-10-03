@@ -78,6 +78,9 @@ export type MannequinPresetKey = keyof typeof MANNEQUIN_PRESETS;
 
 export const radiansFromDegrees = (deg: number) => (deg * Math.PI) / 180;
 
+/** Stem direction above horizontal (deg) for a stem angle quoted against the steerer perpendicular. */
+export const stemAngleAboveHorizontal = (stemAngleDeg: number, headAngleDeg: number) => stemAngleDeg + (90 - headAngleDeg);
+
 export type BodyMeasurements = {
   shoulderWidth: number;
   torsoLength: number;
@@ -615,7 +618,9 @@ export const synthesizeBike = (
   const cleat = { x: crankEnd.x, y: crankEnd.y };
 
   const steererTop = { x: headTubeTop.x, y: headTubeTop.y + components.spacer_stack };
-  const stemAngle = radiansFromDegrees(components.stem_angle_deg);
+  // Stem angle is quoted like the stem makers do: relative to the perpendicular of the steerer, so a −6° stem
+  // on a 73° head tube points 11° above horizontal (and a −17° stem is level).
+  const stemAngle = radiansFromDegrees(stemAngleAboveHorizontal(components.stem_angle_deg, frame.head_angle_deg));
   // The stem has vertical depth: its bottom sits on the spacer stack, so the pivot is half the clamp height above it.
   const stemPivot = { x: steererTop.x, y: steererTop.y + (components.stem_height ?? 40) / 2 };
   const barClamp = {

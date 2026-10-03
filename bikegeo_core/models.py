@@ -37,7 +37,7 @@ class Components(BaseModel):
     saddle_rail_length: float
     saddle_clamp_offset: float
     stem_length: float
-    stem_angle_deg: float
+    stem_angle_deg: float = Field(..., description="Stem angle as quoted by stem makers: relative to the perpendicular of the steerer, in degrees.")
     spacer_stack: float
     stem_height: float = Field(40.0, ge=0, description="Vertical depth of the stem clamp in mm; 0 spacers puts its bottom on the head tube top.")
     bar_reach: float

@@ -71,6 +71,7 @@ SetupInput → solver.py::solve_setup()
 
 ### Non-obvious conventions
 
+- **Stem angle** is quoted like stem makers do: relative to the perpendicular of the steerer (`stemAngleAboveHorizontal` / `stem_angle_above_horizontal`), so −6° on a 73° head tube points 11° up and −17° is level. The "auto" bar roll `max(8°, stem + 6°)` uses the angle as entered.
 - **Hip joint offset** (~95 mm vertical rise from saddle contact to femoral head) is distinct from saddle height and is critical to the IK chain but not exposed in the main UI.
 - **Preset → fine-tune pattern:** button pills set a value, a slider allows override. Used for Riding Intent, Hood Reach, and Pedal/Shoe Stack — not a shared component.
 - **`wheel_radius`** in frame catalog entries should always be the identifier `defaultWheelRadius` (340 for 700c), not a literal number, so the constant stays in sync.

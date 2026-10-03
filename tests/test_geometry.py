@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import math
+
+import pytest
+
 from bikegeo_core import Components, FrameGeometry
 from bikegeo_core.geometry import synthesize_bike
 
@@ -87,3 +91,12 @@ def test_cleat_setback_moves_cleat_behind_pedal_spindle() -> None:
     assert no_setback.cleat.x == 0.0
     assert setback.cleat.x == -15.0
     assert setback.cleat.y == no_setback.cleat.y
+
+
+def test_stem_angle_is_relative_to_the_steerer_perpendicular() -> None:
+    # A -17° stem on a 73° head tube is level; a -6° stem points 11° up.
+    frame = _frame()
+    level = synthesize_bike(frame, _components(stem_angle_deg=-17.0))
+    assert level.bar_clamp.y - level.steerer_top.y == pytest.approx(20.0)  # stem_height / 2 only
+    up = synthesize_bike(frame, _components(stem_angle_deg=-6.0, stem_length=100.0))
+    assert up.bar_clamp.y - up.steerer_top.y == pytest.approx(20.0 + 100.0 * math.sin(math.radians(11.0)))

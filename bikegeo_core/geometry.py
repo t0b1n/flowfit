@@ -53,6 +53,11 @@ SLIDE_DY = -0.9
 SLIDE_PITCH_DEG = -0.45
 
 
+def stem_angle_above_horizontal(stem_angle_deg, head_angle_deg: float):
+    """Stem direction above horizontal (deg) for a stem angle quoted against the steerer perpendicular."""
+    return np.asarray(stem_angle_deg) + (90.0 - head_angle_deg)
+
+
 def effective_bar_roll(components: Components):
     """Bar roll in effect: the clamp-to-hood reach line angle (deg). Broadcasts over array stem angles."""
     if components.bar_roll_deg is not None:
@@ -115,7 +120,9 @@ def synthesize_bike(frame: FrameGeometry, components: Components) -> BikePoints:
 
     # numpy trig so array-valued stem parameters (the solver's component
     # grid) broadcast through; identical doubles for plain floats.
-    stem_angle_rad = np.radians(components.stem_angle_deg)
+    # Stem angle is quoted like the stem makers do: relative to the perpendicular of the steerer,
+    # so a -6° stem on a 73° head tube points 11° above horizontal (and a -17° stem is level).
+    stem_angle_rad = np.radians(stem_angle_above_horizontal(components.stem_angle_deg, frame.head_angle_deg))
     stem_dir = Vec2(np.cos(stem_angle_rad), np.sin(stem_angle_rad))
     # The stem's bottom sits on the spacer stack; its clamp pivot is half the stem height above it.
     bar_clamp = Vec2(

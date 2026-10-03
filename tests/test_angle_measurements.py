@@ -192,7 +192,8 @@ def _frontend_bar_clamp(frame: FrameGeometry, comp: Components) -> ContactPoint:
     """Replica of frontend bar_clamp calculation."""
     steerer_top_x = frame.reach
     steerer_top_y = frame.stack + comp.spacer_stack + comp.stem_height / 2.0
-    stem_angle = math.radians(comp.stem_angle_deg)
+    # stem angle is relative to the steerer perpendicular (geometry.ts::stemAngleAboveHorizontal)
+    stem_angle = math.radians(comp.stem_angle_deg + 90.0 - frame.head_angle_deg)
     return ContactPoint(
         steerer_top_x + math.cos(stem_angle) * comp.stem_length,
         steerer_top_y + math.sin(stem_angle) * comp.stem_length,
