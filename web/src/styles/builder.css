@@ -118,17 +118,20 @@
 }
 
 .stage-bar {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s-2) var(--s-3);
   min-height: 48px;
-  padding: 0 var(--s-4);
+  padding: var(--s-2) var(--s-4);
   border-bottom: 1px solid var(--faint-2);
 }
 
 .stage-bar__title {
-  flex: 0 1 auto;
-  min-width: 0;
+  /* never grows; shrinks (ellipsis) before the toolbar wraps onto a second row */
+  flex: 0 1 340px;
+  min-width: 56px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -474,4 +477,7 @@
   margin-top: var(--s-2);
   text-align: center;
   text-decoration: none;
+  /* a long label wraps inside the narrow controls column instead of widening it */
+  white-space: normal;
+  line-height: 1.35;
 }
