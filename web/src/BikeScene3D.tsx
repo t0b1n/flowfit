@@ -466,7 +466,7 @@ export function BikeStatic({
   useEffect(() => () => cache.disposeAll(), [cache]);
   const { bike, hoods, legacyHoods } = useMemo(() => {
     cache.begin();
-    const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape };
+    const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape, cassette: M.m.cassette, cassetteEdge: M.m.cassetteEdge };
     const ck = geo.cockpit;
     const ckMats = { carbon: M.m.carbon, hood: M.m.hood, lever: M.m.lever, pad: M.m.tape, alloy: M.m.alloy };
     const pivot = geo.points.find((p) => p.name === "stem_pivot")?.pos ?? null;
