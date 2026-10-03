@@ -221,14 +221,14 @@ export function AnimatedLegs({
       </mesh>
     </group>
   );
-  const limb = (ref: React.RefObject<THREE.Group>, geometry: THREE.BufferGeometry, mat: React.ReactElement) => (
+  const limb = (ref: React.RefObject<THREE.Group>, geometry: THREE.BufferGeometry, mat: React.ReactElement, part: "leg" | "shoe" = "leg") => (
     <group ref={ref}>
-      <mesh geometry={geometry}>{mat}</mesh>
+      <mesh geometry={geometry} userData={{ part }}>{mat}</mesh>
     </group>
   );
   const mass = (ref: React.RefObject<THREE.Group>, r: number, sz = 1) => (
     <group ref={ref}>
-      <mesh scale={[1, 1, sz]}>
+      <mesh scale={[1, 1, sz]} userData={{ part: "leg" }}>
         <sphereGeometry args={[r, 32, 24]} />
         {M.clay}
       </mesh>
@@ -243,8 +243,8 @@ export function AnimatedLegs({
           {limb(thighLRef, dims.thigh.L, dbg("leg", M.clay))}
           {limb(calfRRef, dims.calf.R, dbg("leg", M.clay))}
           {limb(calfLRef, dims.calf.L, dbg("leg", M.clay))}
-          {limb(footRRef, dims.shoe, dbg("shoe", M.tape))}
-          {limb(footLRef, dims.shoe, dbg("shoe", M.tape))}
+          {limb(footRRef, dims.shoe, dbg("shoe", M.tape), "shoe")}
+          {limb(footLRef, dims.shoe, dbg("shoe", M.tape), "shoe")}
           {mass(kneeRRef, dims.kneeR, MASSES.knee.depthScale)}
           {mass(kneeLRef, dims.kneeR, MASSES.knee.depthScale)}
           {mass(ankleRRef, dims.ankleR)}

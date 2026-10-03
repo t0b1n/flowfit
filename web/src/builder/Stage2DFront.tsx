@@ -10,10 +10,16 @@ import { FORK, forkFrame, forkFrontOutline } from "../design/fork";
 import { HUB } from "../design/bikeProfiles";
 import { StageOverlay } from "./StageOverlay";
 import { buildCockpit, type Cockpit } from "../cockpit";
-import { CockpitFront } from "./Cockpit2D";
+import { CockpitFront, UciAnnotation } from "./Cockpit2D";
+import { legacy2d } from "./legacy2d";
+import { OrthoScene } from "../scene3d/OrthoScene";
+import type { Geometry3DResponse } from "../bike3d";
+import { useTheme } from "../design/useTheme";
 import type { RiderVisibility } from "./shared";
 
 export interface Stage2DFrontProps {
+  /** the 3D scene data: the bike and rider are drawn by rendering it orthographically (from the front) under this SVG */
+  geo3d: Geometry3DResponse;
   frontalMannequin: ReturnType<typeof buildFrontalMannequin>;
   rider: ReturnType<typeof buildRider>;
   components: Components;
@@ -41,6 +47,7 @@ const poly = (cls: string, points: string, part?: string) => <polygon className=
 
 /** Front view: the same language as the side view, front-on. Hairline measurements, clay rider, frame/carbon bike. */
 export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
+  geo3d,
   frontalMannequin: fm,
   rider,
   components,
@@ -57,6 +64,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   showUci,
   zoomCockpit,
 }) => {
+  const legacy = legacy2d();
+  const [theme] = useTheme();
   const hs = rider.height / 1800;
   const wk = (sens: number) => hs * Math.pow(weightKg / 75, sens);
   const cockpit = buildCockpit(bike.barClamp, components);
@@ -100,10 +109,27 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   return (
     <div className="s2d-wrap">
       {debug && <DebugStyle />}
+      <div className="s2d-stack">
+      {!legacy && (
+        <OrthoScene
+          geo={geo3d}
+          strokeLUT={strokeMetrics}
+          weightKg={weightKg}
+          stanceWidth={components.stance_width ?? 155}
+          view="front"
+          viewBox={viewBox}
+          look="flatLit"
+          theme={theme}
+          debug={debug}
+          visibility={riderVisibility}
+        />
+      )}
       <svg viewBox={viewBox} className={`geometry-svg s2d${debug ? " s2d-debug" : ""}${zoomCockpit ? " s2d--cockpit-focus" : ""}`}>
         <line className="s2d-ground" x1={-halfW} y1={groundY} x2={halfW} y2={groundY} />
         <line className="s2d-gap" x1={0} y1={groundY} x2={0} y2={svgTop} />
 
+        {legacy && (
+          <>
         {/* frame behind the rider: down tube, BB shell, cranks, saddle */}
         {poly("s2d-frame", tube(v(0, 0), v(0, hb.y), 24, 22), "down_tube")}
         <ellipse className="s2d-frame" cx={0} cy={0} rx={34} ry={30} data-part="bb_shell" />
@@ -175,8 +201,13 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         {/* steerer clamp: steererTop → 2·stemPivot − steererTop, i.e. stem_height along the leaning steerer, seen from the front */}
         <rect data-part="stem" className="s2d-carbon" x={-22} y={-(2 * bike.stemPivot.y - bike.steererTop.y)} width={44} height={2 * (bike.stemPivot.y - bike.steererTop.y)} rx={6} />
         <CockpitFront cockpit={cockpit} showUci={showUci} />
+          </>
+        )}
+        {!legacy && showUci && <UciAnnotation cockpit={cockpit} />}
         {ghostCockpit && <CockpitFront cockpit={ghostCockpit} ghost />}
 
+        {legacy && (
+          <>
         {riderVisibility.arms && (
           <>
             {poly("s2d-clay", seg(fm.shoulderR, fm.elbowR, upper), "arm")}
@@ -187,7 +218,10 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
             {poly("s2d-glove", ellipse(fm.handsL, 26, 30), "arm")}
           </>
         )}
+          </>
+        )}
       </svg>
+      </div>
       {debug && <DebugLegend />}
       <StageOverlay mannequin={mannequin} bike={bike} strokeMetrics={strokeMetrics} was={compare?.metrics} />
     </div>

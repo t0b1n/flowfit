@@ -327,6 +327,11 @@ export function headMesh(headCenter: P3, neckBase: P3, mat: THREE.Material, cach
 export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts: RiderMeshOpts, cache?: GeometryCache): THREE.Group {
   const g = new THREE.Group();
   g.name = "mannequin-root";
+  /** add `obj` to the rider, tagged with the body part the 2D Layers toggles address (legs, arms, torso, head, shoe) */
+  const add = (obj: THREE.Object3D, part: "torso" | "arm" | "head" | "leg" | "shoe") => {
+    obj.userData.part = part;
+    g.add(obj);
+  };
   const get = (n: string) => pts.get(n);
   const hs = opts.heightMm / 1800;
   const o = { weightKg: opts.weightKg, heightMm: opts.heightMm };
@@ -360,12 +365,12 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   const bentKey = `torsoBent|${k1(path.len)}|${k3(kt)}|${[hipC, spine ?? hipC, shC].map((q) => `${k1(q[0])},${k1(q[1])}`).join("|")}`;
   const torso = new THREE.Mesh(cache ? cache.get(bentKey, () => bendTorso(rest.clone(), path)) : bendTorso(rest.clone(), path), mat);
   torso.userData.seg = "torso";
-  g.add(torso);
+  add(torso, "torso");
 
   const trunkA = Math.atan2(shC[1] - hipC[1], shC[0] - hipC[0]);
   for (const s of [1, -1] as const) {
     // glutes over the saddle
-    g.add(ellipsoid([hipC[0] - 52 * hs, hipC[1] - 20 * hs, s * 54 * hs], [MASSES.glute.semiAxes[0] * hs, MASSES.glute.semiAxes[1] * hs, MASSES.glute.semiAxes[2] * hs], mat, trunkA * 0.3, cache));
+    add(ellipsoid([hipC[0] - 52 * hs, hipC[1] - 20 * hs, s * 54 * hs], [MASSES.glute.semiAxes[0] * hs, MASSES.glute.semiAxes[1] * hs, MASSES.glute.semiAxes[2] * hs], mat, trunkA * 0.3, cache), "torso");
   }
   // pelvis bar (hip_r ↔ hip_l)
   const hipR = get("hip_r");
@@ -380,7 +385,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     pel.rotation.z = 0;
     // lathe axis is +Y; rotate so it runs along +Z
     pel.quaternion.setFromUnitVectors(Y, new THREE.Vector3(0, 0, 1));
-    g.add(pel);
+    add(pel, "torso");
   }
 
   // Arms + shoulders (per side)
@@ -402,10 +407,10 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
       cache,
     );
     dl.quaternion.setFromUnitVectors(Y, up);
-    g.add(dl);
-    g.add(limbMesh("upperArm", sh, el, mat, { ...o, anteriorWorld: ant, sideZ: s }, cache));
-    g.add(ellipsoid(el, [MASSES.elbow.radius * hs, MASSES.elbow.radius * hs, MASSES.elbow.radius * hs], mat, 0, cache));
-    g.add(limbMesh("forearm", el, wr, mat, { ...o, anteriorWorld: sagittalNormal(el, wr, true), sideZ: s }, cache));
+    add(dl, "arm");
+    add(limbMesh("upperArm", sh, el, mat, { ...o, anteriorWorld: ant, sideZ: s }, cache), "arm");
+    add(ellipsoid(el, [MASSES.elbow.radius * hs, MASSES.elbow.radius * hs, MASSES.elbow.radius * hs], mat, 0, cache), "arm");
+    add(limbMesh("forearm", el, wr, mat, { ...o, anteriorWorld: sagittalNormal(el, wr, true), sideZ: s }, cache), "arm");
     if (hd) {
       const handLen = v3(wr).distanceTo(v3(hd)) + 28;
       const handGeom = () => bodyLathe("hand", LIMB_LEN0.hand, handLen, hs, () => limbGeometry(LIMB_LEN0.hand, (t) => lerp(24, 21, t), 8, 24), () => limbGeometry(handLen, (t) => lerp(24, 21, t) * hs, 8, 24));
@@ -414,7 +419,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
       orientBetween(hm, v3(wr), v3(hd).add(v3(hd).sub(v3(wr)).normalize().multiplyScalar(28)));
       // roll the flattened palm about its own axis with the hoods (top of the hand toward the centreline)
       if (opts.handRollDeg) hm.rotateY((-s * opts.handRollDeg * Math.PI) / 180);
-      g.add(hm);
+      add(hm, "arm");
     }
   }
   // trapezius slope
@@ -425,7 +430,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     const trapGeom = () => bodyLathe("trap", LIMB_LEN0.trap, trapLen, hs, () => limbGeometry(LIMB_LEN0.trap, (t) => lerp(42, 36, t), 8, 24), () => limbGeometry(trapLen, (t) => lerp(42, 36, t) * hs, 8, 24));
     const tm = new THREE.Mesh(cache ? cache.get(`lathe|trap|${k1(trapLen)}|${k3(hs)}`, trapGeom) : trapGeom(), mat);
     orientBetween(tm, v3(neckBase).add(new THREE.Vector3(-20, -6, 0)), v3(sh).add(new THREE.Vector3(0, 0, s * 18 * hs)));
-    g.add(tm);
+    add(tm, "torso");
   }
   // neck + plain clay head
   const kn = segScale("neck", opts.weightKg, opts.heightMm) * calAt("neck", 0.5);
@@ -434,8 +439,8 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   const neck = new THREE.Mesh(cache ? cache.get(`lathe|neck|${k1(neckLen)}|${k3(kn)}`, neckGeom) : neckGeom(), mat);
   orientBetween(neck, v3(shC).add(new THREE.Vector3(-12, -22, 0)), v3(head).add(new THREE.Vector3(-26, -44, 0)));
   neck.userData.seg = "neck";
-  g.add(neck);
-  g.add(headMesh(head, neckBase, mat, cache));
+  add(neck, "torso");
+  add(headMesh(head, neckBase, mat, cache), "head");
 
   // Legs (static pose) when AnimatedLegs is not mounted
   if (opts.includeLegs) {
@@ -445,11 +450,11 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
       const kn2 = get(`knee_${side}`);
       const an = get(`ankle_${side}`);
       if (!hip || !kn2 || !an) continue;
-      g.add(limbMesh("thigh", hip, kn2, mat, { ...o, anteriorWorld: sagittalNormal(hip, kn2, true), sideZ: s }, cache));
-      g.add(ellipsoid(kn2, [MASSES.knee.radius * hs, MASSES.knee.radius * hs, MASSES.knee.radius * hs * MASSES.knee.depthScale], mat, 0, cache));
-      g.add(limbMesh("calf", kn2, an, mat, { ...o, anteriorWorld: sagittalNormal(kn2, an, true), sideZ: s }, cache));
-      g.add(ellipsoid(an, [MASSES.ankle.radius * hs, MASSES.ankle.radius * hs, MASSES.ankle.radius * hs], mat, 0, cache));
-      if (opts.feet) g.add(ellipsoid([an[0] + 62 * hs, an[1] - 42 * hs, an[2]], [118 * hs, 40 * hs, 44 * hs], mat, 0, cache));
+      add(limbMesh("thigh", hip, kn2, mat, { ...o, anteriorWorld: sagittalNormal(hip, kn2, true), sideZ: s }, cache), "leg");
+      add(ellipsoid(kn2, [MASSES.knee.radius * hs, MASSES.knee.radius * hs, MASSES.knee.radius * hs * MASSES.knee.depthScale], mat, 0, cache), "leg");
+      add(limbMesh("calf", kn2, an, mat, { ...o, anteriorWorld: sagittalNormal(kn2, an, true), sideZ: s }, cache), "leg");
+      add(ellipsoid(an, [MASSES.ankle.radius * hs, MASSES.ankle.radius * hs, MASSES.ankle.radius * hs], mat, 0, cache), "leg");
+      if (opts.feet) add(ellipsoid([an[0] + 62 * hs, an[1] - 42 * hs, an[2]], [118 * hs, 40 * hs, 44 * hs], mat, 0, cache), "shoe");
     }
   }
   return g;

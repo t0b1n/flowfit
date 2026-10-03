@@ -32,9 +32,15 @@ export interface OrthoSceneProps {
   debug?: boolean;
   /** rear disc wheel (the 3D view's DISC toggle) */
   discRear?: boolean;
+  /** the 2D Layers toggles: hide body parts (default: all shown) */
+  visibility?: Partial<Record<"legs" | "torso" | "arms" | "head" | "feet", boolean>>;
 }
 
+const PART_KEY = { leg: "legs", torso: "torso", arm: "arms", head: "head", shoe: "feet" } as const;
+
 const FAR_BLEND = 0.45;
+/** a part is on the far side when its centre is at least this far (mm) behind the centreline */
+const FAR_MIN_Z = 8;
 
 /** Frustum from the viewBox and the canvas size; side looks down −Z, front down −X (camera x = world −Z). */
 function OrthoCamera({ view, viewBox }: { view: "side" | "front"; viewBox: string }) {
@@ -63,19 +69,23 @@ function OrthoCamera({ view, viewBox }: { view: "side" | "front"; viewBox: strin
  * Runs in a frame (after AnimatedLegs has placed the legs) whenever the content changed; no transparency, so no
  * sorting artefacts.
  */
-function FarSide({ enabled, styleKey, dirtyKey }: { enabled: boolean; styleKey: unknown; dirtyKey: unknown }) {
+function FarSide({ enabled, styleKey, dirtyKey, visibility }: { enabled: boolean; styleKey: unknown; dirtyKey: unknown; visibility: OrthoSceneProps["visibility"] }) {
   const scene = useThree((s) => s.scene);
   const gl = useThree((s) => s.gl);
   const invalidate = useThree((s) => s.invalidate);
   const dirty = useRef(true);
   const far = useRef(new Map<THREE.Material, THREE.Material>());
   const farSet = useRef(new WeakSet<THREE.Material>());
+  // the near material of each mesh (not userData: R3F re-assigns that prop on re-render)
+  const nearOf = useRef(new WeakMap<THREE.Object3D, THREE.Material>());
   const bg = useRef(new THREE.Color());
 
   // The blend target and the variants built from it change only with the theme / look: not on every slider tick.
   useLayoutEffect(() => {
     const el = gl.domElement.parentElement;
-    const css = el ? getComputedStyle(el).getPropertyValue("--bg").trim() : "";
+    // the page colour behind the figure: the stage surface, else the page background
+    const cs = el ? getComputedStyle(el) : null;
+    const css = (cs?.getPropertyValue("--surface").trim() || cs?.getPropertyValue("--bg").trim()) ?? "";
     bg.current.set(css || "#e6e1d8");
     far.current.forEach((m) => m.dispose());
     far.current.clear();
@@ -96,15 +106,18 @@ function FarSide({ enabled, styleKey, dirtyKey }: { enabled: boolean; styleKey: 
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh || Array.isArray(m.material)) return;
+      const part = m.userData.part as keyof typeof PART_KEY | undefined;
+      if (part) m.visible = visibility?.[PART_KEY[part]] !== false;
       const cur = m.material as THREE.Material;
-      const near: THREE.Material = farSet.current.has(cur) ? (m.userData.nearMat as THREE.Material) : cur;
-      m.userData.nearMat = near;
+      const near: THREE.Material = farSet.current.has(cur) ? (nearOf.current.get(m) ?? cur) : cur;
+      nearOf.current.set(m, near);
       if (!enabled) {
         m.material = near;
         return;
       }
       box.setFromObject(m);
-      if (box.isEmpty() || box.max.z >= 0) {
+      // far side = centred behind the centreline (a limb's radius reaches a few mm past z = 0, so max.z is too strict)
+      if (box.isEmpty() || (box.min.z + box.max.z) / 2 >= -FAR_MIN_Z) {
         m.material = near;
         return;
       }
@@ -136,7 +149,7 @@ function DevHandles() {
   return null;
 }
 
-function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false }: OrthoSceneProps) {
+function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false, visibility }: OrthoSceneProps) {
   const restoreKey = useContextRestore();
   const invalidate = useThree((s) => s.invalidate);
   const crankAngleRef = useRef(0);
@@ -151,7 +164,8 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
   }, [invalidate, geo, strokeLUT, weightKg, stanceWidth, look, theme, debug, discRear]);
 
   const styleKey = useMemo(() => ({}), [look, theme, debug, restoreKey]);
-  const dirtyKey = useMemo(() => ({}), [geo, strokeLUT, weightKg, discRear, styleKey]);
+  const visKey = visibility ? Object.values(visibility).join() : "";
+  const dirtyKey = useMemo(() => ({}), [geo, strokeLUT, weightKg, discRear, styleKey, visKey]);
   const lit = look === "flatLit";
   return (
     <DebugProvider key={restoreKey} value={debug}>
@@ -187,7 +201,7 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
           <Drivetrain3D points={geo.points} />
         )}
         <DevHandles />
-        <FarSide enabled={view === "side"} styleKey={styleKey} dirtyKey={dirtyKey} />
+        <FarSide enabled={view === "side"} styleKey={styleKey} dirtyKey={dirtyKey} visibility={visibility} />
       </MatsProvider>
     </DebugProvider>
   );

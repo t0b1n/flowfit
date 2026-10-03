@@ -526,6 +526,14 @@
   position: relative;
 }
 
+/* The orthographic render of the 3D scene sits under the SVG annotations: same box, SVG on top (transparent). */
+.s2d-stack {
+  position: relative;
+}
+.s2d-stack > svg.s2d {
+  position: relative;
+}
+
 /* ── Stage overlay: readout (top-right), callouts, Metric Rail (bottom) ─────────────────────────── */
 
 .stage-overlay {
@@ -675,9 +683,13 @@
     min-height: 560px;
   }
 
-  .s2d-wrap > svg.s2d {
+  .s2d-wrap > .s2d-stack {
     height: calc(100% - 96px);
     min-height: 420px;
+  }
+
+  .s2d-stack > svg.s2d {
+    height: 100%;
   }
 }
 

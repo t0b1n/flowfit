@@ -193,6 +193,27 @@ export interface FigureInput {
   weightKg: number;
 }
 
+/** Bone segments and joints for the skeleton overlay (no outline polygons: those are drawn by the 3D scene now). */
+export function figureSkeleton(f: FigureInput): Pick<FigurePolys, "bones" | "joints"> {
+  const hs = f.riderHeightMm / 1800;
+  const footLen = f.footLengthMm * hs;
+  const ankleVis = v(f.cleat.x - footLen * 0.19, f.ankle.y);
+  return {
+    bones: [
+      [f.hip, f.spineJoint],
+      [f.spineJoint, f.shoulder],
+      [f.shoulder, f.neckBase],
+      [f.neckBase, f.head],
+      [f.hip, f.knee],
+      [f.knee, ankleVis],
+      [f.shoulder, f.elbow],
+      [f.elbow, f.wrist],
+      [f.wrist, f.hands],
+    ],
+    joints: [f.hip, f.spineJoint, f.shoulder, f.elbow, f.wrist, f.knee, ankleVis],
+  };
+}
+
 export function buildFigure(f: FigureInput): FigurePolys {
   const hs = f.riderHeightMm / 1800;
   const k = (seg_: SegmentName) => hs * Math.pow(f.weightKg / 75, SENSITIVITY[seg_]);
