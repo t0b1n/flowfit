@@ -40,8 +40,20 @@ export interface StageToolbarProps {
 }
 
 export const StageToolbar: React.FC<StageToolbarProps> = ({ model, sizeData, viewOptions, view, setView, view3d, layersRef, layersOpen, setLayersOpen, setAllRiderVisibility, riderVisibility, toggleRiderVisibility, showJointAngles, setShowJointAngles, showFitPositions, setShowFitPositions, showFrameGeometry, setShowFrameGeometry, setAllFrameMeasurements, frameMeasurementVisibility, toggleFrameMeasurement, fullscreen, setFullscreen, compareSlot, showKops, setShowKops, debug, toggleDebug }) => {
+  // The toolbar can wrap onto extra rows in a narrow panel; publish its height so the stage below takes only what is left
+  // of the viewport (no scrolling to reach the metric rail).
+  const barRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = barRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--stage-bar-h", `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <div className="stage-bar">
+    <div className="stage-bar" ref={barRef}>
           <div className="stage-bar__title">
             Fit Builder · <b>{model.brand} {model.model} {sizeData.size}</b>
           </div>

@@ -711,11 +711,12 @@
   }
 
   .mode-layout--builder .visual-stage {
-    min-height: calc(100vh - 56px - 48px);
+    min-height: calc(100vh - 56px - var(--stage-bar-h, 48px) - 43px);
   }
 
   .s2d-wrap {
-    height: calc(100vh - 56px - 48px - 36px);
+    /* nav 56 + toolbar + legend row 29 + stage margin 14 + stage padding 2 × 12 */
+    height: calc(100vh - 56px - var(--stage-bar-h, 48px) - 67px);
     min-height: 560px;
   }
 

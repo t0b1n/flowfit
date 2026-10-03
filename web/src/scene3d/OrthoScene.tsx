@@ -8,6 +8,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrthographicCamera } from "@react-three/drei";
+import { EffectComposer } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { Geometry3DResponse } from "../bike3d";
 import type { PedalStrokeLUT } from "../geometry";
@@ -18,6 +19,8 @@ import { BikeStatic, Drivetrain3D, RiderStatic, SaddleMesh, frameTubesFor, type 
 import { MatsProvider, type Look } from "./materials";
 import { useContextRestore } from "./contextLoss";
 import { viewBoxToFrustum } from "./ortho";
+import { OutlineEffect } from "./OutlineEffect";
+import { TOKENS } from "../design/tokens";
 
 export interface OrthoSceneProps {
   geo: Geometry3DResponse;
@@ -34,6 +37,8 @@ export interface OrthoSceneProps {
   discRear?: boolean;
   /** saddle model (the 3D view's default is the traced "power") */
   saddleType?: SaddleType;
+  /** thin outline where depth jumps (silhouettes and overlapping parts); default on, `?outline=0` turns it off */
+  outline?: boolean;
   /** the 2D Layers toggles: hide body parts (default: all shown) */
   visibility?: Partial<Record<"legs" | "torso" | "arms" | "head" | "feet", boolean>>;
 }
@@ -41,6 +46,8 @@ export interface OrthoSceneProps {
 const PART_KEY = { leg: "legs", torso: "torso", arm: "arms", head: "head", shoe: "feet" } as const;
 
 const FAR_BLEND = 0.45;
+/** `?outline=0` switches the outline off (to compare) */
+const OUTLINE_OFF = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("outline") === "0";
 /** a part is on the far side when its centre is at least this far (mm) behind the centreline */
 const FAR_MIN_Z = 8;
 
@@ -139,6 +146,21 @@ function FarSide({ enabled, styleKey, dirtyKey, visibility }: { enabled: boolean
   return null;
 }
 
+/** Thin depth-edge outline as a post-process pass (the composer takes over rendering from the default loop). */
+function Outline({ theme }: { theme: Theme }) {
+  const dpr = useThree((s) => s.viewport.dpr);
+  const effect = useMemo(() => new OutlineEffect({ color: TOKENS[theme].ink, alpha: 0.7, thickness: dpr }), []);
+  useEffect(() => {
+    effect.setLine({ color: TOKENS[theme].ink, thickness: dpr });
+  }, [effect, theme, dpr]);
+  useEffect(() => () => effect.dispose(), [effect]);
+  return (
+    <EffectComposer multisampling={4} depthBuffer>
+      <primitive object={effect} />
+    </EffectComposer>
+  );
+}
+
 /** DEV: handles for the alignment check (`window.__ortho`). */
 function DevHandles() {
   const scene = useThree((s) => s.scene);
@@ -151,7 +173,7 @@ function DevHandles() {
   return null;
 }
 
-function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false, visibility, saddleType = "power" }: OrthoSceneProps) {
+function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, discRear = false, visibility, saddleType = "power", outline }: OrthoSceneProps) {
   const restoreKey = useContextRestore();
   const invalidate = useThree((s) => s.invalidate);
   const crankAngleRef = useRef(0);
@@ -199,6 +221,7 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
         ) : (
           <Drivetrain3D points={geo.points} />
         )}
+        {(outline ?? !OUTLINE_OFF) && <Outline theme={theme} />}
         <DevHandles />
         <FarSide enabled={view === "side"} styleKey={styleKey} dirtyKey={dirtyKey} visibility={visibility} />
       </MatsProvider>

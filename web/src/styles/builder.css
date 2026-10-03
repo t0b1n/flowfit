@@ -128,8 +128,9 @@
 }
 
 .stage-bar__title {
-  flex: 0 1 auto;
-  min-width: 0;
+  /* never grows; shrinks (ellipsis) before the toolbar wraps onto a second row */
+  flex: 0 1 340px;
+  min-width: 56px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
