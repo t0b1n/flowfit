@@ -38,7 +38,7 @@ of PNS, MAAP or Rapha). They care about details and exactness. They are nerdy ab
 | Theme | **Light default**; **dark applies to the whole site** via one toggle. |
 | Brand | **Decided: direction 01 "Contact"** (`mockups/00-brand-directions.png`): the contact-triangle mark and safety orange `#FF4F00`. The accent and mark still live only in tokens and one `BrandMark` component. |
 | Rider | **A segmented clay mannequin with a lean male road-racer build**, calibrated to measured widths from a reference photo (§5.5). Plain clay head, **no helmet, no facial features, no special shading** (no Fresnel/rim effects). |
-| Bike | **A modern disc road bike**, never a fixie: 2× groupset (chainrings, front and rear derailleurs, cassette, chain), flat-mount disc brakes + rotors, STI hoods and levers, dropped stays, sloping top tube, aero post, bottle and cage. Carbon-black deep rims and black tyres; **no light rim bands or tan walls**. The frame colourway is "Moss" (tokens). |
+| Bike | **A modern disc road bike**, never a fixie: 2× groupset (chainrings, front and rear derailleurs, cassette, chain), flat-mount disc brakes + rotors, STI hoods and levers, dropped stays, sloping top tube, aero post. Carbon-black deep rims and black tyres; **no light rim bands or tan walls**. The frame colourway is "Moss" (tokens). |
 | Fit history | **Build it** (server-side, signed-in users). |
 | Metric readout | Not fixed. It uses the **Metric Rail** (focus 1, pin up to 3). |
 | Rejected looks | Lo-fi, VHS, grain, neon, bloom, glowing grids, cartoon or toon shading, black outlines, loud multi-colour. Never add these. |
@@ -110,7 +110,6 @@ values as JS for three.js and SVG (`TOKENS.light.accent`, …), plus a `useTheme
 | `--rotor` | `#9A9FA6` | `#9A9FA6` | disc rotors |
 | `--tyre` | `#1A1A1A` | `#1A1A1A` | tyres, bar tape |
 | `--clay` | `#8C8276` | `#7D8085` | rider mannequin (single clay tone) |
-| `--bottle` | `#D6CFC2` | `#4B4D50` | bottle |
 
 3D-only material parameters (roughness, clearcoat, …) stay in `tokens.ts` under `material3d`. The values are in
 the 3D plan §2.
@@ -248,7 +247,7 @@ Restyle only. Positions come from the existing `bike` / `mannequin` sketches in 
 | ground / `geometry-ground` | 1 px `--ink` @ 60% plus a **mm ruler** (25 mm minor ticks at 22% opacity, 100 mm major, accent ticks at R.AXLE / BB / F.AXLE, mono labels) |
 | wheels (`Wheel2D`) | tyre = `--tyre` stroke 28 mm; **carbon deep rim** = `--carbon` band 44 mm (solid, never light); spokes 2.2 mm `--alloy`; hub; near-side **disc rotor** ring + 6 spokes in `--rotor`; flat-mount caliper |
 | frame lines (`geometry-frame--*`) | **filled tapered polygons** in `--frame`, using the same radius table as the 3D tubes (shared `web/src/design/bikeProfiles.ts`: `down_tube 24→20`, …; see 3D plan §6). Curved fork = quadratic path. BB fillet circle. |
-| cockpit / seatpost / cranks / drivetrain | `--carbon` / `--alloy` fills: aero seatpost, stem, spacers, drop bar in `--tyre` (tape), STI hood + lever; **52/36 chainrings** (tooth outlines), cassette (11 rings), front derailleur, rear derailleur with two pulleys, chain routed through them; bottle + cage on the seat tube. Draw order for the left-side view: far wheel parts → far limbs → drivetrain (drive side is far) → frame → near hardware (rotors, calipers, near crank) → near body → head → bars/hoods → near glove. |
+| cockpit / seatpost / cranks / drivetrain | `--carbon` / `--alloy` fills: aero seatpost, stem, spacers, drop bar in `--tyre` (tape), STI hood + lever; **52/36 chainrings** (tooth outlines), cassette (12 toothed cogs, 11-34), front derailleur, rear derailleur with two pulleys, chain routed through them. Draw order for the left-side view: far wheel parts → far limbs → drivetrain (drive side is far) → frame → near hardware (rotors, calipers, near crank) → near body → head → bars/hoods → near glove. |
 | saddle (`SaddleShape`) | `--ink` fill |
 | mannequin (`geometry-mannequin__flesh/line/head`) | **clay silhouette polygons** in `--clay`, built from the same limb profiles and `CAL` calibration as the 3D rider (§5.5). Far-side limbs at 55% opacity *behind* the bike; near body in front. Plain head (z=0 slice of `headDeform`). Shoes in `--carbon`. No outlines, no rim or glow effects. |
 | skeleton overlay (`__line`) | 2 mm `--ink` @ 55% bones; joints = `--surface` circles with ink stroke |

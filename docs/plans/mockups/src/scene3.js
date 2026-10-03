@@ -28,7 +28,6 @@ const MAT = {
   tyre: std(0x1A1A1A, { roughness: .92 }), tape: std(0x1C1C1D, { roughness: .9 }), hood: std(0x202022, { roughness: .75 }),
   saddle: std(0x1A1A1B, { roughness: .6 }), spoke: std(0x303236, { metalness: .7, roughness: .4 }),
   rotor: phys(0x9A9FA6, { metalness: .9, roughness: .28 }), caliper: phys(0x2A2C2F, { metalness: .6, roughness: .4 }), chain: phys(0x55595F, { metalness: .9, roughness: .35 }),
-  bottle: std(THEME === 'light' ? 0xD6CFC2 : 0x4B4D50, { roughness: .6 }),
   glove: phys(T.clay, { roughness: .82 }), shoe: phys(0x1A1B1C, { roughness: .35, clearcoat: .6 }), sole: phys(0x141516, { roughness: .4 }),
   clay: phys(T.clay, { roughness: .8 }),
   T: T,

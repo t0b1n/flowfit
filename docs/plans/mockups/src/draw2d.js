@@ -34,15 +34,13 @@ export function bikeLayers(G) {
   d += `<circle class="pul" cx="${up.x}" cy="${-up.y}" r="17"/><circle class="pul" cx="${lo.x}" cy="${-lo.y}" r="17"/>`;
   d += tube(v(0, 0), v(J.cleatR.x + C.cleatSetback, J.cleatR.y), 14, 10, 'blk') + `<rect class="blk" x="${J.cleatR.x + C.cleatSetback - 40}" y="${-J.cleatR.y - 2}" width="80" height="12"/>`;
   L.drive = d;
-  // frame (moss), fork, dropped stays, aero post, cockpit, bottle, saddle
+  // frame (moss), fork, dropped stays, aero post, cockpit, saddle
   const stayTop = add(cl, stUp, -70);
   let f = tube(v(0, 0), Q.rear, 14, 8, 'frame') + tube(stayTop, Q.rear, 9, 6.5, 'frame');
   f += tube(v(0, 0), cl, 18, 16, 'frame') + tube(cl, add(ht, htDown, 22), 15, 18, 'frame') + tube(v(0, 0), add(hb, htDown, -24), 27, 21, 'frame');
   f += tube(add(hb, htDown, 16), add(ht, htDown, -4), 24, 19, 'frame');
   f += `<path class="fork" d="M${hb.x + htDown.x * 10} ${-(hb.y + htDown.y * 10)} Q ${hb.x + htDown.x * 190 + 4} ${-(hb.y + htDown.y * 190)} ${Q.front.x} ${-Q.front.y}"/>`;
   f += `<circle class="frameF" cx="0" cy="0" r="34"/><circle class="frameF" cx="${cl.x}" cy="${-cl.y}" r="19"/>`;
-  const perp = v(stUp.y, -stUp.x), b0 = add(add(v(0, 0), cl, .22), perp, 60), b1 = add(add(v(0, 0), cl, .66), perp, 60);
-  f += tube(b0, b1, 37, 34, 'bottle') + `<line class="cage" x1="${b0.x}" y1="${-b0.y}" x2="${b1.x}" y2="${-b1.y}"/>`;
   f += P('carbon', seg(cl, add(Q.saddle, stUp, -32), () => 20, 6));
   f += tube(ht, Q.steerTop, 17, 17, 'carbon') + tube(add(Q.steerTop, htDown, 14), Q.clamp, 19, 16, 'carbon');
   f += `<path class="sad" d="M${Q.saddle.x - 150} ${-Q.saddle.y - 4} Q ${Q.saddle.x - 132} ${-Q.saddle.y - 30} ${Q.saddle.x - 40} ${-Q.saddle.y - 26} L ${Q.saddle.x + 112} ${-Q.saddle.y - 14} Q ${Q.saddle.x + 124} ${-Q.saddle.y - 8} ${Q.saddle.x + 104} ${-Q.saddle.y} L ${Q.saddle.x - 136} ${-Q.saddle.y + 8} Z"/>`;

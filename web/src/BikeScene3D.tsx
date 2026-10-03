@@ -456,8 +456,8 @@ export function frameTubesFor(geo: Geometry3DResponse) {
 
 /** The static bike (tapered frame, curved fork, deep carbon rims, rotors, cassette, derailleur, chain, hoods). */
 export function BikeStatic({
-  geo, tubes, wheelRadius, discRear,
-}: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; discRear: boolean }) {
+  geo, tubes, wheelRadius, simpleCassette = false,
+}: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; simpleCassette?: boolean }) {
   const M = useMats();
   const debug = useDebugOn();
   // Shape-keyed geometry cache: the sliders mostly move parts, so rebuilding only what changed shape keeps ticks cheap.
@@ -466,7 +466,7 @@ export function BikeStatic({
   useEffect(() => () => cache.disposeAll(), [cache]);
   const { bike, hoods, legacyHoods } = useMemo(() => {
     cache.begin();
-    const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, bottle: M.m.bottle, tape: M.m.tape, cassette: M.m.cassette, cassetteEdge: M.m.cassetteEdge };
+    const mats = { frame: M.m.frame, carbon: M.m.carbon, tyre: M.m.tyre, spoke: M.m.spoke, alloy: M.m.alloy, rotor: M.m.rotor, tape: M.m.tape, cassette: M.m.cassette, cassetteBig: M.m.cassetteBig, cassetteEdge: M.m.cassetteEdge };
     const ck = geo.cockpit;
     const ckMats = { carbon: M.m.carbon, hood: M.m.hood, lever: M.m.lever, pad: M.m.tape, alloy: M.m.alloy };
     const pivot = geo.points.find((p) => p.name === "stem_pivot")?.pos ?? null;
@@ -478,9 +478,9 @@ export function BikeStatic({
     } else {
       cockpitGroup = buildHoods(geo.points, mats, debug); // older JSON without a cockpit model (uncached: disposed below)
     }
-    const bike = buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { discRear, debug, integratedStem: ck?.build === "integrated", cache });
+    const bike = buildBikeMeshes(geo.points, tubes, wheelRadius, mats, { simpleCassette, debug, integratedStem: ck?.build === "integrated", cache });
     return { bike, hoods: cockpitGroup, legacyHoods: ck ? null : cockpitGroup };
-  }, [geo, tubes, wheelRadius, discRear, M, debug, cache]);
+  }, [geo, tubes, wheelRadius, simpleCassette, M, debug, cache]);
   // Sweep after commit: the previous group is still in the scene during render and must not lose its geometry.
   useEffect(() => cache.end(), [bike, hoods, cache]);
   useEffect(() => () => legacyHoods?.traverse((o) => (o as THREE.Mesh).geometry?.dispose()), [legacyHoods]);
@@ -802,7 +802,6 @@ const SceneContent = React.memo(function SceneContent({
   showAngles,
   showDimensions,
   showKops,
-  discWheels,
   onMeasureReady,
   ghost,
   theme,
@@ -848,7 +847,6 @@ const SceneContent = React.memo(function SceneContent({
   showAngles: boolean;
   showDimensions: boolean;
   showKops: boolean;
-  discWheels: boolean;
   onMeasureReady: (fn: MeasureFrontalArea) => void;
   ghost: GhostSnapshot | null;
 }) {
@@ -904,7 +902,7 @@ const SceneContent = React.memo(function SceneContent({
         m.receiveShadow = true;
       }
     });
-  }, [scene, geo, tPose, showMannequin, discWheels, debugParts, strokeLUT, weightKg, stanceWidth, attachedAssets]);
+  }, [scene, geo, tPose, showMannequin, debugParts, strokeLUT, weightKg, stanceWidth, attachedAssets]);
 
   return (
     <DebugProvider key={restoreKey} value={debugParts}>
@@ -945,7 +943,7 @@ const SceneContent = React.memo(function SceneContent({
       </group>
 
       {/* Bike: tapered frame, fork, wheels, drivetrain parts, hoods (see bike3d.ts) */}
-      {!tPose && <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} discRear={discWheels} />}
+      {!tPose && <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} simpleCassette={quality === "mobile"} />}
 
       {/* Swept handlebar */}
       {!tPose && !geo.cockpit && <HandlebarMesh ptMap={framePtMap} />}
@@ -1286,7 +1284,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
   const [showAngles, setShowAngles] = useState(true);
   const [showDimensions, setShowDimensions] = useState(true);
   const [showKops, setShowKops] = useState(false);
-  const [discWheels, setDiscWheels] = useState(false);
   // Aero tools
   const measureFnRef = useRef<MeasureFrontalArea | null>(null);
   const [measuring, setMeasuring] = useState(false);
@@ -1583,13 +1580,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             KOPS
           </button>
         )}
-          <button
-            className={`tab-pill ${discWheels ? "tab-pill--active" : ""}`}
-            onClick={() => setDiscWheels((v) => !v)}
-            title="Rear aero disc wheel"
-          >
-            Disc
-          </button>
         <button
           className={`tab-pill ${toolsOpen ? "tab-pill--active" : ""}`}
           onClick={() => setToolsOpen((v) => !v)}
@@ -1755,7 +1745,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             showAngles={showAngles}
             showDimensions={showDimensions}
             showKops={showKops}
-            discWheels={discWheels}
             onMeasureReady={handleMeasureReady}
             ghost={compareGhost ?? ghost}
             theme={theme}

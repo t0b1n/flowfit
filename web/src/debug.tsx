@@ -28,7 +28,6 @@ export const DEBUG_PARTS = [
   ["seatpost", "Seatpost"],
   ["saddle", "Saddle"],
   ["saddle_rail", "Saddle rails"],
-  ["bottle", "Bottle"],
   ["wheel", "Wheel"],
   ["brakes", "Disc brakes (left)"],
   ["drivetrain", "Drivetrain (right)"],

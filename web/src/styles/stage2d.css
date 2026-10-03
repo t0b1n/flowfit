@@ -397,9 +397,17 @@
 }
 
 .s2d-cog {
-  fill: none;
-  stroke: var(--s2d-alloy);
-  stroke-width: 2.4;
+  fill: var(--s2d-alloy);
+  stroke: var(--s2d-carbon);
+  stroke-width: 0.8;
+}
+
+.s2d-cog--big {
+  fill: color-mix(in srgb, var(--s2d-alloy) 70%, var(--s2d-carbon));
+}
+
+.s2d-lockring {
+  fill: var(--s2d-carbon);
 }
 
 .s2d-chain {
@@ -412,11 +420,6 @@
   fill: var(--frame);
 }
 
-.s2d-bottle {
-  fill: var(--bottle);
-}
-
-.s2d-cage,
 .s2d-hose {
   fill: none;
   stroke: var(--s2d-alloy);
