@@ -11,6 +11,7 @@
 import * as THREE from "three";
 import {
   HEAD_GAZE_OFFSET_DEG,
+  NECK_SLIM,
   MASSES,
   PROFILES,
   bump,
@@ -433,11 +434,11 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     add(tm, "torso");
   }
   // neck + plain clay head
-  const kn = segScale("neck", opts.weightKg, opts.heightMm) * calAt("neck", 0.5);
+  const kn = segScale("neck", opts.weightKg, opts.heightMm) * calAt("neck", 0.5) * NECK_SLIM;
   const neckLen = v3(neckBase).distanceTo(v3(head));
   const neckGeom = () => bodyLathe("neck", LIMB_LEN0.neck, neckLen, kn, () => limbGeometry(LIMB_LEN0.neck, (t) => lerp(44, 40, t), 8, 24), () => limbGeometry(neckLen, (t) => lerp(44, 40, t) * kn, 8, 24));
   const neck = new THREE.Mesh(cache ? cache.get(`lathe|neck|${k1(neckLen)}|${k3(kn)}`, neckGeom) : neckGeom(), mat);
-  orientBetween(neck, v3(shC).add(new THREE.Vector3(-12, -22, 0)), v3(head).add(new THREE.Vector3(-26, -44, 0)));
+  orientBetween(neck, v3(shC).add(new THREE.Vector3(-12, -22, 0)), v3(head).add(new THREE.Vector3(-34, -50, 0)));
   neck.userData.seg = "neck";
   add(neck, "torso");
   add(headMesh(head, neckBase, mat, cache), "head");
