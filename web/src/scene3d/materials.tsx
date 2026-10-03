@@ -24,9 +24,8 @@ export interface Mats {
     tape: THREE.Material;
     alloy: THREE.Material;
     rotor: THREE.Material;
-    /** silver small cogs, darker titanium big cogs, and the dark back-face shell that outlines each cylinder cog */
+    /** silver cogs and the dark back-face shell that outlines each one */
     cassette: THREE.Material;
-    cassetteBig: THREE.Material;
     cassetteEdge: THREE.Material;
     /** matte rubber hood covers */
     hood: THREE.Material;
@@ -61,12 +60,11 @@ export function buildMats(theme: Theme): Mats {
   const rail = new THREE.MeshStandardMaterial({ color: "#c8c8c8", roughness: 0.18, metalness: 0.82 });
   const saddleRail = new THREE.MeshStandardMaterial({ color: "#1c1c1c", roughness: 0.45, metalness: 0.3 });
   const cassette = new THREE.MeshStandardMaterial({ color: "#d8d4c8", roughness: 0.3, metalness: 0.8 });
-  const cassetteBig = new THREE.MeshStandardMaterial({ color: "#8e9094", roughness: 0.4, metalness: 0.8 });
   const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteBig, cassetteEdge, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteBig, cassetteEdge, hood, lever, saddle, rail, saddleRail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail],
   };
 }
 
@@ -139,12 +137,11 @@ export function buildFlatMats(theme: Theme, lit: boolean): Mats {
   const saddleRail = mk(c.carbon);
   // silver cogs with a dark edge shell (the depth-edge pass can't see steps this small)
   const cassette = mk(new THREE.Color().setRGB(0.85, 0.83, 0.78, THREE.SRGBColorSpace));
-  const cassetteBig = mk(new THREE.Color().setRGB(0.56, 0.57, 0.58, THREE.SRGBColorSpace));
   const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteBig, cassetteEdge, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteBig, cassetteEdge, hood, lever, saddle, rail, saddleRail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail],
   };
 }
 

@@ -299,9 +299,8 @@ export interface BikeMaterials {
   alloy: THREE.Material;
   rotor: THREE.Material;
   tape: THREE.Material;
-  /** silver cogs; `cassetteBig` the darker titanium ones; `cassetteEdge` is a BackSide dark material drawn as a thin outline around each cylinder cog */
+  /** silver cogs; `cassetteEdge` is a BackSide dark material drawn as a thin outline around each cog */
   cassette?: THREE.Material;
-  cassetteBig?: THREE.Material;
   cassetteEdge?: THREE.Material;
 }
 
@@ -346,7 +345,6 @@ export function rimGeometry(R: number): THREE.LatheGeometry {
   return new THREE.LatheGeometry(pts, 120);
 }
 
-/** One cassette cog: a toothed disc (tip radius from the tooth count), axis along Y like a CylinderGeometry. */
 /** Black lockring: a short tube with the splined bore open, axis along Z. */
 export function lockringGeometry(): THREE.BufferGeometry {
   const sh = new THREE.Shape();
@@ -359,13 +357,14 @@ export function lockringGeometry(): THREE.BufferGeometry {
   return g;
 }
 
-export function cogGeometry(teeth: number, holes: boolean): THREE.BufferGeometry {
+/** One cassette cog: a toothed disc (tip radius from the tooth count), axis along Y like a CylinderGeometry. */
+export function cogGeometry(teeth: number): THREE.BufferGeometry {
   const tip = cogTipRadius(teeth);
-  const root = tip - CASSETTE.toothHeight * 1.6;
+  const root = tip - CASSETTE.toothDepth;
   const shape = new THREE.Shape();
-  // Shimano-style flat-topped teeth: each tooth ramps up from the valley, runs flat across the tip, drops back to the root
+  // Shimano-style teeth: broad flat tops (about 40% of the pitch), steep flanks, wide valleys
   const pitch = (Math.PI * 2) / teeth;
-  const prof: Array<[number, number]> = [[0.04, root], [0.26, tip], [0.5, tip], [0.72, root], [0.96, root]];
+  const prof: Array<[number, number]> = [[0.06, root], [0.17, tip], [0.57, tip], [0.68, root], [0.94, root]];
   let first = true;
   for (let k = 0; k < teeth; k++) {
     for (const [f, r] of prof) {
@@ -376,44 +375,10 @@ export function cogGeometry(teeth: number, holes: boolean): THREE.BufferGeometry
     }
   }
   shape.closePath();
-  const next = CASSETTE.teeth[CASSETTE.teeth.indexOf(teeth) + 1];
-  if (holes && next) {
-    // the big cogs are open: lightening holes in the ring that shows beyond the next cog down
-    const nextTip = cogTipRadius(next);
-    const hr = (tip + nextTip) / 2 - 0.6;
-    const rr = Math.max(1.2, (tip - nextTip) * 0.3);
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + teeth;
-      const h = new THREE.Path();
-      h.absarc(hr * Math.cos(a), hr * Math.sin(a), rr, 0, Math.PI * 2, true);
-      shape.holes.push(h);
-    }
-  }
   const geo = new THREE.ExtrudeGeometry(shape, { depth: CASSETTE.thickness, bevelEnabled: false });
   geo.translate(0, 0, -CASSETTE.thickness / 2);
   geo.rotateX(-Math.PI / 2);
   return geo;
-}
-
-/** Per-cog tone: titanium grey at the 34T to nickel silver at the 11T, so stacked cogs read as separate steps. */
-const cogMats = new WeakMap<THREE.Material, THREE.Material[]>();
-export function cogMaterial(mats: BikeMaterials, i: number): THREE.Material {
-  const small = mats.cassette ?? mats.alloy;
-  const bigM = mats.cassetteBig ?? small;
-  const a = (bigM as THREE.MeshBasicMaterial).color;
-  const b = (small as THREE.MeshBasicMaterial).color;
-  if (!a || !b) return i < CASSETTE.bigCogs ? bigM : small;
-  let list = cogMats.get(small);
-  if (!list) cogMats.set(small, (list = []));
-  if (!list[i]) {
-    const m = small.clone() as THREE.MeshBasicMaterial;
-    const t = i / (CASSETTE.teeth.length - 1);
-    m.color = a.clone().lerp(b, t);
-    // alternate a little so neighbours always differ
-    if (i % 2) m.color.multiplyScalar(0.9);
-    list[i] = m;
-  }
-  return list[i];
 }
 
 function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { rotorR: number; caliperAngle: number }, cache?: GeometryCache) {
@@ -601,18 +566,19 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     CASSETTE.teeth.forEach((n, i) => {
       const r = cogTipRadius(n);
       const z = CASSETTE.z0 + i * CASSETTE.spacing;
-      const big = i < CASSETTE.bigCogs;
-      const mat = cogMaterial(mats, i);
       const geo = toothed
-        ? prim(`cog|${n}`, () => cogGeometry(n, big))
+        ? prim(`cog|${n}`, () => cogGeometry(n))
         : prim(`cogcyl|${n}`, () => new THREE.CylinderGeometry(r, r, CASSETTE.thickness, 32));
-      const c = new THREE.Mesh(geo, pick("drivetrain", mat));
+      const c = new THREE.Mesh(geo, pick("drivetrain", mats.cassette ?? mats.alloy));
       c.rotation.x = Math.PI / 2;
       c.position.set(rear[0], rear[1], z);
       g.add(c);
-      if (!toothed && mats.cassetteEdge && !opts.debug) {
-        // back faces only: the ring just outside the cog's rim shows as a dark edge against the next cog behind
-        const e = new THREE.Mesh(prim(`cogedge|${r}`, () => new THREE.CylinderGeometry(r + 1.4, r + 1.4, CASSETTE.thickness, 32)), mats.cassetteEdge);
+      if (mats.cassetteEdge && !opts.debug) {
+        // inverted hull: back faces of a slightly enlarged copy show as a dark outline against the next cog behind
+        const e = toothed
+          ? new THREE.Mesh(geo, mats.cassetteEdge)
+          : new THREE.Mesh(prim(`cogedge|${r}`, () => new THREE.CylinderGeometry(r + 1.4, r + 1.4, CASSETTE.thickness, 32)), mats.cassetteEdge);
+        if (toothed) e.scale.set(1.025, 1, 1.025);
         e.rotation.x = Math.PI / 2;
         e.position.set(rear[0], rear[1], z);
         g.add(e);

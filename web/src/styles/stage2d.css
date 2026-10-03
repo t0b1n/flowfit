@@ -403,11 +403,6 @@
   stroke-linejoin: round;
 }
 
-.s2d-cog-hole {
-  fill: var(--s2d-carbon);
-  opacity: 0.55;
-}
-
 .s2d-lockring {
   fill: var(--s2d-carbon);
 }

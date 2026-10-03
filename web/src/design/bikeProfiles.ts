@@ -97,6 +97,8 @@ export const CASSETTE = {
   pitch: 12.7,
   /** tooth height above the pitch circle */
   toothHeight: 2.2,
+  /** radial depth of a tooth, tip to valley */
+  toothDepth: 3.4,
   /** axial distance from the wheel centre to the largest cog */
   z0: 42,
   /** axial distance between cogs */
@@ -104,8 +106,6 @@ export const CASSETTE = {
   thickness: 2.2,
   /** black lockring on the smallest cog */
   lockringR: 19,
-  /** the first this-many cogs (34T down to 21T) are the darker titanium-coloured ones */
-  bigCogs: 5,
 } as const;
 
 /** Tip radius of a cog: pitch circle plus tooth height. */
