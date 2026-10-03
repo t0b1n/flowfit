@@ -117,7 +117,9 @@ export const DebugProvider = DebugCtx.Provider;
 export function useDbg(): (part: string, fallback: React.ReactElement) => React.ReactElement {
   const on = useContext(DebugCtx);
   return useCallback(
-    (part, fallback) => (on ? <primitive object={debugMaterial(part)} attach="material" /> : fallback),
+    // distinct keys: R3F does not re-attach a <primitive attach> whose `object` merely changes, which left debug
+    // materials on some meshes after switching DEBUG off
+    (part, fallback) => (on ? <primitive key="dbg" object={debugMaterial(part)} attach="material" /> : React.cloneElement(fallback, { key: "mat" })),
     [on],
   );
 }

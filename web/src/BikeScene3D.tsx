@@ -31,7 +31,8 @@ import { AnimatedLegs } from "./AnimatedLegs";
 import { DebugProvider, useDbg, useDebugOn, DEBUG_ENABLED } from "./debug";
 import { buildRiderMeshes, tPosePoints, type P3 } from "./riderMesh";
 import { GeometryCache } from "./scene3d/geometryCache";
-import { MatsProvider, useMats } from "./scene3d/materials";
+import { useContextRestore } from "./scene3d/contextLoss";
+import { MatsProvider, useMats, useNeedsNormals } from "./scene3d/materials";
 import { buildBar, buildHoodMeshes } from "./cockpit3d";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
@@ -395,6 +396,7 @@ function RailTube({
 }: {
   a: THREE.Vector3; b: THREE.Vector3; r?: number;
 }) {
+  const M = useMats();
   const dir  = new THREE.Vector3().subVectors(b, a);
   const len  = dir.length();
   if (len < 0.5) return null;
@@ -405,18 +407,19 @@ function RailTube({
   return (
     <mesh position={mid.toArray()} quaternion={quat.toArray() as [number, number, number, number]}>
       <cylinderGeometry args={[r, r, len, 8, 1]} />
-      <meshStandardMaterial metalness={0.82} roughness={0.18} color="#c8c8c8" />
+      <primitive object={M.m.rail} attach="material" />
     </mesh>
   );
 }
 
-function SaddleMesh({
+export function SaddleMesh({
   geo,
   saddleType,
 }: {
   geo: Geometry3DResponse;
   saddleType: SaddleType;
 }) {
+  const M = useMats();
   const ptMap = new Map(geo.points.map((p) => [p.name, p.pos]));
   const sp = ptMap.get("saddle");
   if (!sp) return null;
@@ -438,7 +441,7 @@ function SaddleMesh({
     <group position={[meshX, meshY, sz]}>
       {/* Saddle body */}
       <mesh geometry={SADDLE_GEO[saddleType]}>
-        <meshStandardMaterial metalness={0.04} roughness={0.88} color="#0f0f0f" />
+        <primitive object={M.m.saddle} attach="material" />
       </mesh>
 
       {/* Rails — bilateral, oval cross-section approximated as cylinder */}
@@ -455,14 +458,25 @@ function SaddleMesh({
   );
 }
 
+/** Frame tubes (non-mannequin edges; the straight handlebar edges are replaced by the swept bar) and their points. */
+export function frameTubesFor(geo: Geometry3DResponse) {
+  const framePts = geo.points.filter((p) => p.group !== "mannequin");
+  const frameEdges = geo.edges.filter((e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`));
+  return {
+    frameTubes: buildTubes(framePts, frameEdges),
+    framePtMap: new Map(framePts.map((p) => [p.name, p.pos] as [string, [number, number, number]])),
+  };
+}
+
 /** The static bike (tapered frame, curved fork, deep carbon rims, rotors, cassette, derailleur, chain, hoods). */
-function BikeStatic({
+export function BikeStatic({
   geo, tubes, wheelRadius, discRear,
 }: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; discRear: boolean }) {
   const M = useMats();
   const debug = useDebugOn();
   // Shape-keyed geometry cache: the sliders mostly move parts, so rebuilding only what changed shape keeps ticks cheap.
-  const cache = useMemo(() => new GeometryCache(), []);
+  const needsNormals = useNeedsNormals();
+  const cache = useMemo(() => new GeometryCache(needsNormals), [needsNormals]);
   useEffect(() => () => cache.disposeAll(), [cache]);
   const { bike, hoods, legacyHoods } = useMemo(() => {
     cache.begin();
@@ -493,9 +507,10 @@ function BikeStatic({
 }
 
 /** The static clay rider (legs only when no stroke LUT is available; otherwise AnimatedLegs owns them). */
-function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
+export function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
   const M = useMats();
-  const cache = useMemo(() => new GeometryCache(), []);
+  const needsNormals = useNeedsNormals();
+  const cache = useMemo(() => new GeometryCache(needsNormals), [needsNormals]);
   useEffect(() => () => cache.disposeAll(), [cache]);
   const group = useMemo(() => {
     const pts = new Map(geo.points.filter((p) => p.group === "mannequin").map((p) => [p.name, p.pos as P3]));
@@ -599,7 +614,7 @@ function orientedMesh(
 /** Crank arms to each pedal, pedal bodies, and a chainring at the BB.
     Takes the merged point list so cranks follow the override mannequin's
     opposed leg pose. */
-function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
+export function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
   const M = useMats();
   const ptMap = new Map(points.map((p) => [p.name, p.pos]));
   const bb = ptMap.get("bb");
@@ -843,16 +858,7 @@ const SceneContent = React.memo(function SceneContent({
 }) {
   // Frame tubes (non-mannequin edges only). The straight handlebar edges are
   // replaced by the swept HandlebarMesh.
-  const { frameTubes, framePtMap } = useMemo(() => {
-    const framePts = geo.points.filter((p) => p.group !== "mannequin");
-    const frameEdges = geo.edges.filter(
-      (e) => !e.group.startsWith("mannequin") && !BAR_EDGE_KEYS.has(`${e.a}→${e.b}`)
-    );
-    return {
-      frameTubes: buildTubes(framePts, frameEdges),
-      framePtMap: new Map(framePts.map((p) => [p.name, p.pos])),
-    };
-  }, [geo]);
+  const { frameTubes, framePtMap } = useMemo(() => frameTubesFor(geo), [geo]);
 
   const effPtMap = useMemo(
     () => new Map(geo.points.map((p) => [p.name, p.pos])),
@@ -877,6 +883,7 @@ const SceneContent = React.memo(function SceneContent({
   const stageBg = useMemo(() => new THREE.Color(tokens.bg).multiplyScalar(light ? 0.86 : 1), [tokens.bg, light]);
   // Every bike and rider mesh casts and receives shadows (the stage floor only receives).
   const { scene, gl, invalidate } = useThree();
+  const restoreKey = useContextRestore();
   // Frames render on demand (Canvas frameloop="demand"): ask for one when anything the scene shows has changed.
   // Prop changes that reach the scene graph invalidate by themselves; this covers the ones that do not (overlay toggles,
   // focus / hover highlights, theme and quality).
@@ -904,7 +911,7 @@ const SceneContent = React.memo(function SceneContent({
   }, [scene, geo, tPose, showMannequin, discWheels, debugParts, strokeLUT, weightKg, stanceWidth, attachedAssets]);
 
   return (
-    <DebugProvider value={debugParts}>
+    <DebugProvider key={restoreKey} value={debugParts}>
     <MatsProvider theme={theme}>
       {/* Stage: theme background + fog, soft key/rim lights with shadows, matte floor.
           Everything here lives under stage-root so the frontal-area probe and GLB export skip it. */}
@@ -916,7 +923,7 @@ const SceneContent = React.memo(function SceneContent({
           position={[target[0] + 600, target[1] + 3200, target[2] - 700]}
           intensity={3.0}
           color="#FFF1DE"
-          castShadow
+          castShadow={quality !== "mobile"}
           shadow-mapSize={quality === "high" ? [4096, 4096] : [2048, 2048]}
           shadow-bias={-0.0004}
           shadow-radius={quality === "high" ? 10 : 4}
@@ -928,11 +935,13 @@ const SceneContent = React.memo(function SceneContent({
           shadow-camera-far={9000}
         />
         <directionalLight position={[target[0] - 1600, target[1] + 900, target[2] + 1600]} intensity={light ? 1.0 : 2.2} color="#DFE8F2" />
-        <Environment resolution={128} frames={1}>
-          <Lightformer intensity={0.8} position={[0, 4000, 0]} rotation-x={Math.PI / 2} scale={[6000, 6000, 1]} />
-          <Lightformer intensity={0.4} position={[4000, 1500, 2500]} rotation-y={-Math.PI / 3} scale={[3000, 2000, 1]} />
-          <Lightformer intensity={0.25} color="#f7dcc0" position={[-3500, 800, -2000]} rotation-y={Math.PI / 3} scale={[2500, 1500, 1]} />
-        </Environment>
+        {quality !== "mobile" && (
+          <Environment resolution={128} frames={1}>
+            <Lightformer intensity={0.8} position={[0, 4000, 0]} rotation-x={Math.PI / 2} scale={[6000, 6000, 1]} />
+            <Lightformer intensity={0.4} position={[4000, 1500, 2500]} rotation-y={-Math.PI / 3} scale={[3000, 2000, 1]} />
+            <Lightformer intensity={0.25} color="#f7dcc0" position={[-3500, 800, -2000]} rotation-y={Math.PI / 3} scale={[2500, 1500, 1]} />
+          </Environment>
+        )}
         <mesh rotation-x={-Math.PI / 2} position={[groundX, groundY - 1, 0]} receiveShadow>
           <planeGeometry args={[40000, 40000]} />
           <meshStandardMaterial color={mat3d.floor} roughness={1} metalness={0} />
@@ -1166,18 +1175,19 @@ function CameraPresetRig({
   return null;
 }
 
-type Quality = "high" | "low";
+/** "mobile" (narrow viewport): no shadows, environment map or SSAO, and a capped pixel ratio. */
+type Quality = "high" | "low" | "mobile";
 const QUALITY_KEY = "flowfit.3d.quality";
 
 function readQuality(): Quality {
+  if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 768px)").matches) return "mobile";
   try {
     const v = localStorage.getItem(QUALITY_KEY);
     if (v === "high" || v === "low") return v;
   } catch {
     /* storage blocked */
   }
-  const small = typeof window !== "undefined" && window.matchMedia?.("(max-width: 768px)").matches;
-  return small || (navigator.hardwareConcurrency ?? 8) <= 4 ? "low" : "high";
+  return (navigator.hardwareConcurrency ?? 8) <= 4 ? "low" : "high";
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
@@ -1591,14 +1601,16 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
         >
           Tools
         </button>
-        <button
-          className={`tab-pill ${quality === "high" ? "tab-pill--active" : ""}`}
-          style={{ marginLeft: "auto" }}
-          title="High quality: ambient occlusion and larger shadow maps"
-          onClick={() => setQuality(quality === "high" ? "low" : "high")}
-        >
-          HQ
-        </button>
+        {quality !== "mobile" && (
+          <button
+            className={`tab-pill ${quality === "high" ? "tab-pill--active" : ""}`}
+            style={{ marginLeft: "auto" }}
+            title="High quality: ambient occlusion and larger shadow maps"
+            onClick={() => setQuality(quality === "high" ? "low" : "high")}
+          >
+            HQ
+          </button>
+        )}
         {DEBUG_ENABLED && (
         <button
           className={`tab-pill ${devMode ? "tab-pill--active" : ""}`}
@@ -1713,7 +1725,8 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
           The canvas is transparent; the wrapper carries a gradient backdrop. */}
       <div className="bike3d-canvas-wrapper" ref={wrapRef} tabIndex={0} style={{ ["--bike3d-bg" as string]: TOKENS[theme].bg }}>
         <Canvas
-          shadows
+          shadows={quality !== "mobile"}
+          dpr={[1, 2]}
           frameloop="demand"
           onCreated={({ invalidate }) => { invalidateRef.current = invalidate; }}
           camera={{ position: camPos, fov: 30, near: 1, far: 50000 }}

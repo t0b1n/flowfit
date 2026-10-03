@@ -14,7 +14,7 @@ import { CHAINRING, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName }
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { forkFrame, forkSpine } from "./design/fork";
 import type { Cockpit } from "./cockpit";
-import { GeometryCache, k1 } from "./scene3d/geometryCache";
+import { GeometryCache, computeNormals, k1 } from "./scene3d/geometryCache";
 
 export interface Geometry3DPoint {
   name: string;
@@ -402,7 +402,7 @@ function forkGeometry(crown: { x: number; y: number }, axle: { x: number; y: num
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   geo.setIndex(idx);
-  geo.computeVertexNormals();
+  computeNormals(geo);
   return geo;
 }
 

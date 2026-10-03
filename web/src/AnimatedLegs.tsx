@@ -20,7 +20,9 @@ import { useDbg } from "./debug";
 import { PEDAL_BODY, shoeAxis, shoeRadius } from "./design/foot";
 import { PROFILES, MASSES, bump, calAt, lerp } from "./design/riderBody";
 import { legPoseAt, PedalStrokeLUT } from "./geometry";
-import { limbGeometry, muscleLimbGeometry, resolveBulges, segScale, type P3 } from "./riderMesh";
+import { LIMB_LEN0, limbGeometry, muscleLimb, resolveBulges, scaleLathe, UNIT_LIMBS, segScale, type P3 } from "./riderMesh";
+import { withNormals } from "./scene3d/geometryCache";
+import { useNeedsNormals } from "./scene3d/materials";
 import { useMats } from "./scene3d/materials";
 
 // Scratch objects reused every frame — zero per-frame allocations.
@@ -85,6 +87,10 @@ function ringGeometry(teeth: number, outer: number, root: number, hole: number, 
   return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, curveSegments: 2 });
 }
 
+let shoeRef: THREE.BufferGeometry | null = null;
+/** The shoe lathe at the reference length and hs = 1 (built once; each rider's shoe is a remap of it). */
+const shoeUnit = () => (shoeRef ??= withNormals(true, () => limbGeometry(LIMB_LEN0.shoe, (t) => shoeRadius(t, 1), 20, 28)));
+
 export function AnimatedLegs({
   lut, hipR, hipL, bb, halfStance, weightKg, heightMm = 1800,
   crankAngleRef, playing, cadenceRpm, showLegs,
@@ -115,7 +121,8 @@ export function AnimatedLegs({
     p0.knee.x, p0.knee.y, p0.ankle.x, p0.ankle.y, p0.cleat.x, p0.cleat.y, p0.spindle.x, p0.spindle.y, lut.ankleSetbackMm,
     ...hipR, ...hipL, bb[0], bb[1], halfStance, weightKg, heightMm,
   ].map((n) => n.toFixed(2)).join("|");
-  const dims = useMemo(() => {
+  const needsNormals = useNeedsNormals();
+  const dims = useMemo(() => withNormals(needsNormals, () => {
     const hs = heightMm / 1800;
     const drawnAnkleX = p0.ankle.x - lut.ankleSetbackMm;
     const thighLen = dist3(hipR[0], hipR[1], hipR[2], p0.knee.x, p0.knee.y, halfStance);
@@ -128,15 +135,15 @@ export function AnimatedLegs({
     const fwd = new THREE.Vector3(1, 0, 0);
     const mk = (seg: "thigh" | "calf", len: number, a: P3, b: P3, side: 1 | -1) => {
       const k = segScale(seg, weightKg, heightMm);
-      const prof = PROFILES[seg];
-      const bulges = resolveBulges(prof.bulges, a, b, fwd, side).map((u) => ({ ...u, amp: u.amp * k }));
-      return muscleLimbGeometry(len, (t) => prof.radius(t) * k, bulges, (t) => calAt(seg, t), prof.scale);
+      return muscleLimb(seg, len, k, resolveBulges(PROFILES[seg].bulges, a, b, fwd, side));
     };
     const thighA: P3 = [hipR[0], hipR[1], halfStance];
     const kneeP: P3 = [p0.knee.x, p0.knee.y, halfStance];
     const ankP: P3 = [drawnAnkleX, p0.ankle.y, halfStance];
     // Shoe: heel→toe lathe, flattened laterally (mockup bike3.js)
-    const shoe = limbGeometry(footLen, (t) => shoeRadius(t, hs), 20, 28);
+    const shoe = UNIT_LIMBS
+      ? scaleLathe(shoeUnit(), LIMB_LEN0.shoe, footLen, hs)
+      : limbGeometry(footLen, (t) => shoeRadius(t, hs), 20, 28);
     shoe.scale(1, 1, 0.82);
     return {
       thigh: { R: mk("thigh", thighLen, thighA, kneeP, 1), L: mk("thigh", thighLen, [hipL[0], hipL[1], -halfStance], [p0.knee.x, p0.knee.y, -halfStance], -1), len: thighLen },
@@ -147,15 +154,15 @@ export function AnimatedLegs({
       kneeR: MASSES.knee.radius * hs,
       ankleR: MASSES.ankle.radius * hs,
     };
-  }, [dimsKey]);
+  }), [dimsKey, needsNormals]);
   useEffect(() => () => {
     dims.thigh.L.dispose(); dims.thigh.R.dispose(); dims.calf.L.dispose(); dims.calf.R.dispose(); dims.shoe.dispose();
   }, [dims]);
 
   // One crank-arm geometry for both cranks, per crank length (it used to be rebuilt, and leaked, on every render).
   const crankGeom = useMemo(
-    () => limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16),
-    [dims.crankLen],
+    () => withNormals(needsNormals, () => limbGeometry(dims.crankLen, (t) => lerp(CHAINRING.crankRadius[0], CHAINRING.crankRadius[1], t), 8, 16)),
+    [dims.crankLen, needsNormals],
   );
   useEffect(() => () => crankGeom.dispose(), [crankGeom]);
 
