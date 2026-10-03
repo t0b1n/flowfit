@@ -61,7 +61,8 @@ SetupInput → solver.py::solve_setup()
 - `bike3d.ts` — Three.js mesh builders; mannequin radii scale with rider weight via power law
 - `types.ts` — `Components`, `BikeSketch`, `MannequinSketch`, `RiderFit`, `SetupResult`
 - `cockpit.ts` — the single source of cockpit geometry: `hoodContact()` (the hand contact; mirrored line for line by `bikegeo_core/geometry.py::hood_contact`, parity pinned by `cockpit.fixtures.json`), `buildCockpit()` (bar centreline, hood station/pitch/rotation, UCI report) and `barCenterline3D()`. New cockpit fields on `Components` are optional; `bar_roll_deg: null` = 0, i.e. hoods straight ahead of the bar clamp (bar reach is horizontal, independent of the stem); `bar_drop` describes the drops and never moves the hoods
-- `hoodModels.ts` — Dura-Ace R9270 / Red E1 hood, lever and pad outlines edge-extracted from side photos (`tools/hood_trace/`); `cockpit3d.ts` extrudes them and sweeps the bar; `builder/Cockpit2D.tsx` draws the same shapes in 2D
+- `saddleModels.ts` — S-Works Power traced from side + top photos (`tools/photo_trace/saddle.py`): side shell/rail outlines, plan half-width, through-hole. `saddle3d.ts` lofts the 3D mesh from it; `components/SaddleShape.tsx` draws the side outline in 2D. Both put the side-profile top at `SADDLE_CONTACT_U` on the saddle contact point
+- `hoodModels.ts` — Dura-Ace R9270 / Red E1 hood, lever and pad outlines edge-extracted from side photos (`tools/photo_trace/`); `cockpit3d.ts` extrudes them and sweeps the bar; `builder/Cockpit2D.tsx` draws the same shapes in 2D
 
 ### Data tools (`tools/`, `reference_data/`)
 

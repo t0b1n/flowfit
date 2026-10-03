@@ -34,6 +34,8 @@ import { GeometryCache } from "./scene3d/geometryCache";
 import { useContextRestore } from "./scene3d/contextLoss";
 import { MatsProvider, useMats, useNeedsNormals } from "./scene3d/materials";
 import { buildBar, buildHoodMeshes } from "./cockpit3d";
+import { buildTracedRailGeometry, buildTracedSaddleGeometry } from "./saddle3d";
+import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, contactX, lerpTable, type SaddleTrace } from "./saddleModels";
 import { TOKENS, material3d, type Theme } from "./design/tokens";
 import { useTheme } from "./design/useTheme";
 import {
@@ -71,11 +73,10 @@ const COCKPIT_TUBE_NAMES = new Set([
 //
 // Fizik Arione R1: 300 × 130 mm, flat profile, extremely narrow pointed nose,
 //                  gentle 4 mm convex crown, diagonal wing-flex cut slots, no cutout.
-// Specialized S-Works Power: 243 × 143 mm, rocking-chair profile (35–50 mm),
-//                  wide blunt 60 mm nose, 155 × 30 mm Body Geometry channel,
-//                  U-shaped rear cross-section (wings elevated above centre).
+// Specialized S-Works Power: 240 × 143 mm, lofted from side and top photos (saddleModels.ts,
+//                  saddle3d.ts): traced plan, side profile, through-hole and carbon rails.
 
-type SaddleType = "arione" | "power";
+export type SaddleType = "arione" | "power";
 
 // ── Curve utilities ────────────────────────────────────────────────────────────
 
@@ -110,7 +111,8 @@ function _sampleCR(curve: [number, number][], u: number): number {
   );
 }
 
-interface SaddleSpec {
+interface ParamSaddleSpec {
+  kind: "param";
   label: string;
   /** Nose-to-tail length in mm */
   length: number;
@@ -149,6 +151,16 @@ interface SaddleSpec {
   railRearX: number;
 }
 
+/** Saddle traced from product photos; shape, rails and contact height all come from the trace. */
+interface TracedSaddleSpec {
+  kind: "traced";
+  label: string;
+  trace: SaddleTrace;
+  contactU: number;
+}
+
+type SaddleSpec = ParamSaddleSpec | TracedSaddleSpec;
+
 // Measurements derived from manufacturer specs and reference images.
 const SADDLE_DETAIL: Record<SaddleType, SaddleSpec> = {
   /**
@@ -157,6 +169,7 @@ const SADDLE_DETAIL: Record<SaddleType, SaddleSpec> = {
    * convex crown. Distinctive diagonal wing-flex cut notches at nose junction.
    */
   arione: {
+    kind: "param",
     label: "Arione",
     length: 302,
     widthCurve: [
@@ -190,60 +203,7 @@ const SADDLE_DETAIL: Record<SaddleType, SaddleSpec> = {
     railRearX: -132,
   },
 
-  /**
-   * Specialized S-Works Power — 243 × 143 mm
-   * Short-nose compact saddle: wide blunt nose, rocking-chair profile,
-   * 155 × 30 mm Body Geometry central relief channel, near-flat rear wings.
-   */
-  power: {
-    label: "Power",
-    length: 243,
-    widthCurve: [
-      // Slim rounded stalk stays narrow until ~22%, then body balloons out
-      [0,    12 ],  // rounded blunt nose
-      [0.05, 15 ],
-      [0.10, 18 ],  // narrow stalk
-      [0.17, 22 ],
-      [0.22, 28 ],  // stalk-to-body transition begins
-      [0.30, 46 ],  // rapid widening into the body
-      [0.40, 62 ],
-      [0.52, 68 ],
-      [0.65, 71 ],
-      [0.80, 71.5],
-      [1.0,  70 ],
-    ],
-    // Rocking-chair: nose low, mid rises, tail elevated
-    heightCurve: [
-      [0.0,  34 ],
-      [0.18, 38 ],
-      [0.40, 42 ],
-      [0.62, 45 ],
-      [0.82, 48 ],
-      [1.0,  51 ],
-    ],
-    crownCurve: [
-      [0.0,  6 ],
-      [0.30, 8 ],
-      [0.55, 6 ],
-      [0.75, 4 ],
-      [1.0,  4 ],
-    ],
-    // Rear: low exponent → flat wings + steep central drop (Body Geometry look)
-    crownExpCurve: [
-      [0.0,  2.0 ],
-      [0.35, 1.5 ],
-      [0.60, 0.8 ],
-      [0.80, 0.45],
-      [1.0,  0.40],
-    ],
-    // Body Geometry through-hole: runs from near-nose to mid-body, ~24 mm wide
-    cutout: { uStart: 0.08, uEnd: 0.70, maxDepth: 80, sHalfWidth: 0.22, edgeSteepness: 5 },
-    contactU: 0.68,
-    riderContactHeight: 48,  // wing surface at contactU, s≈0.5: ch≈46 + crown≈4 − cut≈0 ≈ 50
-    railSpread: 22,
-    railFwdX:   65,
-    railRearX:  -65,
-  },
+  power: { kind: "traced", label: "Power", trace: SWORKS_POWER, contactU: SADDLE_CONTACT_U },
 };
 
 /**
@@ -257,7 +217,7 @@ const SADDLE_DETAIL: Record<SaddleType, SaddleSpec> = {
  * Through-hole: quads where ALL 4 vertices are inside the hole zone are
  * omitted from top AND bottom surfaces, leaving an open aperture.
  */
-function buildSaddleGeometry(spec: SaddleSpec): THREE.BufferGeometry {
+function buildSaddleGeometry(spec: ParamSaddleSpec): THREE.BufferGeometry {
   const U = 96, V = 48, SHELL = 8;
   const V1 = V + 1;
   const nPts = (U + 1) * V1;
@@ -386,8 +346,11 @@ function buildSaddleGeometry(spec: SaddleSpec): THREE.BufferGeometry {
 
 // Pre-build at module load — stable references so R3F never rebuilds geometry
 const SADDLE_GEO: Record<SaddleType, THREE.BufferGeometry> = {
-  arione: buildSaddleGeometry(SADDLE_DETAIL.arione),
-  power:  buildSaddleGeometry(SADDLE_DETAIL.power),
+  arione: buildSaddleGeometry(SADDLE_DETAIL.arione as ParamSaddleSpec),
+  power:  buildTracedSaddleGeometry(SWORKS_POWER),
+};
+const TRACED_RAIL_GEO: Partial<Record<SaddleType, THREE.BufferGeometry[]>> = {
+  power: buildTracedRailGeometry(SWORKS_POWER),
 };
 
 /** Cylinder between two THREE.Vector3 points, used for rails and clamp. */
@@ -426,6 +389,29 @@ export function SaddleMesh({
 
   const [sx, sy, sz] = sp;
   const spec = SADDLE_DETAIL[saddleType];
+  const body = (
+    <mesh geometry={SADDLE_GEO[saddleType]}>
+      <primitive object={M.m.saddle} attach="material" />
+    </mesh>
+  );
+
+  if (spec.kind === "traced") {
+    // Contact = side-profile top at contactU, placed on the world saddle point; y = 0 is the rail centreline
+    const cx = contactX(spec.trace, spec.contactU);
+    const rs = lerpTable(spec.trace.railHalfSpread, cx);
+    return (
+      <group position={[sx - cx, sy - contactHeight(spec.trace, spec.contactU), sz]}>
+        {body}
+        {TRACED_RAIL_GEO[saddleType]?.map((g, i) => (
+          <mesh key={i} geometry={g}>
+            <primitive object={M.m.saddleRail} attach="material" />
+          </mesh>
+        ))}
+        {/* Clamp crossbar under the contact station */}
+        <RailTube a={new THREE.Vector3(cx, 0, -rs - 7)} b={new THREE.Vector3(cx, 0, rs + 7)} r={5} />
+      </group>
+    );
+  }
 
   // Mesh group origin: local Y=0 = rail level
   // Contact zone (u=contactU, s=0) must land at world [sx, sy, sz]
@@ -440,9 +426,7 @@ export function SaddleMesh({
   return (
     <group position={[meshX, meshY, sz]}>
       {/* Saddle body */}
-      <mesh geometry={SADDLE_GEO[saddleType]}>
-        <primitive object={M.m.saddle} attach="material" />
-      </mesh>
+      {body}
 
       {/* Rails — bilateral, oval cross-section approximated as cylinder */}
       <RailTube a={new THREE.Vector3(fwd, 0, -rs)} b={new THREE.Vector3(rear, 0, -rs)} />
