@@ -1,4 +1,5 @@
 import { getSizeData } from "./frameCatalog";
+import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight } from "./saddleModels";
 import type {
   BikeSketch,
   ComponentDeltas,
@@ -32,7 +33,8 @@ export const DEFAULT_COMPONENTS: Components = {
   bar_width: 370,
   hood_width: null,
   stance_width: null,
-  saddle_stack: 55,
+  // rail centreline to the top of the default (traced) saddle at the contact station
+  saddle_stack: contactHeight(SWORKS_POWER, SADDLE_CONTACT_U),
   seatpost_offset: 0,
   saddle_rail_offset: 0,
   pedal_stack_height: 12,
