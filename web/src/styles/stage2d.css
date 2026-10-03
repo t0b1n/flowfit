@@ -402,12 +402,6 @@
   fill: var(--frame);
 }
 
-.s2d-fork {
-  fill: none;
-  stroke: var(--frame);
-  stroke-linecap: round;
-}
-
 .s2d-bottle {
   fill: var(--bottle);
 }

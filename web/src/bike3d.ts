@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
 import { CHAINRING, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
+import { FORK, forkCrownOutline, forkFrame, forkSections } from "./design/fork";
 import type { Cockpit } from "./cockpit";
 
 export interface Geometry3DPoint {
@@ -284,7 +285,7 @@ export function buildMannequinParts(
 // ── Modern disc road bike meshes (master plan §1 "Bike", 3D plan Phase 6) ─────────────────────────
 //
 // Positions still come from the edge graph; only shapes change: tapered tubes (design/bikeProfiles),
-// curved fork blades + crown, junction fillets, carbon deep rims, 2× drivetrain parts (cassette,
+// lofted fork blades + crown (design/fork.ts), junction fillets, carbon deep rims, 2× drivetrain parts (cassette,
 // derailleurs, chain), flat-mount disc rotors and calipers, bottle + cage, STI hoods and levers.
 // Crankset and chainrings live in AnimatedLegs (they move with the pedal stroke).
 
@@ -366,8 +367,60 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
   g.add(w);
 }
 
+/** One fork blade at lateral z: elliptical sections (fuller toward the leading edge) along `forkSections`, closed by a
+ *  round dropout tip whose side view is the same half-disc `forkOutline` draws. */
+function forkBladeGeometry(crown: { x: number; y: number }, axle: { x: number; y: number }, z: number, ringN = 20, tipN = 8): THREE.BufferGeometry {
+  const { u, n } = forkFrame(crown, axle);
+  const secs = forkSections(crown, axle);
+  const last = secs[secs.length - 1];
+  for (let i = 1; i <= tipN; i++) {
+    const phi = (i / tipN) * (Math.PI / 2);
+    const k = Math.cos(phi);
+    const d = Math.sin(phi) * last.front;
+    secs.push({ c: { x: axle.x + u.x * d, y: axle.y + u.y * d }, front: last.front * k, rear: last.rear * k, lat: last.lat * k });
+  }
+  const pos: number[] = [];
+  for (const { c, front, rear, lat } of secs) {
+    for (let j = 0; j < ringN; j++) {
+      const th = (j / ringN) * Math.PI * 2;
+      const x = Math.cos(th) * (Math.cos(th) > 0 ? front : rear);
+      pos.push(c.x + n.x * x, c.y + n.y * x, z + Math.sin(th) * lat);
+    }
+  }
+  const idx: number[] = [];
+  for (let i = 0; i < secs.length - 1; i++) {
+    for (let j = 0; j < ringN; j++) {
+      const a = i * ringN + j;
+      const b = i * ringN + ((j + 1) % ringN);
+      idx.push(a, b, a + ringN, b, b + ringN, a + ringN); // outward: (+lat) × (+chord) = +n
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/** Extrude a side outline (bike XY) `thick` mm across the bike, centred on z = 0, rounded edges, outline kept exact. */
+function extrudeAcross(outline: Array<[number, number]>, thick: number, bevel: number): THREE.BufferGeometry {
+  const b = Math.min(bevel, thick / 2 - 0.5);
+  const g = new THREE.ExtrudeGeometry(new THREE.Shape(outline.map(([x, y]) => new THREE.Vector2(x, y))), {
+    depth: Math.max(0.5, thick - 2 * b),
+    bevelEnabled: true,
+    bevelThickness: b,
+    bevelSize: b,
+    bevelOffset: -b,
+    bevelSegments: 5,
+    curveSegments: 4,
+  });
+  g.translate(0, 0, -(thick - 2 * b) / 2);
+  g.computeVertexNormals();
+  return g;
+}
+
 /**
- * Builds the static bike: tapered frame tubes, curved fork, fillets, wheels (deep carbon rims, rotors,
+ * Builds the static bike: tapered frame tubes, ENVE-style fork, fillets, wheels (deep carbon rims, rotors,
  * calipers), rear cassette, derailleurs and chain, bottle and cage. The swept handlebar and the saddle stay
  * in BikeScene3D. Named "bike-root".
  */
@@ -383,7 +436,6 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const hb = P.get("head_tube_bottom");
   if (!bb || !cl || !ht || !hb) return g;
   const seatDir = vv(cl).sub(vv(bb)).normalize();
-  const htDown = vv(hb).sub(vv(ht)).normalize();
 
   // Stem steerer clamp: steerer_top → stem_pivot is its lower half along the head-tube axis (synthesizeBike puts both
   // on it), so the clamp runs steerer_top → 2·stem_pivot − steerer_top: exactly stem_height long, flat ends.
@@ -425,23 +477,17 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     }
   }
 
-  // Fork: curved blades from the crown to the dropouts, plus a crown bar
-  for (const side of ["l", "r"] as const) {
-    const drop = P.get(`fork_${side}`);
-    if (!drop) continue;
-    const crown = vv(hb);
-    crown.z = drop[2];
-    const ctrl = crown.clone().addScaledVector(htDown, 200).add(new THREE.Vector3(8, 0, 0));
-    ctrl.z = drop[2];
-    const curve = new THREE.QuadraticBezierCurve3(crown, ctrl, vv(drop));
-    g.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 40, TUBE_PROFILE.fork_blade[0], 12, false), pick("fork", mats.frame)));
-  }
+  // Fork (design/fork.ts): lofted blades crown → dropout tip, and the crown shoulder extruded across both blades
   const forkR = P.get("fork_r");
   const forkL = P.get("fork_l");
   if (forkR && forkL) {
-    const c1 = vv(hb); c1.z = forkR[2];
-    const c2 = vv(hb); c2.z = forkL[2];
-    g.add(taper(c1, c2, TUBE_PROFILE.fork_crown[0], TUBE_PROFILE.fork_crown[1], pick("fork", mats.frame)));
+    const crown = { x: hb[0], y: hb[1] };
+    const axle = { x: forkR[0], y: forkR[1] };
+    for (const z of [forkR[2], forkL[2]]) g.add(new THREE.Mesh(forkBladeGeometry(crown, axle, z), pick("fork", mats.frame)));
+    const half = Math.max(Math.abs(forkR[2]), Math.abs(forkL[2])) + FORK.crown[0][3];
+    const cr = new THREE.Mesh(extrudeAcross(forkCrownOutline(crown, axle), 2 * half, 8), pick("fork", mats.frame));
+    cr.position.z = (forkR[2] + forkL[2]) / 2;
+    g.add(cr);
   }
 
   // Junction fillets

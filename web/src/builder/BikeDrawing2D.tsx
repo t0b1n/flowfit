@@ -6,7 +6,8 @@ import type { BikeSketch } from "../types";
 import type { Cockpit } from "../cockpit";
 import { CockpitSide } from "./Cockpit2D";
 import { SaddleShape } from "../components/SaddleShape";
-import { add, ellipse, gear, hullOf, norm, seg, slab, sub, tube, v, type V } from "./draw2d";
+import { add, ellipse, gear, hullOf, norm, pts, seg, slab, sub, tube, v, type V } from "./draw2d";
+import { FORK, forkOutline } from "../design/fork";
 
 const P = (x: number, y: number) => `${x.toFixed(1)} ${(-y).toFixed(1)}`;
 const poly = (cls: string, points: string, part?: string) => <polygon className={cls} points={points} data-part={part} />;
@@ -82,7 +83,7 @@ export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({
     </g>
   ) : null;
 
-/** Frame: filled tapered tubes, curved fork, BB fillet, seatpost, bottle, stem and bars. */
+/** Frame: filled tapered tubes, ENVE-style fork, BB fillet, seatpost, bottle, stem and bars. */
 export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = ({ bike, cockpit }) => {
   const { bb, rearAxle, frontAxle, seatCluster: cl, seatTubeTop, headTubeTop: ht, headTubeBottom: hb } = bike;
   const stUp = norm(sub(cl, bb));
@@ -103,14 +104,11 @@ export const FrameDrawing: React.FC<{ bike: BikeSketch; cockpit?: Cockpit }> = (
       {poly("s2d-frame", tube(cl, seatTubeTop, T.seat_tube[1], T.seat_tube[1]), "seat_tube")}
       {poly("s2d-frame", tube(cl, add(ht, htDown, 22), ...T.top_tube), "top_tube")}
       {poly("s2d-frame", tube(bb, add(hb, htDown, -24), ...T.down_tube), "down_tube")}
+      {/* fork (design/fork.ts): crown shoulder under the head tube, tapered straight blade, round dropout tip */}
+      {poly("s2d-frame", pts(forkOutline(hb, frontAxle)), "fork")}
+      <circle className="s2d-hub" data-part="fork" cx={frontAxle.x} cy={-frontAxle.y} r={FORK.axleCapR} />
       {/* head tube: round at the fork crown, flat on top where the spacers / stem sit */}
       {poly("s2d-frame", hullOf(slab(add(hb, htDown, 16), ht, ...T.head_tube), ellipse(add(hb, htDown, 16), T.head_tube[0], T.head_tube[0], 0, 18)), "head_tube")}
-      <path
-        className="s2d-fork"
-        data-part="fork"
-        d={`M${P(hb.x + htDown.x * 10, hb.y + htDown.y * 10)} Q ${P(hb.x + htDown.x * 190 + 4, hb.y + htDown.y * 190)} ${P(frontAxle.x, frontAxle.y)}`}
-        strokeWidth={T.fork_blade[0] * 2}
-      />
       <circle className="s2d-frame" cx={bb.x} cy={-bb.y} r={30} data-part="bb_shell" />
       <circle className="s2d-frame" cx={cl.x} cy={-cl.y} r={18} data-part="bb_shell" />
       {poly("s2d-bottle", tube(b0, b1, 37, 34), "bottle")}

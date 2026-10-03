@@ -11,9 +11,7 @@ export type TubeName =
   | "head_tube"
   | "chainstay"
   | "seatstay"
-  | "seatpost"
-  | "fork_blade"
-  | "fork_crown";
+  | "seatpost";
 
 /** Radius at the start and end of each tube, in the edge-graph direction named in the comment. */
 export const TUBE_PROFILE: Record<TubeName, [r0: number, r1: number]> = {
@@ -24,8 +22,6 @@ export const TUBE_PROFILE: Record<TubeName, [r0: number, r1: number]> = {
   chainstay: [13, 8],
   seatstay: [9, 6], // upper end sits 35 mm down the seat tube ("dropped stays")
   seatpost: [13, 13], // aero post, alloy
-  fork_blade: [11, 11], // curved: quadratic Bézier crown → dropout
-  fork_crown: [20, 20],
 };
 
 /**
