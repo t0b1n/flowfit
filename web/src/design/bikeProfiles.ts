@@ -24,6 +24,9 @@ export const TUBE_PROFILE: Record<TubeName, [r0: number, r1: number]> = {
   seatpost: [13, 13], // aero post, alloy
 };
 
+/** Where the top and down tube centrelines meet the head tube axis: mm in from the head tube's top / bottom end. */
+export const HEAD_TUBE_JOIN = { top: 22, down: 24 };
+
 /**
  * Stem and spacer sizes (mm), shared by the 2D and 3D drawings. The clamp's length along the steerer is
  * `stem_height`; these are the cross-section radii. A 1⅛" steerer is 28.6 mm, a road bar clamp 31.8 mm.
