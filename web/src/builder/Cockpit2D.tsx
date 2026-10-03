@@ -44,7 +44,10 @@ export const CockpitSide: React.FC<{ cockpit: Cockpit; ghost?: boolean }> = ({ c
   const T = hoodXf(ck);
   const prof = ck.hood.profile;
   const [clamp, tops] = ck.sagittal;
-  const bar = splinePath(ck.sagittal);
+  // The riser section (clamp → tops) is straight; the smooth curve starts at the tops so it can't hook back below the clamp.
+  // On a one-piece bar-stem the riser is part of the stem body (drawn with the stem), so the bar starts at the tops.
+  const curve = splinePath(ck.sagittal.slice(1));
+  const bar = ck.build === "integrated" ? curve : `M${f(clamp.x)} ${f(-clamp.y)} L${f(tops.x)} ${f(-tops.y)} ` + curve.replace(/^M/, "L");
   if (ghost) {
     return (
       <g className="s2d-cockpit-ghost">
@@ -54,19 +57,19 @@ export const CockpitSide: React.FC<{ cockpit: Cockpit; ghost?: boolean }> = ({ c
       </g>
     );
   }
-  const pad = <path className="s2d-pad" data-part="lever" d={polyPath(prof.pad.map(T))} />;
+  const pad = <path className="s2d-pad" data-fill data-part="lever" d={polyPath(prof.pad.map(T))} />;
   return (
     <g>
       <path className="s2d-bar" data-part="bar" d={bar} />
       {ck.build === "integrated" ? (
         <ellipse className="s2d-carbon" data-part="bar" cx={tops.x + 4} cy={-tops.y} rx={22} ry={9.5} />
       ) : (
-        <circle className="s2d-carbon" data-part="stem" cx={clamp.x} cy={-clamp.y} r={15.9} />
+        <circle className="s2d-carbon" data-part="bar" data-fill cx={clamp.x} cy={-clamp.y} r={15.9} />
       )}
       {!ck.hood.padOnLever && pad}
-      <path className="s2d-lever-body" data-part="lever" d={polyPath(prof.lever.map(T))} />
+      <path className="s2d-lever-body" data-fill data-part="lever" d={polyPath(prof.lever.map(T))} />
       {ck.hood.padOnLever && pad}
-      <path className="s2d-hood-body" data-part="hood" d={polyPath(prof.body.map(T))} />
+      <path className="s2d-hood-body" data-fill data-part="hood" d={polyPath(prof.body.map(T))} />
       {prof.details.map((ln, i) => (
         <path key={i} className="s2d-hood-detail" d={polyPath(ln.map(T), false)} />
       ))}
@@ -135,7 +138,7 @@ export const CockpitFront: React.FC<{ cockpit: Cockpit; ghost?: boolean; showUci
       ))}
       <path className="s2d-bar" data-part="bar" d={bars} />
       {ck.build === "integrated" ? (
-        <path className="s2d-carbon" data-part="stem" d={splinePath(fused, true)} />
+        <path className="s2d-carbon" data-fill data-part="stem" d={splinePath(fused, true)} />
       ) : (
         <g data-part="stem">
           <rect className="s2d-carbon s2d-faceplate" x={-26} y={-(cy + 17)} width={52} height={34} rx={4} />
@@ -145,7 +148,7 @@ export const CockpitFront: React.FC<{ cockpit: Cockpit; ghost?: boolean; showUci
         </g>
       )}
       {([1, -1] as const).map((s) => (
-        <path key={`h${s}`} className="s2d-hood-body" data-part="hood" d={splinePath(hoodShape(s), true)} />
+        <path key={`h${s}`} className="s2d-hood-body" data-fill data-part="hood" d={splinePath(hoodShape(s), true)} />
       ))}
       {showUci && (
         <g className="s2d-uci">
