@@ -32,6 +32,8 @@ export interface Mats {
     /** saddle shell and its rails (SaddleMesh) */
     saddle: THREE.Material;
     rail: THREE.Material;
+    /** the traced saddle's carbon rails */
+    saddleRail: THREE.Material;
   };
   raw: THREE.Material[];
 }
@@ -55,10 +57,11 @@ export function buildMats(theme: Theme): Mats {
   const lever = new THREE.MeshPhysicalMaterial({ color: t.carbon, roughness: 0.28, metalness: 0.1, clearcoat: 0.8, clearcoatRoughness: 0.2 });
   const saddle = new THREE.MeshStandardMaterial({ color: "#0f0f0f", roughness: 0.88, metalness: 0.04 });
   const rail = new THREE.MeshStandardMaterial({ color: "#c8c8c8", roughness: 0.18, metalness: 0.82 });
+  const saddleRail = new THREE.MeshStandardMaterial({ color: "#1c1c1c", roughness: 0.45, metalness: 0.3 });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail],
   };
 }
 
@@ -129,10 +132,11 @@ export function buildFlatMats(theme: Theme, lit: boolean): Mats {
   const hood = mk(c.carbon);
   const lever = mk(c.carbon);
   const rail = mk(c.carbon);
+  const saddleRail = mk(c.carbon);
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, bottle, hood, lever, saddle, rail, saddleRail],
   };
 }
 
