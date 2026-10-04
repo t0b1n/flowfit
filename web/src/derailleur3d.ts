@@ -8,7 +8,7 @@
  */
 
 import * as THREE from "three";
-import { CASSETTE, RD } from "./design/bikeProfiles";
+import { RD } from "./design/bikeProfiles";
 
 export interface DerailleurMaterials {
   /** gloss black body (links, knuckles, cage) */
@@ -112,7 +112,7 @@ export function buildRearDerailleur(
   g.name = "rear-derailleur";
   g.position.set(rear[0], rear[1], 0);
   const { mount: M, pivot: P, upper: U, lower: L, dropZ, chainZ } = RD;
-  const hangZ = CASSETTE.z0 + (CASSETTE.teeth.length - 1) * CASSETTE.spacing + 8;
+  const hangZ = dropZ + 4; // the hanger sits just outboard of the dropout face, clear of the cassette lockring
   const body = pick("drivetrain", mats.body);
   const ti = pick("drivetrain", mats.titanium);
   const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rotX = false) => {
@@ -144,10 +144,10 @@ export function buildRearDerailleur(
   // Inner link: thinner, below and inboard of the outer one
   add(
     prim("rd|link-inner", () => roundedPolyGeometry([[M.x + 4, M.y - 14], [P.x - 8, P.y - 8], [P.x - 2, P.y - 20], [M.x + 8, M.y - 24]].map(([x, y]) => [x - M.x, y - M.y] as const), 4, 6)),
-    body, M.x, M.y, 64,
+    body, M.x, M.y, hangZ - 23,
   );
   // Cage pivot knuckle and its bolt cap, spanning from the links in to the cage plates
-  disc("pivot", 13, 50, hangZ + 14, P.x, P.y, body);
+  disc("pivot", 13, chainZ - 10, hangZ + 14, P.x, P.y, body);
   disc("pivotcap", 8, hangZ + 14, hangZ + 16, P.x, P.y, ti);
   // Cage plates. The outer plate is one curved arm: broad at the pivot, narrowing as it sweeps back and down, then
   // flaring into a triangular foot with a window that shows the lower pulley. The inner plate is fuller.

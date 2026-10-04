@@ -49,7 +49,14 @@ export const SEATSTAY_DROP = 35;
 
 /** Front hub (mm): shell radius / half-length, spoke flanges (radius, lateral station), thru-axle radius. The 3D hub
  *  and both 2D views draw these; the dropouts sit at FORK.halfSpread (design/fork.ts). */
-export const HUB = { shellR: 14, shellHalf: 32, flangeR: 24, flangeZ: 28, flangeT: 5, axleR: 6 };
+export const HUB = { shellR: 14, shellHalf: 32, flangeR: 24, flangeZ: 28, flangeT: 5, axleR: 6, flangeDrive: 28, flangeLeft: 28, rotorZ: -24 };
+
+/**
+ * Rear hub: 142 mm thru-axle, so the dropouts sit 71 mm either side of the frame centreline. The wheel is dished: the
+ * rim and tyre stay centred, but the cassette crowds the drive (+Z) side, so that flange sits close to the centre
+ * (19 mm) and the non-drive flange far out (36 mm), with the rotor outboard of it. The spokes slope accordingly.
+ */
+export const REAR_HUB = { ...HUB, halfSpread: 71, shellHalf: 66, flangeDrive: 19, flangeLeft: 36, rotorZ: -46 };
 
 export const RIM = {
   /**
@@ -99,8 +106,8 @@ export const CASSETTE = {
   toothHeight: 2.2,
   /** radial depth of a tooth, tip to valley */
   toothDepth: 3.4,
-  /** axial distance from the wheel centre to the largest cog */
-  z0: 42,
+  /** axial distance from the wheel centre to the largest cog (the middle cogs sit on the 43.5 mm road chain line) */
+  z0: 25,
   /** axial distance between cogs */
   spacing: 3.4,
   thickness: 2.2,
@@ -128,6 +135,6 @@ export const RD = {
   pulleyTip: 19,
   pulleyRoot: 16,
   /** the frame's drive-side dropout face, and the z of the pulleys (the chain line) */
-  dropZ: 38,
-  chainZ: 60,
+  dropZ: REAR_HUB.halfSpread,
+  chainZ: 46,
 } as const;
