@@ -100,7 +100,7 @@ function bodyLathe(unitKey: string, len0: number, len: number, k: number, unit: 
 }
 
 /** Reference lengths (mm at 1800 mm / 75 kg) the shared reference limbs are built at. */
-export const LIMB_LEN0 = { thigh: 440, calf: 430, upperArm: 300, forearm: 260, torso: 520, neck: 120, trap: 110, hand: 120, pelvis: 280, shoe: 270 } as const;
+export const LIMB_LEN0 = { thigh: 440, calf: 430, upperArm: 300, forearm: 260, torso: 520, neck: 120, trap: 110, hand: 120, pelvis: 280 } as const;
 
 // ── Lathe limbs ─────────────────────────────────────────────────────────────
 

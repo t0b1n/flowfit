@@ -14,6 +14,11 @@ export interface Mats {
   spoke: MatEl;
   /** bar tape / hoods */
   tape: MatEl;
+  /** traced road shoe: white upper, black sole, black collar lining, silver BOA dials */
+  shoeUpper: MatEl;
+  shoeSole: MatEl;
+  shoeLining: MatEl;
+  boa: MatEl;
   /** The same materials as plain three.js objects, for the mesh builders (riderMesh / bike3d). */
   m: {
     frame: THREE.Material;
@@ -39,6 +44,10 @@ export interface Mats {
     rail: THREE.Material;
     /** the traced saddle's carbon rails */
     saddleRail: THREE.Material;
+    shoeUpper: THREE.Material;
+    shoeSole: THREE.Material;
+    shoeLining: THREE.Material;
+    boa: THREE.Material;
   };
   raw: THREE.Material[];
 }
@@ -66,10 +75,15 @@ export function buildMats(theme: Theme): Mats {
   const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
   const rdBody = new THREE.MeshPhysicalMaterial({ color: "#16171a", roughness: 0.3, metalness: 0.25, clearcoat: 0.9, clearcoatRoughness: 0.15 });
   const titanium = new THREE.MeshStandardMaterial({ color: "#8e9094", roughness: 0.4, metalness: 0.85 });
+  const shoeUpper = new THREE.MeshStandardMaterial({ color: "#f2f2f0", roughness: 0.55, metalness: 0 });
+  const shoeSole = new THREE.MeshStandardMaterial({ color: "#121212", roughness: 0.5, metalness: 0.05 });
+  const shoeLining = new THREE.MeshStandardMaterial({ color: "#161616", roughness: 0.95, metalness: 0 });
+  const boa = new THREE.MeshStandardMaterial({ color: "#c9cbcf", roughness: 0.3, metalness: 0.85 });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail],
+    shoeUpper: el(shoeUpper), shoeSole: el(shoeSole), shoeLining: el(shoeLining), boa: el(boa),
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail, shoeUpper, shoeSole, shoeLining, boa },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail, shoeUpper, shoeSole, shoeLining, boa],
   };
 }
 
@@ -89,7 +103,7 @@ function cssColor(css: string): THREE.Color {
 }
 
 /** Fills the 2D side view uses, read from the real stylesheet so the two renderers cannot drift apart. */
-function readS2dColors(theme: Theme): Record<"frame" | "carbon" | "clay" | "tyre" | "alloy" | "rotor" | "saddle", THREE.Color> {
+function readS2dColors(theme: Theme): Record<"frame" | "carbon" | "clay" | "tyre" | "alloy" | "rotor" | "saddle" | "shoeUpper" | "shoeSole", THREE.Color> {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("class", "s2d");
   svg.setAttribute("data-theme", theme);
@@ -97,6 +111,7 @@ function readS2dColors(theme: Theme): Record<"frame" | "carbon" | "clay" | "tyre
   const parts: Array<[string, string, "fill" | "stroke"]> = [
     ["frame", "s2d-frame", "fill"], ["carbon", "s2d-carbon", "fill"], ["clay", "s2d-clay", "fill"], ["tyre", "s2d-bar", "stroke"],
     ["alloy", "s2d-hub", "fill"], ["rotor", "s2d-rotor", "stroke"], ["saddle", "s2d-saddle-body", "fill"],
+    ["shoeUpper", "s2d-shoe-upper", "fill"], ["shoeSole", "s2d-shoe-sole", "fill"],
   ];
   const els = parts.map(([, cls]) => {
     const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -146,10 +161,16 @@ export function buildFlatMats(theme: Theme, lit: boolean): Mats {
   // derailleur: black body like the other carbon parts, light grey bolt caps so they read against it
   const rdBody = mk(c.carbon);
   const titanium = mk(new THREE.Color().setRGB(0.56, 0.57, 0.58, THREE.SRGBColorSpace));
+  // shoe: white upper, black sole and lining (the 2D stylesheet's colours), grey BOA dials
+  const shoeUpper = mk(c.shoeUpper);
+  const shoeSole = mk(c.shoeSole);
+  const shoeLining = mk(c.shoeSole);
+  const boa = mk(new THREE.Color().setRGB(0.7, 0.71, 0.73, THREE.SRGBColorSpace));
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail],
+    shoeUpper: el(shoeUpper), shoeSole: el(shoeSole), shoeLining: el(shoeLining), boa: el(boa),
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail, shoeUpper, shoeSole, shoeLining, boa },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail, shoeUpper, shoeSole, shoeLining, boa],
   };
 }
 

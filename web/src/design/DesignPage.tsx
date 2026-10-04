@@ -51,6 +51,8 @@ const SAMPLE_LUT = {
   crankLength: 170,
   hip: SAMPLE_M.hip,
   ankleSetbackMm: 0,
+  ankleRiseMm: 0,
+  shoeLengthMm: 270,
 } as unknown as Parameters<typeof computeAll>[0]["lut"];
 const SAMPLE_PTS = new Map<string, [number, number, number]>([
   ["saddle", [-200, 730, 0]],

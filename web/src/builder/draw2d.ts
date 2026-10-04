@@ -3,7 +3,7 @@
  * converted to SVG (y down) when a point string is produced. Shapes come from the same profile tables as
  * the 3D meshes: `design/riderBody.ts` and `design/bikeProfiles.ts`.
  */
-import { shoeAxis, shoeRadius } from "../design/foot";
+import { SHOE, drawnAnkle, shoePlacement } from "../design/foot";
 import { HEAD_GAZE_OFFSET_DEG, NECK_SLIM, bump, calAt, headDeform, lerp, spinePath, torsoDepth, type SegmentName, type SpinePath } from "../design/riderBody";
 import type { ContactPoint } from "../types";
 
@@ -188,16 +188,14 @@ export interface FigureInput {
   /** far (right) leg pose, from the pedal-stroke LUT at the opposite crank angle */
   far: LegPose | null;
   riderHeightMm: number;
-  /** rider.foot_length (mm, before height scaling) */
+  /** rider.foot_length (mm; already the rider's own length, EU size × 6.67) */
   footLengthMm: number;
   weightKg: number;
 }
 
 /** Bone segments and joints for the skeleton overlay (no outline polygons: those are drawn by the 3D scene now). */
 export function figureSkeleton(f: FigureInput): Pick<FigurePolys, "bones" | "joints"> {
-  const hs = f.riderHeightMm / 1800;
-  const footLen = f.footLengthMm * hs;
-  const ankleVis = v(f.cleat.x - footLen * 0.19, f.ankle.y);
+  const ankleVis = drawnAnkle(f.cleat, f.footLengthMm);
   return {
     bones: [
       [f.hip, f.spineJoint],
@@ -224,12 +222,13 @@ export function buildFigure(f: FigureInput): FigurePolys {
   const torsoProf = (t: number) =>
     k("torso") * calAt("torso", t) * (98 - 16 * bump(t, 0.36, 0.13) + 20 * bump(t, 0.78, 0.16)) * torsoDepth(t);
 
-  const footLen = f.footLengthMm * hs;
-  const visAnkle = (an: V, cleat: V): V => v(cleat.x - footLen * 0.19, an.y);
+  const visAnkle = (_an: V, cleat: V): V => drawnAnkle(cleat, f.footLengthMm);
 
   const shoe = (_an: V, cleat: V): string => {
-    const a = shoeAxis(cleat, footLen * 0.19, hs);
-    return seg(v(a.heel.x, a.heel.y), v(a.toe.x, a.toe.y), (t) => shoeRadius(t, hs));
+    // traced side outline: upper top heel → toe, then the sole bottom back to the heel
+    const { heel, len } = shoePlacement(cleat, f.footLengthMm);
+    const outline = [...SHOE.top, ...[...SHOE.bottom].reverse()];
+    return pts(outline.map(([u, y]) => [heel.x + u * len, heel.y + y * len]));
   };
 
   const ax = Math.atan2(f.shoulder.y - f.hip.y, f.shoulder.x - f.hip.x);
@@ -276,7 +275,7 @@ export function buildFigure(f: FigureInput): FigurePolys {
     [f.shoulder, f.neckBase],
     [f.neckBase, f.head],
     [f.hip, f.knee],
-    [f.knee, v(f.cleat.x - footLen * 0.19, f.ankle.y)],
+    [f.knee, visAnkle(f.ankle, f.cleat)],
     [f.shoulder, f.elbow],
     [f.elbow, f.wrist],
     [f.wrist, f.hands],
@@ -293,6 +292,6 @@ export function buildFigure(f: FigureInput): FigurePolys {
     head: pts(head),
     glove,
     bones,
-    joints: [f.hip, f.spineJoint, f.shoulder, f.elbow, f.wrist, f.knee, v(f.cleat.x - footLen * 0.19, f.ankle.y)],
+    joints: [f.hip, f.spineJoint, f.shoulder, f.elbow, f.wrist, f.knee, visAnkle(f.ankle, f.cleat)],
   };
 }
