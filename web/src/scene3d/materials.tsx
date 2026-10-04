@@ -52,6 +52,9 @@ export interface Mats {
   raw: THREE.Material[];
 }
 
+/** How far the wheel tyres are lifted from the rim's black towards white. */
+const TYRE_LIFT = 0.1;
+
 const el = (m: THREE.Material): MatEl => <primitive object={m} attach="material" />;
 
 export function buildMats(theme: Theme): Mats {
@@ -60,7 +63,8 @@ export function buildMats(theme: Theme): Mats {
   const frame = new THREE.MeshPhysicalMaterial({ color: t.frame, ...m.frame });
   const carbon = new THREE.MeshPhysicalMaterial({ color: t.carbon, ...m.alloy });
   const clay = new THREE.MeshStandardMaterial({ color: t.clay, roughness: m.clay.roughness, metalness: 0 });
-  const tyre = new THREE.MeshStandardMaterial({ ...m.rubber, color: t.tyre });
+  // Tyres read a shade lighter than the glossy carbon rims they sit next to
+  const tyre = new THREE.MeshStandardMaterial({ ...m.rubber, color: new THREE.Color(t.tyre).lerp(new THREE.Color("#ffffff"), TYRE_LIFT) });
   const spoke = new THREE.MeshStandardMaterial({ color: m.spoke.color, roughness: m.spoke.roughness, metalness: m.spoke.metalness });
   const tape = new THREE.MeshStandardMaterial({ color: t.tyre, roughness: 0.85, metalness: 0.05 });
   const alloy = new THREE.MeshStandardMaterial({ color: t.alloy, roughness: m.alloy.roughness, metalness: m.alloy.metalness });
@@ -109,7 +113,7 @@ function readS2dColors(theme: Theme): Record<"frame" | "carbon" | "clay" | "tyre
   svg.setAttribute("data-theme", theme);
   svg.style.cssText = "position:absolute;width:0;height:0;visibility:hidden";
   const parts: Array<[string, string, "fill" | "stroke"]> = [
-    ["frame", "s2d-frame", "fill"], ["carbon", "s2d-carbon", "fill"], ["clay", "s2d-clay", "fill"], ["tyre", "s2d-bar", "stroke"],
+    ["frame", "s2d-frame", "fill"], ["carbon", "s2d-carbon", "fill"], ["clay", "s2d-clay", "fill"], ["tyre", "s2d-tyre", "stroke"],
     ["alloy", "s2d-hub", "fill"], ["rotor", "s2d-rotor", "stroke"], ["saddle", "s2d-saddle-body", "fill"],
     ["shoeUpper", "s2d-shoe-upper", "fill"], ["shoeSole", "s2d-shoe-sole", "fill"],
   ];
@@ -144,7 +148,7 @@ export function buildFlatMats(theme: Theme, lit: boolean): Mats {
   const frame = mk(c.frame);
   const carbon = mk(c.carbon);
   const clay = mk(c.clay);
-  const tyre = mk(c.tyre);
+  const tyre = mk(c.tyre); // .s2d-tyre is already the lifted wheel-tyre tone
   const alloy = mk(c.alloy);
   const rotor = mk(c.rotor);
   const saddle = mk(c.saddle);

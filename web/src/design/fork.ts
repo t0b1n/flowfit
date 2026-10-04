@@ -66,6 +66,43 @@ export function forkWidths(d: number, len: number): { front: number; rear: numbe
   return { front: f0 + (f1 - f0) * k, rear: r0 + (r1 - r0) * k, lat: l0 + (l1 - l0) * k };
 }
 
+/** Simple flat-mount caliper: a base plate against the mount face and the body sitting on it (mm). */
+export const CALIPER = { plateLen: 54, plateT: 5, bodyLen: 40, bodyDepth: 28 };
+
+export interface CaliperSeat {
+  /** centre of the base plate's mounting face, bike coordinates */
+  x: number;
+  y: number;
+  /** unit vector along the plate (up the blade) */
+  ax: number;
+  ay: number;
+  /** unit vector out of the mounting face (away from the axle) */
+  ox: number;
+  oy: number;
+}
+
+/**
+ * Where the front flat-mount caliper sits: its flat base lies flush on the back of the left blade (parallel to it),
+ * high enough up the blade that the rotor's braking track runs through the body. `rotorR` is the rotor radius.
+ */
+export function forkCaliperSeat(crown: P2, axle: P2, rotorR: number): CaliperSeat {
+  const { u, n, len } = forkFrame(crown, axle);
+  // blade rear edge a little above the axle, where the caliper sits
+  const rear = forkWidths(len - 60, len).rear;
+  const bodyMid = CALIPER.plateT + CALIPER.bodyDepth / 2;
+  const q = rear + bodyMid;
+  // centre the body on the middle of the braking track (≈ rotorR − 8 from the axle)
+  const t = Math.sqrt(Math.max(0, (rotorR - 8) ** 2 - q * q));
+  return {
+    x: axle.x - u.x * t - n.x * rear,
+    y: axle.y - u.y * t - n.y * rear,
+    ax: -u.x,
+    ay: -u.y,
+    ox: -n.x,
+    oy: -n.y,
+  };
+}
+
 /** Side outline (bike coordinates, y up): rounded crown cap, leading edge down, round dropout tip, trailing edge up. */
 export function forkOutline(crown: P2, axle: P2, steps = 12): Array<[number, number]> {
   const { u, n, len } = forkFrame(crown, axle);
