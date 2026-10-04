@@ -10,7 +10,7 @@
  *   θ  = bar roll: the angle of the clamp→hood reach line above horizontal.
  *        null = 0: the hoods sit straight ahead of the clamp, independent of the stem.
  *   s  = hood slide along the bend (+ = lower, further round the curve).
- *   base    = R(θ)·(bar_reach + 0.35 s, −0.9 s) + (0, bar_rise)
+ *   base    = R(θ)·(bar_reach + 0.35 s, −0.9 s + bar_rise)   (the riser rotates with the bar)
  *   pitch   = θ − 0.45°·s
  *   contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, hood_drop_offset)
  * bar_drop describes the drops, not the hoods. With rise = slide = 0 and bar_roll = null this is
@@ -61,8 +61,8 @@ const rot = (x: number, y: number, deg: number): ContactPoint => {
 /** Point on the bar where the hood clamps (before the hood's own reach offset). */
 export function hoodBase(barClamp: ContactPoint, c: Components): ContactPoint {
   const s = c.hood_slide_mm ?? 0;
-  const b = rot(c.bar_reach + SLIDE_DX * s, SLIDE_DY * s, effectiveBarRoll(c));
-  return { x: barClamp.x + b.x, y: barClamp.y + b.y + (c.bar_rise ?? 0) };
+  const b = rot(c.bar_reach + SLIDE_DX * s, SLIDE_DY * s + (c.bar_rise ?? 0), effectiveBarRoll(c));
+  return { x: barClamp.x + b.x, y: barClamp.y + b.y };
 }
 
 /** The rider's hand contact on the hoods — the point the fit, IK and solver use. */
@@ -143,14 +143,31 @@ export function buildCockpit(barClamp: ContactPoint, c: Components, hoodModelId?
   const contact = hoodContact(barClamp, c);
   const pc = rot(hood.contact[0], hood.contact[1], pitchDeg);
   const station = { x: contact.x - pc.x, y: contact.y - pc.y };
-  const tops = { x: barClamp.x, y: barClamp.y + rise };
+  const riseVec = rot(0, rise, rollDeg);
+  const tops = { x: barClamp.x + riseVec.x, y: barClamp.y + riseVec.y };
   // The bar runs on under the hood body, then bends down into the drop.
-  const under = rot(16, -22, pitchDeg);
-  const front = { x: station.x + under.x, y: station.y + under.y };
-  const bottomY = tops.y - dropDepth;
-  const front2 = { x: Math.max(front.x, station.x + 8) + 6, y: (front.y + bottomY) / 2 };
-  const dropBottom = { x: front.x - 22, y: bottomY };
-  const dropEnd = { x: dropBottom.x - 72, y: bottomY + 2 };
+  // The drops are laid out for roll = 0, relative to the hood station, then the whole bar rotates
+  // about the clamp centre: the drops swing with the hoods.
+  const flat = effectiveBarRoll(c) === 0 ? { ...c } : { ...c, bar_roll_deg: 0 };
+  const station0 = (() => {
+    const p0 = rot(hood.contact[0], hood.contact[1], hoodPitchDeg(flat));
+    const c0 = hoodContact(barClamp, flat);
+    return { x: c0.x - p0.x, y: c0.y - p0.y };
+  })();
+  const under = rot(16, -22, hoodPitchDeg(flat));
+  const front0 = { x: station0.x + under.x, y: station0.y + under.y };
+  const bottomY = barClamp.y + rise - dropDepth;
+  const front20 = { x: Math.max(front0.x, station0.x + 8) + 6, y: (front0.y + bottomY) / 2 };
+  const dropBottom0 = { x: front0.x - 22, y: bottomY };
+  const dropEnd0 = { x: dropBottom0.x - 72, y: bottomY + 2 };
+  const swing = (p: ContactPoint): ContactPoint => {
+    const d = rot(p.x - station0.x, p.y - station0.y, rollDeg);
+    return { x: station.x + d.x, y: station.y + d.y };
+  };
+  const front = swing(front0);
+  const front2 = swing(front20);
+  const dropBottom = swing(dropBottom0);
+  const dropEnd = swing(dropEnd0);
   const ramp = { x: (tops.x + station.x) / 2, y: Math.max(tops.y, station.y) + 2 };
   const hoodWidth = c.hood_width ?? c.bar_width;
   const dropWidth = c.bar_drop_width ?? hoodWidth;
@@ -192,7 +209,7 @@ export function barCenterline3D(ck: Cockpit, sideZ: 1 | -1): Vec3[] {
   const pts: Vec3[] = [
     [c.x, c.y, z(0)],
     [c.x, c.y, z(22)],
-    [c.x, c.y + ck.rise * 0.5, z(44)],
+    [c.x + (tops.x - c.x) * 0.5, c.y + (tops.y - c.y) * 0.5, z(44)],
     [tops.x - sweep * (66 - 22), tops.y, z(66)],
     [tops.x - sweep * (topsEnd - 22), tops.y, z(topsEnd)],
     [(tops.x + station.x) / 2 - sweep * (hx - 22) * 0.5, Math.max(tops.y, station.y) + 1, z(hx - 6)],

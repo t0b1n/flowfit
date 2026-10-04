@@ -70,7 +70,7 @@ def effective_bar_roll(components: Components) -> float:
 def hood_contact(bar_clamp: Vec2, components: Components) -> Vec2:
     """Hand contact on the hoods. Mirrors web/src/cockpit.ts::hoodContact line for line:
 
-    base    = R(roll)·(bar_reach + 0.35 s, -0.9 s) + (0, bar_rise)
+    base    = R(roll)·(bar_reach + 0.35 s, -0.9 s + bar_rise)
     pitch   = roll - 0.45° s
     contact = clamp + base + R(pitch)·(hood_reach_offset, 0) + (0, hood_drop_offset)
 
@@ -80,9 +80,9 @@ def hood_contact(bar_clamp: Vec2, components: Components) -> Vec2:
     roll = np.radians(effective_bar_roll(components))
     pitch = roll + np.radians(SLIDE_PITCH_DEG * s)
     bx = components.bar_reach + SLIDE_DX * s
-    by = SLIDE_DY * s
+    by = SLIDE_DY * s + components.bar_rise
     base_x = bar_clamp.x + bx * np.cos(roll) - by * np.sin(roll)
-    base_y = bar_clamp.y + bx * np.sin(roll) + by * np.cos(roll) + components.bar_rise
+    base_y = bar_clamp.y + bx * np.sin(roll) + by * np.cos(roll)
     return Vec2(
         base_x + components.hood_reach_offset * np.cos(pitch),
         base_y + components.hood_reach_offset * np.sin(pitch) + components.hood_drop_offset,
