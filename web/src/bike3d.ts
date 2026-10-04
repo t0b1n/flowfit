@@ -10,7 +10,8 @@
 
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
-import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
+import { buildRearDerailleur } from "./derailleur3d";
+import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { forkFrame, forkSpine } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -302,6 +303,9 @@ export interface BikeMaterials {
   /** silver cogs; `cassetteEdge` is a BackSide dark material drawn as a thin outline around each cog */
   cassette?: THREE.Material;
   cassetteEdge?: THREE.Material;
+  /** gloss black derailleur body and grey titanium bolt caps (fall back to carbon / alloy) */
+  rdBody?: THREE.Material;
+  titanium?: THREE.Material;
 }
 
 type V3 = [number, number, number];
@@ -589,22 +593,28 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const lock = new THREE.Mesh(prim("cassette|lockring", () => lockringGeometry()), pick("drivetrain", mats.tyre));
     lock.position.set(rear[0], rear[1], lockZ);
     g.add(lock);
-    const up = new THREE.Vector3(rear[0] + 8, rear[1] - 58, 58);
-    const lo = new THREE.Vector3(rear[0] + 28, rear[1] - 118, 58);
-    g.add(taper(vv(rear).add(new THREE.Vector3(-6, -8, 64)), vv(rear).add(new THREE.Vector3(-22, -36, 72)), 13, 12, pick("drivetrain", mats.carbon), 4));
-    g.add(taper(vv(rear).add(new THREE.Vector3(-22, -36, 72)), up.clone().add(new THREE.Vector3(-4, 4, 8)), 12, 12, pick("drivetrain", mats.carbon), 4));
-    g.add(taper(up, lo, 10, 10, pick("drivetrain", mats.carbon), 4));
-    for (const p of [up, lo]) {
-      const pu = new THREE.Mesh(prim("pulley", () => new THREE.CylinderGeometry(17, 17, 8, 24)), pick("drivetrain", mats.alloy));
-      pu.rotation.x = Math.PI / 2;
-      pu.position.copy(p).add(new THREE.Vector3(0, 0, 6));
-      g.add(pu);
-    }
+    // Rear derailleur: hung off the drive-side dropout by a hanger plate (derailleur3d.ts)
+    g.add(
+      buildRearDerailleur(
+        rear,
+        {
+          body: mats.rdBody ?? mats.carbon,
+          titanium: mats.titanium ?? mats.alloy,
+          pulley: mats.rdBody ?? mats.carbon,
+          frame: mats.frame,
+          axle: mats.alloy,
+        },
+        prim,
+        pick,
+      ),
+    );
+    const up = new THREE.Vector3(rear[0] + RD.upper.x, rear[1] + RD.upper.y, RD.chainZ);
+    const lo = new THREE.Vector3(rear[0] + RD.lower.x, rear[1] + RD.lower.y, RD.chainZ);
     // Chain: big ring top → cassette top; ring bottom → pulleys → cassette bottom
     const ringTop = new THREE.Vector3(bb[0], bb[1] + CHAINRING.big.root, 46);
     const ringBot = new THREE.Vector3(bb[0], bb[1] - CHAINRING.big.root, 46);
-    const cogTop = new THREE.Vector3(rear[0], rear[1] + 40, 50);
-    const cogBot = new THREE.Vector3(rear[0], rear[1] - 40, 50);
+    const cogTop = new THREE.Vector3(rear[0], rear[1] + 50, 50);
+    const cogBot = new THREE.Vector3(rear[0], rear[1] - 50, 50);
     const run = (pts: THREE.Vector3[]) => {
       for (let i = 0; i < pts.length - 1; i++) {
         g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.cassette ?? mats.alloy), 1));
@@ -612,7 +622,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       }
     };
     run([ringTop, cogTop]);
-    run([ringBot, lo.clone().add(new THREE.Vector3(-12, -17, 0)), lo.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(-12, 17, 0)), cogBot]);
+    run([ringBot, lo.clone().add(new THREE.Vector3(-13, -15, 0)), lo.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(-13, 15, 0)), cogBot]);
     // Front derailleur
     const fd = new THREE.Mesh(prim("box|front-derailleur", () => new THREE.BoxGeometry(70, 26, 12)), pick("drivetrain", mats.alloy));
     fd.position.set(bb[0] + (cl[0] - bb[0]) * 0.27, bb[1] + (cl[1] - bb[1]) * 0.27, 62);

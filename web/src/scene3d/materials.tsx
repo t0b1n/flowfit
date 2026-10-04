@@ -27,6 +27,9 @@ export interface Mats {
     /** silver cogs and the dark back-face shell that outlines each one */
     cassette: THREE.Material;
     cassetteEdge: THREE.Material;
+    /** gloss black derailleur body, grey titanium bolt caps */
+    rdBody: THREE.Material;
+    titanium: THREE.Material;
     /** matte rubber hood covers */
     hood: THREE.Material;
     /** gloss carbon brake blades */
@@ -61,10 +64,12 @@ export function buildMats(theme: Theme): Mats {
   const saddleRail = new THREE.MeshStandardMaterial({ color: "#1c1c1c", roughness: 0.45, metalness: 0.3 });
   const cassette = new THREE.MeshStandardMaterial({ color: "#d8d4c8", roughness: 0.3, metalness: 0.8 });
   const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
+  const rdBody = new THREE.MeshPhysicalMaterial({ color: "#16171a", roughness: 0.3, metalness: 0.25, clearcoat: 0.9, clearcoatRoughness: 0.15 });
+  const titanium = new THREE.MeshStandardMaterial({ color: "#8e9094", roughness: 0.4, metalness: 0.85 });
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail],
   };
 }
 
@@ -138,10 +143,13 @@ export function buildFlatMats(theme: Theme, lit: boolean): Mats {
   // silver cogs with a dark edge shell (the depth-edge pass can't see steps this small)
   const cassette = mk(new THREE.Color().setRGB(0.85, 0.83, 0.78, THREE.SRGBColorSpace));
   const cassetteEdge = new THREE.MeshBasicMaterial({ color: "#1a1a1a", side: THREE.BackSide });
+  // derailleur: black body like the other carbon parts, light grey bolt caps so they read against it
+  const rdBody = mk(c.carbon);
+  const titanium = mk(new THREE.Color().setRGB(0.56, 0.57, 0.58, THREE.SRGBColorSpace));
   return {
     frame: el(frame), carbon: el(carbon), clay: el(clay), tyre: el(tyre), spoke: el(spoke), tape: el(tape),
-    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail },
-    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, hood, lever, saddle, rail, saddleRail],
+    m: { frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail },
+    raw: [frame, carbon, clay, tyre, spoke, tape, alloy, rotor, cassette, cassetteEdge, rdBody, titanium, hood, lever, saddle, rail, saddleRail],
   };
 }
 
