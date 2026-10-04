@@ -493,7 +493,7 @@ export function BikeStatic({
 }
 
 /** The static clay rider (legs only when no stroke LUT is available; otherwise AnimatedLegs owns them). */
-export function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geometry3DResponse; weightKg: number; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
+export function RiderStatic({ geo, includeLegs, tPose }: { geo: Geometry3DResponse; includeLegs: boolean; tPose?: { groundY: number; centerX: number } }) {
   const M = useMats();
   const debug = useDebugOn();
   const needsNormals = useNeedsNormals();
@@ -504,8 +504,8 @@ export function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geomet
     const heightMm = geo.rider?.height ?? 1800;
     cache.begin();
     const built = tPose
-      ? buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { weightKg, heightMm, includeLegs: true, feet: true }, cache)
-      : buildRiderMeshes(pts, M.m.clay, { weightKg, heightMm, includeLegs, handRollDeg: geo.cockpit?.hoodRollDeg ?? 0 }, cache);
+      ? buildRiderMeshes(tPosePoints(pts, tPose.groundY, tPose.centerX, heightMm), M.m.clay, { heightMm, includeLegs: true, feet: true }, cache)
+      : buildRiderMeshes(pts, M.m.clay, { heightMm, includeLegs, handRollDeg: geo.cockpit?.hoodRollDeg ?? 0 }, cache);
     if (debug) {
       // debug colours by body part (the legend's torso / arm / leg / shoe slots; the head is part of "torso")
       const PART = { torso: "torso", head: "torso", arm: "arm", leg: "leg", shoe: "shoe" } as const;
@@ -515,7 +515,7 @@ export function RiderStatic({ geo, weightKg, includeLegs, tPose }: { geo: Geomet
       });
     }
     return built;
-  }, [geo, weightKg, includeLegs, M, tPose, cache, debug]);
+  }, [geo, includeLegs, M, tPose, cache, debug]);
   useEffect(() => cache.end(), [group, cache]);
   return <primitive object={group} />;
 }
@@ -792,7 +792,6 @@ const SceneContent = React.memo(function SceneContent({
   saddleType,
   show2dOverlay,
   mannequin2D,
-  weightKg = 75,
   strokeLUT,
   stanceWidth = 155,
   crankAngleRef,
@@ -837,7 +836,6 @@ const SceneContent = React.memo(function SceneContent({
   saddleType: SaddleType;
   show2dOverlay: boolean;
   mannequin2D?: MannequinSketch;
-  weightKg?: number;
   strokeLUT?: PedalStrokeLUT;
   stanceWidth?: number;
   crankAngleRef: React.MutableRefObject<number>;
@@ -902,7 +900,7 @@ const SceneContent = React.memo(function SceneContent({
         m.receiveShadow = true;
       }
     });
-  }, [scene, geo, tPose, showMannequin, debugParts, strokeLUT, weightKg, stanceWidth, attachedAssets]);
+  }, [scene, geo, tPose, showMannequin, debugParts, strokeLUT, stanceWidth, attachedAssets]);
 
   return (
     <DebugProvider key={restoreKey} value={debugParts}>
@@ -950,9 +948,9 @@ const SceneContent = React.memo(function SceneContent({
 
       {/* Clay rider (segmented lathe limbs; see riderMesh.ts). T-pose stands on the floor under the pelvis. */}
       {tPose ? (
-        <RiderStatic geo={geo} weightKg={weightKg} includeLegs tPose={{ groundY, centerX: (effPtMap.get("hip_center")?.[0] ?? 0) }} />
+        <RiderStatic geo={geo} includeLegs tPose={{ groundY, centerX: (effPtMap.get("hip_center")?.[0] ?? 0) }} />
       ) : (
-        showMannequin && <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />
+        showMannequin && <RiderStatic geo={geo} includeLegs={!strokeLUT} />
       )}
 
       {/* Animated legs + crankset (replaces the static drivetrain while the
@@ -964,7 +962,6 @@ const SceneContent = React.memo(function SceneContent({
           hipL={hipL}
           bb={bbPt}
           halfStance={stanceWidth / 2}
-          weightKg={weightKg}
           heightMm={geo.rider?.height ?? 1800}
           crankAngleRef={crankAngleRef}
           playing={playing}
@@ -1070,7 +1067,6 @@ const SceneContent = React.memo(function SceneContent({
       {ghost && !tPose && (
         <GhostMannequin
           snapshot={ghost}
-          weightKg={weightKg}
           current={effPtMap as Map<string, [number, number, number]>}
           theme={theme}
         />
@@ -1200,7 +1196,6 @@ interface BikeScene3DProps {
   debugParts?: boolean;
   geo: Geometry3DResponse;
   mannequin2D?: MannequinSketch;
-  weightKg?: number;
   strokeLUT?: PedalStrokeLUT;
   stanceWidth?: number;
   postureBands?: PosturePreset;
@@ -1233,8 +1228,7 @@ function exportCsv(geo: Geometry3DResponse) {
 }
 
 export const BikeScene3D: React.FC<BikeScene3DProps> = ({
-  geo, mannequin2D, weightKg = 75,
-  strokeLUT, stanceWidth, postureBands, compare, debugParts = false, focus: sceneFocus,
+  geo, mannequin2D, strokeLUT, stanceWidth, postureBands, compare, debugParts = false, focus: sceneFocus,
 }) => {
   const [theme] = useTheme();
   const [quality, setQualityState] = useState<Quality>(readQuality);
@@ -1735,7 +1729,6 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
             saddleType={saddleType}
             show2dOverlay={show2dOverlay}
             mannequin2D={mannequin2D}
-            weightKg={weightKg}
             strokeLUT={strokeLUT}
             stanceWidth={stanceWidth}
             crankAngleRef={crankAngleRef}

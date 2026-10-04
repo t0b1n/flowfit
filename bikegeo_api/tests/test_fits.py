@@ -26,7 +26,7 @@ def _register(client, email: str = "a@example.com", password: str = "password12"
 def _payload(name: str = "Fit 1 · Endurance", points: int = 25) -> dict:
     return {
         "name": name,
-        "inputs": {"v": 1, "riderFit": {"height": 1760, "inseam": 860, "weight": 72, "targetKneeFlexDeg": 28}},
+        "inputs": {"v": 1, "riderFit": {"height": 1760, "inseam": 860, "targetKneeFlexDeg": 28}},
         "snapshot": {
             "metrics": dict(METRICS),
             "mannequin_points": [{"name": f"p{i}", "pos": [float(i), 2.0, -3.5]} for i in range(points)],

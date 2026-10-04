@@ -59,7 +59,6 @@ export const DEFAULT_RIDER = {
 export const DEFAULT_RIDER_FIT: RiderFit = {
   height: 1760,
   inseam: 860, // floor-to-crotch inseam, mm
-  weight: 75,  // kg — drives anatomical radius scaling
   // Knee flexion at max extension of the stroke: 35° is the middle of the
   // knee_extension band (140–150°), i.e. the dynamic 30–40° fitting range.
   targetKneeFlexDeg: 35,
@@ -99,6 +98,9 @@ export type BodyMeasurements = {
   footLength: number;
 };
 
+/** Ankle joint → cleat point, as a fraction of height (see buildRider). */
+const ANKLE_TO_CLEAT_FRAC = 0.045;
+
 export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   const heightScale = fit.height / 1800;
   const hipOffset = body?.hipJointOffset ?? 95;
@@ -106,11 +108,15 @@ export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   // ankle. Inseam measures sit-bones-to-floor, so the articulating leg length
   // is inseam + hipOffset.
   const articulatingLeg = fit.inseam + hipOffset;
+  // The IK leg ends at the cleat, not the ankle joint: the shank segment is the tibia plus the ankle-to-cleat offset
+  // (ankle height + sole + cleat, ~4.5% of height). Femur and tibia are about equal (0.245 H / 0.246 H), so the
+  // thigh takes half of what remains. The sum is unchanged, so saddle height still follows the inseam.
+  const thigh = (articulatingLeg - ANKLE_TO_CLEAT_FRAC * fit.height) / 2;
   return {
     ...DEFAULT_RIDER,
     height: fit.height,
-    thigh_length: articulatingLeg * 0.53,
-    shank_length: articulatingLeg * 0.47,
+    thigh_length: thigh,
+    shank_length: articulatingLeg - thigh,
     torso_length: body?.torsoLength ?? DEFAULT_RIDER.torso_length * heightScale,
     upper_arm_length: body?.upperArmLength ?? DEFAULT_RIDER.upper_arm_length * heightScale,
     forearm_length: body?.forearmLength ?? DEFAULT_RIDER.forearm_length * heightScale,

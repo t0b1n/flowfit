@@ -36,7 +36,7 @@ describe("buildRiderMeshes with a cache", () => {
     ["wrist_r", [650, 780, 190]], ["wrist_l", [650, 780, -190]],
     ["hand_r", [700, 770, 190]], ["hand_l", [700, 770, -190]],
   ]);
-  const opts = { weightKg: 75, heightMm: 1800, includeLegs: false };
+  const opts = { heightMm: 1800, includeLegs: false };
   const geoms = (g: THREE.Group) => new Set<THREE.BufferGeometry>(g.children.map((c) => (c as THREE.Mesh).geometry));
 
   it("reuses every rest geometry when only the saddle-side points move", () => {

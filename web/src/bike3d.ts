@@ -169,8 +169,6 @@ export interface MannequinPart3D {
 interface PartSpec {
   type: PrimitiveType;
   baseRadius: number;
-  /** Weight sensitivity exponent: radius = baseRadius * (weight/75)^sensitivity */
-  sensitivity: number;
   /** For tapered_cylinder: end radius base value */
   baseRadiusEnd?: number;
 }
@@ -178,44 +176,39 @@ interface PartSpec {
 // Base radii derived from 2D SVG stroke widths (strokeWidth = diameter, so radius = strokeWidth/2).
 // 2D reference at height=1800: torso 175, thigh 110, shin 82, upper arm 70, forearm 55, head 88r.
 export const MANNEQUIN_EDGE_SPEC: Record<string, PartSpec> = {
-  mannequin_foot:          { type: "tapered_cylinder", baseRadius: 41, sensitivity: 0.10, baseRadiusEnd: 25 },
-  mannequin_shin:          { type: "cylinder",         baseRadius: 48, sensitivity: 0.15 },
-  mannequin_thigh:         { type: "cylinder",         baseRadius: 65, sensitivity: 0.35 },
-  mannequin_hip_bar:       { type: "cylinder",         baseRadius: 75, sensitivity: 0.40 },
-  mannequin_lower_torso:   { type: "cylinder",         baseRadius: 95, sensitivity: 0.45 },
-  mannequin_upper_torso:   { type: "cylinder",         baseRadius: 105, sensitivity: 0.45 },
-  mannequin_neck:          { type: "cylinder",         baseRadius: 28, sensitivity: 0.25 },
-  mannequin_shoulder_bar:  { type: "cylinder",         baseRadius: 35, sensitivity: 0.20 },
-  mannequin_upper_arm:     { type: "cylinder",         baseRadius: 35, sensitivity: 0.20 },
-  mannequin_forearm:       { type: "cylinder",         baseRadius: 28, sensitivity: 0.10 },
-  mannequin_hand:          { type: "capsule",          baseRadius: 23, sensitivity: 0.05 },
+  mannequin_foot:          { type: "tapered_cylinder", baseRadius: 41, baseRadiusEnd: 25 },
+  mannequin_shin:          { type: "cylinder",         baseRadius: 48 },
+  mannequin_thigh:         { type: "cylinder",         baseRadius: 65 },
+  mannequin_hip_bar:       { type: "cylinder",         baseRadius: 75 },
+  mannequin_lower_torso:   { type: "cylinder",         baseRadius: 95 },
+  mannequin_upper_torso:   { type: "cylinder",         baseRadius: 105 },
+  mannequin_neck:          { type: "cylinder",         baseRadius: 28 },
+  mannequin_shoulder_bar:  { type: "cylinder",         baseRadius: 35 },
+  mannequin_upper_arm:     { type: "cylinder",         baseRadius: 35 },
+  mannequin_forearm:       { type: "cylinder",         baseRadius: 28 },
+  mannequin_hand:          { type: "capsule",          baseRadius: 23 },
 };
 
 // Joint sphere radii — smaller than adjacent limbs so they sit recessed in articulation gaps.
 export const MANNEQUIN_JOINT_SPEC: Record<string, PartSpec> = {
-  head_center:      { type: "sphere", baseRadius: 88, sensitivity: 0.05 },
-  spine_joint:      { type: "sphere", baseRadius: 80, sensitivity: 0.45 },
-  shoulder_r:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
-  shoulder_l:       { type: "sphere", baseRadius: 30, sensitivity: 0.20 },
-  elbow_r:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
-  elbow_l:          { type: "sphere", baseRadius: 28, sensitivity: 0.20 },
-  wrist_r:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
-  wrist_l:          { type: "sphere", baseRadius: 22, sensitivity: 0.10 },
-  hip_r:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
-  hip_l:            { type: "sphere", baseRadius: 55, sensitivity: 0.40 },
-  knee_r:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
-  knee_l:           { type: "sphere", baseRadius: 52, sensitivity: 0.35 },
-  ankle_r:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
-  ankle_l:          { type: "sphere", baseRadius: 34, sensitivity: 0.15 },
+  head_center:      { type: "sphere", baseRadius: 88 },
+  spine_joint:      { type: "sphere", baseRadius: 80 },
+  shoulder_r:       { type: "sphere", baseRadius: 30 },
+  shoulder_l:       { type: "sphere", baseRadius: 30 },
+  elbow_r:          { type: "sphere", baseRadius: 28 },
+  elbow_l:          { type: "sphere", baseRadius: 28 },
+  wrist_r:          { type: "sphere", baseRadius: 22 },
+  wrist_l:          { type: "sphere", baseRadius: 22 },
+  hip_r:            { type: "sphere", baseRadius: 55 },
+  hip_l:            { type: "sphere", baseRadius: 55 },
+  knee_r:           { type: "sphere", baseRadius: 52 },
+  knee_l:           { type: "sphere", baseRadius: 52 },
+  ankle_r:          { type: "sphere", baseRadius: 34 },
+  ankle_l:          { type: "sphere", baseRadius: 34 },
 };
 
 /** Fraction of segment length to trim from EACH end to reveal joint spheres */
 export const GAP_FRACTION = 0.06;
-
-export function scaleRadius(base: number, weightKg: number, sensitivity: number): number {
-  const w = weightKg / 75;
-  return base * Math.pow(w, sensitivity);
-}
 
 // Leg points/edges are excluded from the declarative mannequin when the
 // pedaling animation owns them (AnimatedLegs mutates their transforms per frame).
@@ -229,12 +222,10 @@ export const LEG_EDGE_GROUPS = new Set([
 /**
  * Build mannequin part descriptors from 3D points and edges.
  * Supports sphere joints, cylinders, capsules, and tapered cylinders.
- * Body part radii scale anatomically with rider weight.
  */
 export function buildMannequinParts(
   points: Geometry3DPoint[],
   edges: Geometry3DEdge[],
-  weightKg: number = 75,
 ): MannequinPart3D[] {
   const ptMap = new Map<string, [number, number, number]>();
   for (const p of points) {
@@ -251,9 +242,9 @@ export function buildMannequinParts(
     const startPt = ptMap.get(edge.a);
     const endPt = ptMap.get(edge.b);
     if (!startPt || !endPt) continue;
-    const r1 = scaleRadius(spec.baseRadius, weightKg, spec.sensitivity);
+    const r1 = spec.baseRadius;
     const r2 = spec.baseRadiusEnd != null
-      ? scaleRadius(spec.baseRadiusEnd, weightKg, spec.sensitivity)
+      ? spec.baseRadiusEnd
       : r1;
 
     // Inset start/end along segment axis to create articulation gap
@@ -277,7 +268,7 @@ export function buildMannequinParts(
   for (const [name, spec] of Object.entries(MANNEQUIN_JOINT_SPEC)) {
     const pos = ptMap.get(name);
     if (!pos) continue;
-    const r = scaleRadius(spec.baseRadius, weightKg, spec.sensitivity);
+    const r = spec.baseRadius;
     parts.push({ type: "sphere", start: pos, end: pos, radiusStart: r, radiusEnd: r, group: `joint_${name}` });
   }
 

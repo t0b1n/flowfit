@@ -141,16 +141,6 @@ export function gear(c: V, teeth: number, outer: number, root: number): string {
 
 // ── Rider ───────────────────────────────────────────────────────────────────
 
-/** Weight sensitivity per segment (same exponents as MANNEQUIN_EDGE_SPEC). */
-const SENSITIVITY: Record<SegmentName, number> = {
-  thigh: 0.35,
-  calf: 0.15,
-  upperArm: 0.2,
-  forearm: 0.1,
-  torso: 0.45,
-  neck: 0.25,
-};
-
 export interface LegPose {
   knee: V;
   ankle: V;
@@ -190,7 +180,6 @@ export interface FigureInput {
   riderHeightMm: number;
   /** rider.foot_length (mm; already the rider's own length, EU size × 6.67) */
   footLengthMm: number;
-  weightKg: number;
 }
 
 /** Bone segments and joints for the skeleton overlay (no outline polygons: those are drawn by the 3D scene now). */
@@ -214,7 +203,7 @@ export function figureSkeleton(f: FigureInput): Pick<FigurePolys, "bones" | "joi
 
 export function buildFigure(f: FigureInput): FigurePolys {
   const hs = f.riderHeightMm / 1800;
-  const k = (seg_: SegmentName) => hs * Math.pow(f.weightKg / 75, SENSITIVITY[seg_]);
+  const k = (_seg: SegmentName) => hs;
   const thigh = (t: number) => k("thigh") * calAt("thigh", t) * (lerp(86, 50, t) + 12 * bump(t, 0.3, 0.2));
   const calf = (t: number) => k("calf") * calAt("calf", t) * (lerp(40, 20, t) + 6 * bump(t, 0.3, 0.14));
   const upperArm = (t: number) => k("upperArm") * calAt("upperArm", t) * (lerp(36, 28, t) + 7 * bump(t, 0.45, 0.2));

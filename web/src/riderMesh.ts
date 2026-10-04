@@ -208,7 +208,6 @@ export function muscleLimbGeometry(
 export interface RiderMeshOpts {
   /** inward hood rotation (deg): the hands roll with the hoods */
   handRollDeg?: number;
-  weightKg: number;
   /** rider height in mm; radii scale by height / 1800 */
   heightMm: number;
   /** false when AnimatedLegs owns the legs */
@@ -217,9 +216,16 @@ export interface RiderMeshOpts {
   feet?: boolean;
 }
 
-/** Radius multiplier for a segment: (weight / 75)^sensitivity × height / 1800. */
-const SENS: Record<SegmentName, number> = { thigh: 0.35, calf: 0.15, upperArm: 0.2, forearm: 0.1, torso: 0.45, neck: 0.25 };
-export const segScale = (seg: SegmentName, weightKg: number, heightMm: number) => (heightMm / 1800) * Math.pow(weightKg / 75, SENS[seg]);
+/**
+ * Radius multiplier for a segment. Everything scales with height / 1800; the leg segments also follow their own length
+ * (geometric mean of the two), so a long-legged rider gets proportionally fuller thighs and calves instead of stretched
+ * ones. `len` is the drawn bone length (mm).
+ */
+export const segScale = (seg: SegmentName, heightMm: number, len?: number) => {
+  const hs = heightMm / 1800;
+  if (len === undefined || (seg !== "thigh" && seg !== "calf")) return hs;
+  return Math.sqrt(hs * (len / LIMB_LEN0[seg]));
+};
 
 /**
  * Bend a torso lathe (local +Y = spine, local x = fore-aft, local z = lateral) onto `path`. The rest lathe sits 10 mm
@@ -263,12 +269,12 @@ export function limbMesh(
   a: P3,
   b: P3,
   mat: THREE.Material,
-  opts: { weightKg: number; heightMm: number; anteriorWorld: THREE.Vector3; sideZ: 1 | -1 },
+  opts: { heightMm: number; anteriorWorld: THREE.Vector3; sideZ: 1 | -1 },
   cache?: GeometryCache,
 ): THREE.Mesh {
   const prof = PROFILES[seg];
-  const k = segScale(seg, opts.weightKg, opts.heightMm);
   const len = v3(a).distanceTo(v3(b));
+  const k = segScale(seg, opts.heightMm, len);
   const unitBulges = resolveBulges(prof.bulges, a, b, opts.anteriorWorld, opts.sideZ);
   const bulges = unitBulges.map((u) => ({ ...u, amp: u.amp * k }));
   const build = () => muscleLimb(seg, len, k, unitBulges);
@@ -335,7 +341,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   };
   const get = (n: string) => pts.get(n);
   const hs = opts.heightMm / 1800;
-  const o = { weightKg: opts.weightKg, heightMm: opts.heightMm };
+  const o = { heightMm: opts.heightMm };
 
   const hipC = get("hip_center");
   const shC = get("shoulder_center");
@@ -347,7 +353,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   // Torso: pelvis → waist → ribcage → chest, V-taper (width) and depth from calibration. The spine runs hip → shoulder
   // as a smooth curve (spinePath); the shoulder is the solver's, only the surface bends.
   const path = spinePath({ x: hipC[0], y: hipC[1] }, spine ? { x: spine[0], y: spine[1] } : { x: (hipC[0] + shC[0]) / 2, y: (hipC[1] + shC[1]) / 2 }, { x: shC[0], y: shC[1] });
-  const kt = segScale("torso", opts.weightKg, opts.heightMm);
+  const kt = segScale("torso", opts.heightMm);
   const torsoLathe = (len: number, k: number) => {
     const tg = limbGeometry(len, (t) => PROFILES.torso.radius(t) * k, 40, 56);
     const tp = tg.attributes.position as THREE.BufferAttribute;
@@ -434,7 +440,7 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
     add(tm, "torso");
   }
   // neck + plain clay head
-  const kn = segScale("neck", opts.weightKg, opts.heightMm) * calAt("neck", 0.5) * NECK_SLIM;
+  const kn = segScale("neck", opts.heightMm) * calAt("neck", 0.5) * NECK_SLIM;
   const neckLen = v3(neckBase).distanceTo(v3(head));
   const neckGeom = () => bodyLathe("neck", LIMB_LEN0.neck, neckLen, kn, () => limbGeometry(LIMB_LEN0.neck, (t) => lerp(44, 40, t), 8, 24), () => limbGeometry(neckLen, (t) => lerp(44, 40, t) * kn, 8, 24));
   const neck = new THREE.Mesh(cache ? cache.get(`lathe|neck|${k1(neckLen)}|${k3(kn)}`, neckGeom) : neckGeom(), mat);

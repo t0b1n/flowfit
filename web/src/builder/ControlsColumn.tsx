@@ -180,14 +180,6 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
                 variant="target"
                 onChange={(v) => updateBodyMeasurement("footLength", v * 6.67)}
               />
-              <SliderCard
-                label="Body weight"
-                value={`${riderFit.weight} kg`}
-                min={40} max={130} step={1}
-                sliderValue={riderFit.weight}
-                variant="target"
-                onChange={(v) => setRiderFit((f) => ({ ...f, weight: v }))}
-              />
             </div>
             <button className="ghost-button" onClick={() => setBodyMeasurements({})}>
               Reset to height defaults

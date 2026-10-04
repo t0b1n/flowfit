@@ -25,7 +25,6 @@ import { TOKENS } from "../design/tokens";
 export interface OrthoSceneProps {
   geo: Geometry3DResponse;
   strokeLUT?: PedalStrokeLUT;
-  weightKg: number;
   stanceWidth: number;
   view: "side" | "front";
   /** SVG viewBox string of the overlay this canvas sits under: the camera frustum is derived from it */
@@ -171,7 +170,7 @@ function DevHandles() {
   return null;
 }
 
-function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, look, theme, debug = false, visibility, saddleType = "power", outline }: OrthoSceneProps) {
+function OrthoContent({ geo, strokeLUT, stanceWidth, view, viewBox, look, theme, debug = false, visibility, saddleType = "power", outline }: OrthoSceneProps) {
   const restoreKey = useContextRestore();
   const invalidate = useThree((s) => s.invalidate);
   const crankAngleRef = useRef(0);
@@ -183,11 +182,11 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
   const bb = pt("bb") ?? ([0, 0, 0] as [number, number, number]);
   useEffect(() => {
     invalidate();
-  }, [invalidate, geo, strokeLUT, weightKg, stanceWidth, look, theme, debug]);
+  }, [invalidate, geo, strokeLUT, stanceWidth, look, theme, debug]);
 
   const styleKey = useMemo(() => ({}), [look, theme, debug, restoreKey]);
   const visKey = visibility ? Object.values(visibility).join() : "";
-  const dirtyKey = useMemo(() => ({}), [geo, strokeLUT, weightKg, styleKey, visKey]);
+  const dirtyKey = useMemo(() => ({}), [geo, strokeLUT, styleKey, visKey]);
   const lit = look === "flatLit";
   return (
     <DebugProvider key={restoreKey} value={debug}>
@@ -201,7 +200,7 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
         ) : null}
         <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} />
         <SaddleMesh geo={geo} saddleType={saddleType} />
-        <RiderStatic geo={geo} weightKg={weightKg} includeLegs={!strokeLUT} />
+        <RiderStatic geo={geo} includeLegs={!strokeLUT} />
         {strokeLUT && hipR && hipL ? (
           <AnimatedLegs
             lut={strokeLUT}
@@ -209,7 +208,6 @@ function OrthoContent({ geo, strokeLUT, weightKg, stanceWidth, view, viewBox, lo
             hipL={hipL}
             bb={bb}
             halfStance={stanceWidth / 2}
-            weightKg={weightKg}
             heightMm={geo.rider?.height ?? 1800}
             crankAngleRef={crankAngleRef}
             playing={false}
