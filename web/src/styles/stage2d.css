@@ -316,6 +316,8 @@
 .s2d {
   --s2d-tyre: color-mix(in srgb, var(--ink) 16%, var(--tyre));
   --s2d-carbon: color-mix(in srgb, var(--ink) 16%, var(--carbon));
+  /* wheel tyres sit a shade lighter than the carbon rim band */
+  --s2d-wheel-tyre: color-mix(in srgb, #ffffff 10%, var(--s2d-tyre));
   --s2d-alloy: color-mix(in srgb, var(--ink) 12%, var(--alloy));
   /* white shoe upper, a touch off pure white so it separates from the light surface */
   --s2d-shoe-upper: color-mix(in srgb, var(--ink) 4%, #ffffff);
@@ -352,7 +354,7 @@
 
 .s2d-tyre {
   fill: none;
-  stroke: var(--s2d-tyre);
+  stroke: var(--s2d-wheel-tyre);
   stroke-width: 28;
 }
 
@@ -631,7 +633,7 @@
 /* Front view parts */
 
 .s2d-tyre-front {
-  fill: var(--s2d-tyre);
+  fill: var(--s2d-wheel-tyre);
 }
 
 .s2d-rim-front {

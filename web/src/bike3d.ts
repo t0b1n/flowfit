@@ -13,7 +13,7 @@ import { debugMaterial, partForTube } from "./debug";
 import { buildRearDerailleur } from "./derailleur3d";
 import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
-import { forkFrame, forkSpine } from "./design/fork";
+import { CALIPER, forkCaliperSeat, forkFrame, forkSpine, type CaliperSeat } from "./design/fork";
 import type { Cockpit } from "./cockpit";
 import { GeometryCache, computeNormals, k1 } from "./scene3d/geometryCache";
 
@@ -381,7 +381,7 @@ export function cogGeometry(teeth: number): THREE.BufferGeometry {
   return geo;
 }
 
-function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { rotorR: number; caliperAngle: number }, cache?: GeometryCache) {
+function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { rotorR: number; caliperAngle: number; caliper?: CaliperSeat }, cache?: GeometryCache) {
   const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 6) => taperMesh(a, b, r0, r1, mat, seg, cache);
   /** wheel parts depend only on the wheel radius / rotor radius: placement is the mesh transform */
   const part = <G extends THREE.BufferGeometry>(key: string, build: () => G): G => (cache ? cache.get(`wheel|${key}`, build) : build());
@@ -416,10 +416,26 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
     const e = new THREE.Vector3((rr - 16) * Math.cos(a), (rr - 16) * Math.sin(a), -24);
     w.add(taper(s, e, 4, 4, mats.rotor, 1));
   }
-  // the caliper straddles the outer edge of the rotor (its long side tangent to it) at the angle the frame or fork puts it
-  const cal = new THREE.Mesh(part("caliper", () => new THREE.BoxGeometry(60, 26, 18)), mats.alloy);
-  cal.position.set(Math.cos(opts.caliperAngle) * (rr - 6), Math.sin(opts.caliperAngle) * (rr - 6), -24);
-  cal.rotation.z = opts.caliperAngle - Math.PI / 2;
+  // Simple flat-mount caliper: a base plate on the frame / fork mount face with the body on top, the rotor running
+  // through the body. Local x runs along the plate, y out of the mounting face, z across the bike.
+  const seat = opts.caliper ?? {
+    x: Math.cos(opts.caliperAngle) * (rr - 22),
+    y: Math.sin(opts.caliperAngle) * (rr - 22),
+    ax: -Math.sin(opts.caliperAngle),
+    ay: Math.cos(opts.caliperAngle),
+    ox: Math.cos(opts.caliperAngle),
+    oy: Math.sin(opts.caliperAngle),
+  };
+  const cal = new THREE.Group();
+  cal.position.set(seat.x, seat.y, 0);
+  cal.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(seat.ax, seat.ay, 0), new THREE.Vector3(seat.ox, seat.oy, 0), new THREE.Vector3(0, 0, 1)));
+  const { plateLen, plateT, bodyLen, bodyDepth } = CALIPER;
+  // the plate bridges from the blade (outboard) to the body, which is centred on the rotor
+  const plate = new THREE.Mesh(part("caliper|plate", () => new THREE.BoxGeometry(plateLen, plateT, 36)), mats.alloy);
+  plate.position.set(0, plateT / 2, -35.5);
+  const body = new THREE.Mesh(part("caliper|body", () => new THREE.BoxGeometry(bodyLen, bodyDepth, 24)), mats.alloy);
+  body.position.set(0, plateT + bodyDepth / 2, -24);
+  cal.add(plate, body);
   w.add(cal);
   g.add(w);
 }
@@ -581,11 +597,13 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   const wheelMats: BikeMaterials = opts.debug
     ? { ...mats, carbon: debugMaterial("wheel"), tyre: debugMaterial("wheel"), spoke: debugMaterial("wheel"), alloy: debugMaterial("wheel"), rotor: debugMaterial("brakes") }
     : mats;
-  // Calipers (wheel-local angle from +x, counter-clockwise, side view with the bike facing +x): the rear one sits on the
-  // chainstay/seat stay above and ahead of the axle (about 2 o'clock); the front one is on the back of the fork leg,
-  // just above the axle height (about 9:30).
+  // Calipers: the rear one sits on the chainstay/seat stay above and ahead of the axle (wheel-local angle from +x,
+  // counter-clockwise, about 2 o'clock); the front one is seated on the back of the left fork blade (design/fork.ts).
   if (rear) addWheel(g, rear, wheelRadius, wheelMats, { rotorR: 70, caliperAngle: 0.87 }, cache);
-  if (front) addWheel(g, front, wheelRadius, wheelMats, { rotorR: 80, caliperAngle: 2.7 }, cache);
+  if (front) {
+    const s = hb ? forkCaliperSeat({ x: hb[0], y: hb[1] }, { x: front[0], y: front[1] }, 80) : undefined;
+    addWheel(g, front, wheelRadius, wheelMats, { rotorR: 80, caliperAngle: 2.7, caliper: s && { ...s, x: s.x - front[0], y: s.y - front[1] } }, cache);
+  }
 
   // Rear cassette, derailleur and chain (drive side = rider's right = +Z; forward +x, up +y makes +Z the right-hand side)
   if (rear) {
