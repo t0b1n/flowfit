@@ -44,24 +44,33 @@ export function hullGeometry(circles: readonly Circle[], depth: number): THREE.B
   return new THREE.ExtrudeGeometry(new THREE.Shape(hull), { depth, bevelEnabled: false });
 }
 
-/** A closed polygon with every corner rounded to radius `r`, extruded `depth` along +Z. */
-export function roundedPolyGeometry(poly: readonly Pt[], r: number, depth: number): THREE.BufferGeometry {
-  const n = poly.length;
+/** A closed polygon with every corner rounded to radius `r`, with optional rounded window holes, extruded `depth` along +Z. */
+export function roundedPolyGeometry(poly: readonly Pt[], r: number, depth: number, holes: readonly (readonly Pt[])[] = []): THREE.BufferGeometry {
+  /** trace `pts` as a rounded loop into `path` (a Shape or a hole Path) */
+  const trace = (path: THREE.Path, pts: readonly Pt[]) => {
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const prev = new THREE.Vector2(...pts[(i + n - 1) % n]);
+      const cur = new THREE.Vector2(...pts[i]);
+      const next = new THREE.Vector2(...pts[(i + 1) % n]);
+      const a = prev.clone().sub(cur);
+      const b = next.clone().sub(cur);
+      const k = Math.min(r, a.length() / 2, b.length() / 2);
+      const p0 = cur.clone().add(a.normalize().multiplyScalar(k));
+      const p1 = cur.clone().add(b.normalize().multiplyScalar(k));
+      if (i === 0) path.moveTo(p0.x, p0.y);
+      else path.lineTo(p0.x, p0.y);
+      path.quadraticCurveTo(cur.x, cur.y, p1.x, p1.y);
+    }
+    path.closePath();
+  };
   const sh = new THREE.Shape();
-  for (let i = 0; i < n; i++) {
-    const prev = new THREE.Vector2(...poly[(i + n - 1) % n]);
-    const cur = new THREE.Vector2(...poly[i]);
-    const next = new THREE.Vector2(...poly[(i + 1) % n]);
-    const a = prev.clone().sub(cur);
-    const b = next.clone().sub(cur);
-    const k = Math.min(r, a.length() / 2, b.length() / 2);
-    const p0 = cur.clone().add(a.normalize().multiplyScalar(k));
-    const p1 = cur.clone().add(b.normalize().multiplyScalar(k));
-    if (i === 0) sh.moveTo(p0.x, p0.y);
-    else sh.lineTo(p0.x, p0.y);
-    sh.quadraticCurveTo(cur.x, cur.y, p1.x, p1.y);
+  trace(sh, poly);
+  for (const h of holes) {
+    const hp = new THREE.Path();
+    trace(hp, h);
+    sh.holes.push(hp);
   }
-  sh.closePath();
   return new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false, curveSegments: 6 });
 }
 
@@ -140,10 +149,18 @@ export function buildRearDerailleur(
   // Cage pivot knuckle and its bolt cap, spanning from the links in to the cage plates
   disc("pivot", 13, 50, hangZ + 14, P.x, P.y, body);
   disc("pivotcap", 8, hangZ + 14, hangZ + 16, P.x, P.y, ti);
-  // Cage plates: the outer plate is a broad arm sweeping from the pivot back and down to the lower pulley, ending in a
-  // wide foot round it; the inner plate is fuller around both pulleys
+  // Cage plates. The outer plate is one curved arm: broad at the pivot, narrowing as it sweeps back and down, then
+  // flaring into a triangular foot with a window that shows the lower pulley. The inner plate is fuller.
   const rel = (c: { x: number; y: number }, r: number): Circle => [c.x - P.x, c.y - P.y, r];
-  add(prim("rd|cage-outer", () => hullGeometry([rel(P, 14), rel({ x: U.x - 2, y: U.y - 6 }, 10), rel(L, 14), [L.x - P.x - 10, L.y - P.y - 7, 12]], 4)), body, P.x, P.y, chainZ + 10);
+  const lx = L.x - P.x;
+  const ly = L.y - P.y;
+  const outline: Pt[] = [
+    [-16, 12], [14, 12], [18, -12], [10, -36], [4, -62], // front edge: pivot shield, then down
+    [lx + 20, ly + 10], [lx + 16, ly - 16], [lx - 6, ly - 24], [lx - 26, ly - 18], [lx - 28, ly + 2], // foot round the lower pulley
+    [-30, -62], [-24, -40], [-18, -16], // back edge up to the pivot
+  ];
+  const window: Pt[] = [[lx - 20, ly + 8], [lx + 8, ly + 12], [lx + 2, ly - 12], [lx - 18, ly - 14]];
+  add(prim("rd|cage-outer", () => roundedPolyGeometry(outline, 5, 4, [window])), body, P.x, P.y, chainZ + 10);
   add(prim("rd|cage-inner", () => hullGeometry([rel(P, 12), rel(U, 12), rel(L, 15)], 4)), body, P.x, P.y, chainZ - 14);
   // Toothed pulleys on the chain line, with titanium bolt heads through the cage
   for (const c of [U, L]) {
