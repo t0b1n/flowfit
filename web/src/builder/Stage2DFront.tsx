@@ -145,7 +145,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
             <g key={i}>
               {poly("s2d-carbon", tube(v(cx, 0), v(cx, py), 15, 11), "crank")}
               <rect data-part="pedal" className="s2d-carbon" x={Math.min(cx, ax)} y={-py - 6} width={Math.abs(ax - cx)} height={12} />
-              <rect data-part="pedal" className="s2d-carbon" x={ax - PEDAL_BODY[2] / 2} y={-py - PEDAL_BODY[1] / 2} width={PEDAL_BODY[2]} height={PEDAL_BODY[1]} />
+              <rect data-part="pedal" className="s2d-carbon" x={ax - PEDAL_BODY[2] / 2} y={-py - PEDAL_BODY[1] / 2} width={PEDAL_BODY[2]} height={PEDAL_BODY[1]} rx={6} />
             </g>
           );
         })}

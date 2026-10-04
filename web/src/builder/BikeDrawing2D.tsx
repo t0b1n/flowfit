@@ -6,7 +6,7 @@ import type { Cockpit } from "../cockpit";
 import { CockpitSide } from "./Cockpit2D";
 import { SaddleShape } from "../components/SaddleShape";
 import { add, ellipse, gear, hullOf, norm, pts, seg, slab, sub, tube, v, type V } from "./draw2d";
-import { FORK, forkOutline } from "../design/fork";
+import { CALIPER, FORK, forkCaliperSeat, forkOutline, type CaliperSeat } from "../design/fork";
 
 const P = (x: number, y: number) => `${x.toFixed(1)} ${(-y).toFixed(1)}`;
 const poly = (cls: string, points: string, part?: string) => <polygon className={cls} points={points} data-part={part} />;
@@ -80,7 +80,7 @@ export const FarCrank: React.FC<{ bike: BikeSketch; farSpindle: V | null }> = ({
   farSpindle ? (
     <g data-part="crank">
       {poly("s2d-carbon", tube(bike.bb, farSpindle, 14, 10))}
-      <rect data-part="pedal" className="s2d-carbon" x={farSpindle.x - PEDAL_BODY[0] / 2} y={-farSpindle.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} />
+      <rect data-part="pedal" className="s2d-carbon" x={farSpindle.x - PEDAL_BODY[0] / 2} y={-farSpindle.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} rx={6} />
     </g>
   ) : null;
 
@@ -150,15 +150,28 @@ export const DiscBrakes: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
       })}
     </g>
   );
+  const frontSeat = forkCaliperSeat(hb, front, 80);
+  /** base plate on the mounting face with the body on top (design/fork.ts CALIPER), in the side view's y-down space */
+  const caliper = (s: CaliperSeat) => {
+    const { plateLen, plateT, bodyLen, bodyDepth } = CALIPER;
+    const box = (len: number, from: number, to: number) =>
+      [[-1, from], [1, from], [1, to], [-1, to]].map(([k, d]) => P(s.x + s.ax * (k * len) / 2 + s.ox * d, s.y + s.ay * (k * len) / 2 + s.oy * d)).join(" ");
+    return (
+      <g key={`${s.x}`}>
+        {poly("s2d-caliper", box(plateLen, 0, plateT))}
+        {poly("s2d-caliper", box(bodyLen, plateT, plateT + bodyDepth))}
+      </g>
+    );
+  };
   return (
     <g data-part="brakes">
       {rotor(rear, 70)}
       {rotor(front, 80)}
-      <rect className="s2d-caliper" x={front.x - 88} y={-front.y - 70} width={60} height={26} transform={`rotate(52 ${front.x - 58} ${-front.y - 57})`} />
-      <rect className="s2d-caliper" x={rear.x + 30} y={-rear.y - 54} width={60} height={26} transform={`rotate(-30 ${rear.x + 60} ${-rear.y - 41})`} />
+      {caliper(frontSeat)}
+      {caliper({ x: rear.x + Math.cos(0.87) * 48, y: rear.y + Math.sin(0.87) * 48, ax: -Math.sin(0.87), ay: Math.cos(0.87), ox: Math.cos(0.87), oy: Math.sin(0.87) })}
       <path
         className="s2d-hose"
-        d={`M${P(front.x - 40, front.y + 78)} Q ${P(hb.x + 30, hb.y - 150)} ${P(hb.x + htDown.x * 60 + 26, hb.y + htDown.y * 60)}`}
+        d={`M${P(frontSeat.x + frontSeat.ox * 20, frontSeat.y + frontSeat.oy * 20)} Q ${P(hb.x + 30, hb.y - 150)} ${P(hb.x + htDown.x * 60 + 26, hb.y + htDown.y * 60)}`}
       />
     </g>
   );
@@ -169,7 +182,7 @@ export const NearCrank: React.FC<{ bike: BikeSketch; cleatCrankEnd: V }> = ({ bi
   <g data-part="crank">
     {poly("s2d-carbon", tube(bike.bb, cleatCrankEnd, 15, 10))}
     <circle className="s2d-carbon" cx={bike.bb.x} cy={-bike.bb.y} r={22} />
-    <rect data-part="pedal" className="s2d-carbon" x={cleatCrankEnd.x - PEDAL_BODY[0] / 2} y={-cleatCrankEnd.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} />
+    <rect data-part="pedal" className="s2d-carbon" x={cleatCrankEnd.x - PEDAL_BODY[0] / 2} y={-cleatCrankEnd.y - PEDAL_BODY[1] / 2} width={PEDAL_BODY[0]} height={PEDAL_BODY[1]} rx={6} />
   </g>
 );
 

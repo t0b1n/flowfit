@@ -10,6 +10,7 @@
  *     e.g. pre-built SRAM / Shimano shifter meshes swapped on component change)
  */
 
+import { pedalParts } from "./pedal3d";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
@@ -619,6 +620,7 @@ export function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
   if (!bb) return null;
 
   const arms = [cleatR, cleatL].filter(Boolean) as [number, number, number][];
+  const pedal = pedalParts();
 
   return (
     <group>
@@ -637,10 +639,12 @@ export function Drivetrain3D({ points }: { points: Geometry3DPoint[] }) {
         return (
           <group key={i}>
             {orientedMesh(new THREE.Vector3(bb[0], bb[1], cleat[2] * 0.85), spindle, 9, M.carbon, `arm-${i}`)}
-            <mesh position={spindle.toArray()}>
-              <boxGeometry args={[96, 16, 58]} />
-              {M.carbon}
-            </mesh>
+            <group position={spindle.toArray()} scale={[1, 1, cleat[2] < 0 ? -1 : 1]}>
+              <mesh geometry={pedal.body}>{M.carbon}</mesh>
+              <mesh geometry={pedal.boss}>{M.carbon}</mesh>
+              <mesh geometry={pedal.pad}>{M.tape}</mesh>
+              <mesh geometry={pedal.plate}>{M.boa}</mesh>
+            </group>
           </group>
         );
       })}

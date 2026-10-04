@@ -17,7 +17,8 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { CHAINRING } from "./design/bikeProfiles";
 import { useDbg } from "./debug";
-import { PEDAL_BODY, shoePlacement } from "./design/foot";
+import { shoePlacement } from "./design/foot";
+import { pedalParts } from "./pedal3d";
 import { PROFILES, MASSES, bump, calAt, lerp } from "./design/riderBody";
 import { legPoseAt, PedalStrokeLUT } from "./geometry";
 import { limbGeometry, muscleLimb, resolveBulges, segScale, type P3 } from "./riderMesh";
@@ -223,6 +224,7 @@ export function AnimatedLegs({
   );
   // +z is lateral in the shoe's frame: the right foot as built, the left mirrored
   const sg = shoeGeo();
+  const pedal = pedalParts();
   const shoe = (ref: React.RefObject<THREE.Group>, side: 1 | -1) => (
     <group ref={ref} scale={[lut.shoeLengthMm, lut.shoeLengthMm, side * lut.shoeLengthMm]}>
       <mesh geometry={sg.upper} userData={{ part: "shoe" }}>{dbg("shoe", M.shoeUpper)}</mesh>
@@ -286,18 +288,15 @@ export function AnimatedLegs({
           </mesh>
         </group>
       ))}
-      <group ref={pedalRRef}>
-        <mesh>
-          <boxGeometry args={PEDAL_BODY} />
-          {dbg("pedal", M.tape)}
-        </mesh>
-      </group>
-      <group ref={pedalLRef}>
-        <mesh>
-          <boxGeometry args={PEDAL_BODY} />
-          {dbg("pedal", M.tape)}
-        </mesh>
-      </group>
+      {/* pedals: built with the spindle boss on −z (inboard of the right pedal), the left one mirrored */}
+      {([[pedalRRef, 1], [pedalLRef, -1]] as const).map(([r, side]) => (
+        <group key={side} ref={r} scale={[1, 1, side]}>
+          <mesh geometry={pedal.body}>{dbg("pedal", M.carbon)}</mesh>
+          <mesh geometry={pedal.boss}>{dbg("pedal", M.carbon)}</mesh>
+          <mesh geometry={pedal.pad}>{dbg("pedal", M.tape)}</mesh>
+          <mesh geometry={pedal.plate}>{dbg("pedal", M.boa)}</mesh>
+        </group>
+      ))}
     </group>
   );
 }
