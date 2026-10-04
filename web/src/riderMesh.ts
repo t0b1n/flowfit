@@ -383,11 +383,14 @@ export function buildRiderMeshes(pts: Map<string, P3>, mat: THREE.Material, opts
   const hipR = get("hip_r");
   const hipL = get("hip_l");
   if (hipR && hipL) {
-    const pr = 46 * hs; // reference-matched pelvis: end caps must not read as hip balls
-    const pelLen = Math.abs(hipR[2] - hipL[2]) + 2 * pr;
+    const pr = 46 * hs; // reference-matched pelvis
+    // The bar's rounded end caps must stay inside the thigh tops and the pelvis outline: span 60% of the hip-to-hip
+    // distance, so the caps end about where the torso's pelvis half-width does instead of reading as hip balls.
+    const pelHalf = 0.6 * Math.abs(hipR[2]);
+    const pelLen = 2 * pelHalf;
     const pelGeom = () => bodyLathe("pelvis", LIMB_LEN0.pelvis, pelLen, pr / 46, () => limbGeometry(LIMB_LEN0.pelvis, () => 46, 8, 36), () => limbGeometry(pelLen, () => pr, 8, 36));
     const pel = new THREE.Mesh(cache ? cache.get(`lathe|pelvis|${k1(pelLen)}|${k1(pr)}`, pelGeom) : pelGeom(), mat);
-    pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -(Math.abs(hipR[2]) + pr));
+    pel.position.set(hipC[0] - 16 * hs, hipC[1] - 4 * hs, -pelHalf);
     pel.rotation.x = Math.PI / 2;
     pel.rotation.z = 0;
     // lathe axis is +Y; rotate so it runs along +Z
