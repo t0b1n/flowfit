@@ -1,7 +1,8 @@
 /**
  * Rider body shape numbers shared by the 3D mannequin and the 2D side-view silhouette.
  * STUB: DS lands the numbers from master plan §5.5 / mockups/src/rider3.js; track E owns and may refine this file.
- * Base physique: lean male road racer, 1800 mm / 75 kg. All lengths in mm. Joint positions always come from the
+ * Base physique: lean endurance cyclist, gender-neutral (narrow V-taper, modest muscle), 1800 mm. Radii scale with
+ * height only (and the legs with their own length, riderMesh.segScale). All lengths in mm. Joint positions always come from the
  * app's IK; this file only holds radii and shapes.
  */
 
@@ -44,29 +45,29 @@ export const PROFILES: Record<SegmentName, SegmentProfile> = {
   thigh: {
     radius: (t) => lerp(86, 50, t) + 6 * bump(t, 0.3, 0.2),
     bulges: [
-      { dir: "ant", t: 0.45, w: 0.22, amp: 16, spread: 2 }, // rectus / vastus mass
-      { dir: "ant+med", t: 0.84, w: 0.08, amp: 10, spread: 3 }, // VMO teardrop
-      { dir: "lat", t: 0.45, w: 0.2, amp: 9, spread: 2 }, // vastus lateralis sweep
-      { dir: "post", t: 0.35, w: 0.2, amp: 8, spread: 2 }, // hamstrings
+      { dir: "ant", t: 0.45, w: 0.22, amp: 11, spread: 2 }, // rectus / vastus mass
+      { dir: "ant+med", t: 0.84, w: 0.08, amp: 7, spread: 3 }, // VMO teardrop
+      { dir: "lat", t: 0.45, w: 0.2, amp: 6, spread: 2 }, // vastus lateralis sweep
+      { dir: "post", t: 0.35, w: 0.2, amp: 6, spread: 2 }, // hamstrings
     ],
     scale: [1, 0.92],
   },
   calf: {
     radius: (t) => lerp(42, 20, t) - 2 * bump(t, 0.85, 0.1),
     bulges: [
-      { dir: "post+med", t: 0.3, w: 0.13, amp: 44, spread: 3 }, // gastrocnemius medial head
-      { dir: "post+lat", t: 0.26, w: 0.11, amp: 34, spread: 3 }, // lateral head
-      { dir: "post", t: 0.48, w: 0.14, amp: 12, spread: 2 }, // soleus
-      { dir: "med", t: 0.45, w: 0.14, amp: 15, spread: 2 }, // soleus medial flare
-      { dir: "lat", t: 0.3, w: 0.16, amp: 12, spread: 2 }, // tibialis / peroneals
+      { dir: "post+med", t: 0.3, w: 0.13, amp: 26, spread: 3 }, // gastrocnemius medial head
+      { dir: "post+lat", t: 0.26, w: 0.11, amp: 18, spread: 3 }, // lateral head
+      { dir: "post", t: 0.48, w: 0.14, amp: 8, spread: 2 }, // soleus
+      { dir: "med", t: 0.45, w: 0.14, amp: 8, spread: 2 }, // soleus medial flare
+      { dir: "lat", t: 0.3, w: 0.16, amp: 7, spread: 2 }, // tibialis / peroneals
     ],
     scale: [1, 0.92],
   },
   upperArm: {
     radius: (t) => lerp(36, 28, t),
     bulges: [
-      { dir: "ant", t: 0.52, w: 0.18, amp: 8, spread: 2 }, // biceps
-      { dir: "post", t: 0.38, w: 0.2, amp: 9, spread: 2 }, // triceps
+      { dir: "ant", t: 0.52, w: 0.18, amp: 6, spread: 2 }, // biceps
+      { dir: "post", t: 0.38, w: 0.2, amp: 6, spread: 2 }, // triceps
       { dir: "lat", t: 0.2, w: 0.14, amp: 8, spread: 2 }, // deltoid insertion
     ],
     scale: [1, 1],
@@ -89,36 +90,37 @@ export const PROFILES: Record<SegmentName, SegmentProfile> = {
 };
 
 /**
- * Torso half-width (z, mm at 1800 mm) along the trunk, from an athletic-male reference: pelvis ~125, waist ~135,
- * ribcage ~162. `torsoWidth` is the ratio to the base radius so weight scaling stays in `PROFILES.torso`.
+ * Torso half-width (z, mm at 1800 mm) along the trunk for a lean, neutral build: pelvis ~120, ribcage ~145, a mild
+ * waist. `torsoWidth` is the ratio to the base radius, so the size factor stays in `PROFILES.torso`.
  */
-const torsoHalfWidth = (t: number) => lerp(125, 162, smoothstep(0.12, 0.8, t)) - 8 * bump(t, 0.38, 0.12);
+const torsoHalfWidth = (t: number) => lerp(120, 145, smoothstep(0.12, 0.8, t)) - 6 * bump(t, 0.38, 0.12);
 /** Torso lateral (sz) / front-to-back (sx) multipliers along the trunk (V-taper), before CAL. */
 export const torsoWidth = (t: number) => torsoHalfWidth(t) / PROFILES.torso.radius(t);
 export const torsoDepth = (t: number) => lerp(1.0, 1.15, smoothstep(0.3, 0.85, t));
 
 /** Extra world-space masses (centre offsets are relative to the joint; sizes are ellipsoid semi-axes). */
 export const MASSES = {
-  deltoid: { semiAxes: [38, 47, 36] as [number, number, number], outboard: 14 },
+  deltoid: { semiAxes: [33, 43, 31] as [number, number, number], outboard: 14 },
   lats: { semiAxes: [74, 32, 22] as [number, number, number] },
-  glute: { semiAxes: [56, 52, 52] as [number, number, number] },
-  knee: { radius: 50, depthScale: 0.9 },
+  glute: { semiAxes: [52, 48, 50] as [number, number, number] },
+  knee: { radius: 44, depthScale: 0.9 },
   elbow: { radius: 30 },
   ankle: { radius: 29 },
 } as const;
 
 /**
- * Per-station width calibration against the reference photo of a pro rider (§5.5): a multiplier per station,
+ * Per-station width calibration (lean endurance build, originally fitted to a pro-rider photo, §5.5, then slimmed: calves
+ * and thighs were far heavier than a lean rider's): a multiplier per station,
  * linear between stations and flat beyond. Scales both the base profile and the muscle bulges (torso: depth only).
  * Stomach is deliberately set to 80% of the measured depth.
  */
 export const CAL: Record<SegmentName, ReadonlyArray<readonly [number, number]>> = {
-  thigh: [[0.25, 0.93], [0.5, 0.955], [0.75, 0.97]],
-  calf: [[0.25, 1.27], [0.5, 1.6], [0.75, 1.75]],
-  upperArm: [[0.25, 1.22], [0.5, 1.0], [0.75, 1.04]],
-  forearm: [[0.25, 1.2], [0.5, 1.33], [0.75, 1.1]],
-  torso: [[0.3, 1.0], [0.5, 1.1], [0.7, 0.9]],
-  neck: [[0.5, 1.258]],
+  thigh: [[0.25, 0.9], [0.5, 0.92], [0.75, 0.96]],
+  calf: [[0.25, 1.0], [0.5, 1.12], [0.75, 1.2]],
+  upperArm: [[0.25, 1.1], [0.5, 0.95], [0.75, 1.0]],
+  forearm: [[0.25, 1.1], [0.5, 1.15], [0.75, 1.0]],
+  torso: [[0.3, 1.0], [0.5, 1.05], [0.7, 0.92]],
+  neck: [[0.5, 1.1]],
 };
 
 export const calAt = (segment: SegmentName, t: number): number => {
@@ -154,7 +156,7 @@ export const NECK_SLIM = 0.82;
 /** Head gaze offset from the neck direction, in degrees. */
 export const HEAD_GAZE_OFFSET_DEG = 78;
 
-/** Measured reference widths (mm, side view) the CAL was fitted to; 25%/50%/75% along each bone (torso 30/50/70). */
+/** Measured widths (mm, side view) of the ORIGINAL pro-rider photo; the CAL above is now slimmer than this. Kept for reference; 25%/50%/75% along each bone (torso 30/50/70). */
 export const REFERENCE_WIDTHS_MM = {
   thigh: [179, 165, 131],
   calf: [122, 119, 89],

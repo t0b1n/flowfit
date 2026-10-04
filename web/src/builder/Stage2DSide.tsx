@@ -27,7 +27,6 @@ export interface Stage2DSideProps {
   effectiveFrame: FrameGeometry;
   riderVisibility: RiderVisibility;
   rider: ReturnType<typeof buildRider>;
-  weightKg: number;
   mannequin: MannequinSketch;
   strokeMetrics: PedalStrokeLUT;
   showJointAngles: boolean;
@@ -131,7 +130,6 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
   effectiveFrame,
   riderVisibility,
   rider,
-  weightKg,
   mannequin,
   strokeMetrics,
   showJointAngles,
@@ -162,7 +160,6 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
     far: { knee: farPose.knee, ankle: farPose.ankle, cleat: farPose.cleat },
     riderHeightMm: rider.height,
     footLengthMm: rider.foot_length,
-    weightKg,
   };
   // outline polygons only for the legacy drawing; the skeleton overlay needs just bones and joints
   const fig = legacy ? buildFigure(figInput) : { ...figureSkeleton(figInput), farLeg: [], farShoe: "", farArm: [], torso: [], nearLeg: [], nearShoe: "", nearArm: [], head: "", glove: "" };
@@ -177,7 +174,6 @@ export const Stage2DSide: React.FC<Stage2DSideProps> = ({
       <OrthoScene
         geo={geo3d}
         strokeLUT={strokeMetrics}
-        weightKg={weightKg}
         stanceWidth={components.stance_width ?? 155}
         view="side"
         viewBox={viewBox}

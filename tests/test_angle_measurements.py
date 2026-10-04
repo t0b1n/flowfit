@@ -28,7 +28,8 @@ DEFAULT_HEIGHT = 1760
 DEFAULT_INSEAM = 860
 DEFAULT_HIP_JOINT_OFFSET = 95.0
 
-# buildRider: thigh = inseam * 0.53, shank = inseam * 0.47
+# Fixed fixture leg (a short-legged rider that fits the fixture frame below). Not derived from buildRider: the
+# thigh/shank split and total leg length there come from inseam + hip joint offset and are covered by the web tests.
 DEFAULT_THIGH = DEFAULT_INSEAM * 0.53  # ~455.8
 DEFAULT_SHANK = DEFAULT_INSEAM * 0.47  # ~404.2
 

@@ -553,7 +553,6 @@ export const FitBuilderMode: React.FC = () => {
               debugParts={debugParts}
               geo={geo3d}
               mannequin2D={mannequin}
-              weightKg={riderFit.weight}
               strokeLUT={strokeMetrics}
               stanceWidth={components.stance_width ?? 155}
               postureBands={POSTURE_PRESET}
@@ -561,8 +560,8 @@ export const FitBuilderMode: React.FC = () => {
               focus={focusCockpit ? "cockpit" : undefined}
             />
           ) : view === "side" ? (
-            <Stage2DSide geo3d={geo3d} debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} weightKg={riderFit.weight} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} ghostCockpit={ghostCockpit} showWrist={focusCockpit} />
-          ) : <Stage2DFront geo3d={geo3d} debug={debugParts} compare={history.compareTo ?? sessionSnapshot} weightKg={riderFit.weight} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} ghostCockpit={ghostCockpit} showUci={focusCockpit && showUci} zoomCockpit={focusCockpit} />}
+            <Stage2DSide geo3d={geo3d} debug={debugParts} showKops={showKops} compare={history.compareTo ?? sessionSnapshot} viewBox={viewBox} activeBounds={activeBounds} groundY={groundY} bike={bike} effectiveFrame={effectiveFrame} riderVisibility={riderVisibility} rider={rider} mannequin={mannequin} strokeMetrics={strokeMetrics} showJointAngles={showJointAngles} idealContacts={idealContacts} warnings={warnings} showFitPositions={showFitPositions} components={components} showFrameGeometry={showFrameGeometry} sizeData={sizeData} frameMeasurementVisibility={frameMeasurementVisibility} ghostCockpit={ghostCockpit} showWrist={focusCockpit} />
+          ) : <Stage2DFront geo3d={geo3d} debug={debugParts} compare={history.compareTo ?? sessionSnapshot} wheelRadius={effectiveFrame.wheel_radius} bike={bike} strokeMetrics={strokeMetrics} frontalMannequin={frontalMannequin} rider={rider} components={components} mannequin={mannequin} groundY={groundY} riderVisibility={riderVisibility} ghostCockpit={ghostCockpit} showUci={focusCockpit && showUci} zoomCockpit={focusCockpit} />}
         </div>
       </section>
 

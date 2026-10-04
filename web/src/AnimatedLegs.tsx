@@ -62,7 +62,6 @@ interface AnimatedLegsProps {
   hipL: [number, number, number];
   bb: [number, number, number];
   halfStance: number;
-  weightKg: number;
   /** rider height in mm (radii scale by height / 1800) */
   heightMm?: number;
   crankAngleRef: React.MutableRefObject<number>;
@@ -94,7 +93,7 @@ let shoeRef: ShoeGeometries | null = null;
 const shoeGeo = () => (shoeRef ??= buildShoeGeometries(SWORKS_TORCH));
 
 export function AnimatedLegs({
-  lut, hipR, hipL, bb, halfStance, weightKg, heightMm = 1800,
+  lut, hipR, hipL, bb, halfStance, heightMm = 1800,
   crankAngleRef, playing, cadenceRpm, showLegs,
 }: AnimatedLegsProps) {
   const M = useMats();
@@ -121,7 +120,7 @@ export function AnimatedLegs({
   const p0 = lut.poses[0];
   const dimsKey = [
     p0.knee.x, p0.knee.y, p0.ankle.x, p0.ankle.y, p0.cleat.x, p0.cleat.y, p0.spindle.x, p0.spindle.y, lut.ankleSetbackMm, lut.ankleRiseMm,
-    ...hipR, ...hipL, bb[0], bb[1], halfStance, weightKg, heightMm,
+    ...hipR, ...hipL, bb[0], bb[1], halfStance, heightMm,
   ].map((n) => n.toFixed(2)).join("|");
   const needsNormals = useNeedsNormals();
   const dims = useMemo(() => withNormals(needsNormals, () => {
@@ -137,7 +136,7 @@ export function AnimatedLegs({
     // Rotation about Z keeps the local frame consistent, so one rest pose serves the whole stroke.
     const fwd = new THREE.Vector3(1, 0, 0);
     const mk = (seg: "thigh" | "calf", len: number, a: P3, b: P3, side: 1 | -1) => {
-      const k = segScale(seg, weightKg, heightMm);
+      const k = segScale(seg, heightMm, len);
       return muscleLimb(seg, len, k, resolveBulges(PROFILES[seg].bulges, a, b, fwd, side));
     };
     const thighA: P3 = [hipR[0], hipR[1], halfStance];

@@ -18,7 +18,6 @@ import {
   Geometry3DPoint,
   Geometry3DEdge,
   MANNEQUIN_EDGE_SPEC,
-  scaleRadius,
 } from "./bike3d";
 
 // Scene-graph group names the probe uses to decide what a "rider" is.
@@ -197,12 +196,10 @@ const dist3 = (a: P3, b: P3) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]
  */
 export function GhostMannequin({
   snapshot,
-  weightKg,
   current,
   theme,
 }: {
   snapshot: GhostSnapshot;
-  weightKg: number;
   /** The live rider's points by name, to find where the ghost differs. */
   current: Map<string, P3>;
   theme: Theme;
@@ -237,11 +234,11 @@ export function GhostMannequin({
       if (moved(e.a) < GHOST_SAME_MM && moved(e.b) < GHOST_SAME_MM) continue;
       const spec = MANNEQUIN_EDGE_SPEC[e.group];
       if (!spec) continue;
-      out.push({ start: a, end: b, radius: scaleRadius(spec.baseRadius, weightKg, spec.sensitivity) });
+      out.push({ start: a, end: b, radius: spec.baseRadius });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot, current, weightKg, hairlineOnly]);
+  }, [snapshot, current, hairlineOnly]);
 
   const chain = (names: string[]) => names.map((n) => P.get(n)).filter((p): p is P3 => !!p);
   const leg = chain(["hip_l", "knee_l", "ankle_l", "cleat_l"]);

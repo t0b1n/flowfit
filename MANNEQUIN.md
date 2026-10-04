@@ -17,7 +17,6 @@ Describes how the 2D sagittal-plane skeleton and its 3D bilateral expansion are 
 | `shoulder_width` | Bilateral shoulder spread (centre-to-centre) in mm |
 | `hip_width` | Bilateral hip spread; defaults to 200 mm if absent |
 | `hip_joint_offset` | Vertical rise from saddle contact surface to femoral head (default 95 mm) |
-| `weight_kg` | Rider weight in kg; drives anatomical scaling of mannequin radii (default 75 kg) |
 
 ---
 
@@ -181,27 +180,11 @@ Joint spheres are rendered at key points:
 
 ---
 
-## Weight-based anatomical radius scaling
+## Body size scaling
 
-Body part radii scale with rider weight using per-region sensitivity exponents.
-
-**Formula:** `radius = baseRadius × (weight_kg / 75)^sensitivity`
-
-| Region | Sensitivity | Rationale |
-|---|---|---|
-| Torso (upper + lower) | 0.45 | Largest fat depot — belly, chest |
-| Hip bar / Hip joint | 0.40 | Hips widen significantly |
-| Thigh / Knee joint | 0.35 | Major weight-bearing muscle/fat |
-| Neck | 0.25 | Noticeable with weight |
-| Upper arm / Shoulder / Elbow | 0.20 | Moderate fat storage |
-| Shin / Ankle | 0.15 | Lean, mostly bone/tendon |
-| Forearm / Wrist | 0.10 | Lean region |
-| Foot | 0.10 | Minimal change |
-| Head / Hand | 0.05 | Nearly constant |
-
-**Examples (upper torso base=88, thigh base=55, forearm base=28):**
-- 90 kg rider (w=1.2): upper torso 95 mm (+8%), thigh 58 mm (+6%), forearm 28.5 mm (+2%)
-- 60 kg rider (w=0.8): upper torso 81 mm (-8%), thigh 52 mm (-6%)
+Radii scale with rider height only (`height / 1800`); there is no weight input. The leg segments also follow their own
+drawn length (`riderMesh.segScale`: geometric mean of the height and length scales), so a long-legged rider gets fuller
+thighs and calves rather than stretched ones. The base build is a lean endurance cyclist, gender-neutral.
 
 ---
 

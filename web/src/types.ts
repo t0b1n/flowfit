@@ -117,7 +117,6 @@ export type MannequinSketch = {
 export type RiderFit = {
   height: number;
   inseam: number;
-  weight: number;
   targetKneeFlexDeg: number;
 };
 

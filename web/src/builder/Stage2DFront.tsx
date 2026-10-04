@@ -28,7 +28,6 @@ export interface Stage2DFrontProps {
   bike: BikeSketch;
   strokeMetrics: PedalStrokeLUT;
   riderVisibility: RiderVisibility;
-  weightKg: number;
   wheelRadius: number;
   compare?: import("../fits/capture").CompareTarget | null;
   /** dev-only: colour every component (see src/debug.tsx) */
@@ -56,7 +55,6 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   riderVisibility,
   bike,
   strokeMetrics,
-  weightKg,
   wheelRadius: R,
   compare,
   debug,
@@ -67,7 +65,6 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const legacy = legacy2d();
   const [theme] = useTheme();
   const hs = rider.height / 1800;
-  const wk = (sens: number) => hs * Math.pow(weightKg / 75, sens);
   const cockpit = buildCockpit(bike.barClamp, components);
   const halfW = Math.max(rider.shoulder_width, components.bar_width, components.bar_drop_width ?? 0) / 2 + 150;
   const svgTop = -mannequin.head.y - 80;
@@ -90,13 +87,13 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const farCleatY = farPose.cleat.y;
   const kneeL = v(fm.kneeL.x, farPose.knee.y);
   const ankleL = v(fm.ankleL.x, farPose.ankle.y);
-  const thigh = (t: number) => wk(0.35) * (lerp(86, 50, t) + 8) * 0.95;
-  const shin = (t: number) => wk(0.15) * (lerp(40, 20, t) + 6);
-  const upper = (t: number) => wk(0.2) * lerp(36, 28, t) * 1.15;
-  const fore = (t: number) => wk(0.1) * lerp(31, 18, t);
+  const thigh = (t: number) => hs * (lerp(86, 50, t) + 8) * 0.95;
+  const shin = (t: number) => hs * (lerp(40, 20, t) + 6);
+  const upper = (t: number) => hs * lerp(36, 28, t) * 1.15;
+  const fore = (t: number) => hs * lerp(31, 18, t);
   const shoulderMidY = (fm.shoulderR.y + fm.shoulderL.y) / 2;
   const hipMidY = (fm.hipR.y + fm.hipL.y) / 2;
-  const thighHalf = wk(0.35) * 60;
+  const thighHalf = hs * 60;
   const torso = [
     [fm.shoulderR.x - 30 * hs, shoulderMidY],
     [fm.shoulderL.x + 30 * hs, shoulderMidY],
@@ -114,7 +111,6 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
         <OrthoScene
           geo={geo3d}
           strokeLUT={strokeMetrics}
-          weightKg={weightKg}
           stanceWidth={components.stance_width ?? 155}
           view="front"
           viewBox={viewBox}
@@ -176,7 +172,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
           )}
           {riderVisibility.head && (
             <>
-              {poly("s2d-clay", seg(v(0, shoulderMidY), fm.head, () => wk(0.25) * 44 * 1.2), "torso")}
+              {poly("s2d-clay", seg(v(0, shoulderMidY), fm.head, () => hs * 44 * 1.2), "torso")}
               {poly("s2d-clay", ellipse(fm.head, 76 * hs, 108 * hs), "torso")}
             </>
           )}
