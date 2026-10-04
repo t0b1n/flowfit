@@ -130,10 +130,10 @@ export const RD = {
   /** pulley centres: the cage hangs nearly vertical below the pivot */
   upper: { x: 28, y: -58 },
   lower: { x: 12, y: -118 },
-  /** 13-tooth pulleys */
+  /** 13-tooth pulleys: pitch radius 12.7 / (2 sin(π/13)) = 26.6 mm, tooth tips just outside it, roots just inside */
   pulleyTeeth: 13,
-  pulleyTip: 19,
-  pulleyRoot: 16,
+  pulleyTip: 28,
+  pulleyRoot: 24.5,
   /** the frame's drive-side dropout face, and the z of the pulleys (the chain line) */
   dropZ: REAR_HUB.halfSpread,
   chainZ: 46,

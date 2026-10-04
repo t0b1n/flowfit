@@ -11,7 +11,9 @@
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
 import { buildRearDerailleur } from "./derailleur3d";
-import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, REAR_HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
+import { buildChain } from "./chain3d";
+import { bikeChain } from "./design/chain";
+import { CASSETTE, HEAD_TUBE_JOIN, HUB, RD, REAR_HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { CALIPER, forkCaliperSeat, forkFrame, forkSpine, type CaliperSeat } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -651,21 +653,8 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
         pick,
       ),
     );
-    const up = new THREE.Vector3(rear[0] + RD.upper.x, rear[1] + RD.upper.y, RD.chainZ);
-    const lo = new THREE.Vector3(rear[0] + RD.lower.x, rear[1] + RD.lower.y, RD.chainZ);
-    // Chain: big ring top → cassette top; ring bottom → pulleys → cassette bottom
-    const ringTop = new THREE.Vector3(bb[0], bb[1] + CHAINRING.big.root, 46);
-    const ringBot = new THREE.Vector3(bb[0], bb[1] - CHAINRING.big.root, 46);
-    const cogTop = new THREE.Vector3(rear[0], rear[1] + 50, 46);
-    const cogBot = new THREE.Vector3(rear[0], rear[1] - 50, 46);
-    const run = (pts: THREE.Vector3[]) => {
-      for (let i = 0; i < pts.length - 1; i++) {
-        g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.cassette ?? mats.alloy), 1));
-        if (mats.cassetteEdge && !opts.debug) g.add(taper(pts[i], pts[i + 1], 5, 5, mats.cassetteEdge, 1));
-      }
-    };
-    run([ringTop, cogTop]);
-    run([ringBot, lo.clone().add(new THREE.Vector3(-13, -15, 0)), lo.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(-13, 15, 0)), cogBot]);
+    // Chain: links wrapped round the big ring, the 17T cog and the two cage pulleys (design/chain.ts), on the chain line
+    g.add(buildChain(bikeChain({ x: bb[0], y: bb[1] }, { x: rear[0], y: rear[1] }), RD.chainZ, pick("drivetrain", mats.titanium ?? mats.alloy), pick("drivetrain", mats.alloy), prim));
     // Front derailleur
     const fd = new THREE.Mesh(prim("box|front-derailleur", () => new THREE.BoxGeometry(70, 26, 12)), pick("drivetrain", mats.alloy));
     fd.position.set(bb[0] + (cl[0] - bb[0]) * 0.27, bb[1] + (cl[1] - bb[1]) * 0.27, 62);

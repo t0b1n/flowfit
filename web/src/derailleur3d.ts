@@ -155,13 +155,13 @@ export function buildRearDerailleur(
   const lx = L.x - P.x;
   const ly = L.y - P.y;
   const outline: Pt[] = [
-    [-16, 12], [14, 12], [18, -12], [10, -36], [4, -62], // front edge: pivot shield, then down
-    [lx + 20, ly + 10], [lx + 16, ly - 16], [lx - 6, ly - 24], [lx - 26, ly - 18], [lx - 28, ly + 2], // foot round the lower pulley
-    [-30, -62], [-24, -40], [-18, -16], // back edge up to the pivot
+    [-20, 14], [20, 14], [30, -12], [24, -36], [16, -58], // front edge: pivot shield, then down
+    [lx + 30, ly + 14], [lx + 26, ly - 24], [lx - 6, ly - 33], [lx - 34, ly - 26], [lx - 36, ly + 4], // foot round the (full-size) lower pulley
+    [-36, -62], [-30, -40], [-24, -16], // back edge up to the pivot
   ];
-  const window: Pt[] = [[lx - 20, ly + 8], [lx + 8, ly + 12], [lx + 2, ly - 12], [lx - 18, ly - 14]];
+  const window: Pt[] = [[lx - 20, ly + 12], [lx + 14, ly + 16], [lx + 6, ly - 16], [lx - 20, ly - 18]];
   add(prim("rd|cage-outer", () => roundedPolyGeometry(outline, 5, 4, [window])), body, P.x, P.y, chainZ + 10);
-  add(prim("rd|cage-inner", () => hullGeometry([rel(P, 12), rel(U, 12), rel(L, 15)], 4)), body, P.x, P.y, chainZ - 14);
+  add(prim("rd|cage-inner", () => hullGeometry([rel(P, 12), rel(U, 20), rel(L, 24)], 4)), body, P.x, P.y, chainZ - 14);
   // Toothed pulleys on the chain line, with titanium bolt heads through the cage
   for (const c of [U, L]) {
     add(prim("rd|pulley", () => pulleyGeometry()), pick("drivetrain", mats.pulley), c.x, c.y, chainZ);

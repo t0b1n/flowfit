@@ -1,6 +1,7 @@
 import { PEDAL_BODY } from "../design/foot";
 import React from "react";
-import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius } from "../design/bikeProfiles";
+import { bikeChain } from "../design/chain";
+import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius } from "../design/bikeProfiles";
 import type { BikeSketch } from "../types";
 import type { Cockpit } from "../cockpit";
 import { CockpitSide } from "./Cockpit2D";
@@ -43,17 +44,12 @@ export const Wheel: React.FC<{ axle: V; radius: number }> = ({ axle: c, radius: 
 export const DriveSide: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
   const bb = bike.bb;
   const rear = bike.rearAxle;
-  const up = v(rear.x + 8, rear.y - 58);
-  const lo = v(rear.x + 28, rear.y - 118);
+  const up = v(rear.x + RD.upper.x, rear.y + RD.upper.y);
+  const lo = v(rear.x + RD.lower.x, rear.y + RD.lower.y);
   const { big, small } = CHAINRING;
-  const chain = [
-    [bb.x, bb.y - big.root],
-    [lo.x - 12, lo.y - 17],
-    [lo.x + 17, lo.y],
-    [up.x + 17, up.y],
-    [up.x - 12, up.y + 17],
-    [rear.x, rear.y - 40],
-  ] as const;
+  // the chain wraps the big ring, the 17T cog and both cage pulleys (design/chain.ts); the same path drives the 3D links
+  const loop = bikeChain(bb, rear);
+  const chainPts = loop.polyline(3).map(([x, y]) => `${x.toFixed(1)},${(-y).toFixed(1)}`).join(" ");
   return (
     <g data-part="drivetrain">
       <polygon className="s2d-ring" points={gear(bb, big.teeth, big.outer, big.root)} />
@@ -64,13 +60,15 @@ export const DriveSide: React.FC<{ bike: BikeSketch }> = ({ bike }) => {
         return <polygon key={n} className="s2d-cog" points={gear(rear, n, tip, tip - CASSETTE.toothDepth)} />;
       })}
       <circle className="s2d-lockring" cx={rear.x} cy={-rear.y} r={CASSETTE.lockringR} />
-      <line className="s2d-chain" x1={bb.x} y1={-(bb.y + big.root)} x2={rear.x} y2={-(rear.y + 40)} />
-      <polyline className="s2d-chain" points={chain.map(([x, y]) => `${x},${-y}`).join(" ")} />
+      <circle className="s2d-pulley" cx={up.x} cy={-up.y} r={RD.pulleyRoot} />
+      <circle className="s2d-pulley" cx={lo.x} cy={-lo.y} r={RD.pulleyRoot} />
+      <polygon className="s2d-chain" points={chainPts} />
+      <polygon className="s2d-chain-plates" points={chainPts} strokeDasharray={`${(loop.pitch * 0.64).toFixed(2)} ${(loop.pitch * 0.36).toFixed(2)}`} />
       {poly("s2d-carbon", tube(v(rear.x - 6, rear.y - 8), v(rear.x - 22, rear.y - 36), 13, 12))}
       {poly("s2d-carbon", tube(v(rear.x - 22, rear.y - 36), up, 12, 12))}
       {poly("s2d-carbon", tube(up, lo, 10, 10))}
-      <circle className="s2d-pulley" cx={up.x} cy={-up.y} r={17} />
-      <circle className="s2d-pulley" cx={lo.x} cy={-lo.y} r={17} />
+      <circle className="s2d-pulley-hub" cx={up.x} cy={-up.y} r={8} />
+      <circle className="s2d-pulley-hub" cx={lo.x} cy={-lo.y} r={8} />
     </g>
   );
 };

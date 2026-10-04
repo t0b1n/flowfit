@@ -413,8 +413,20 @@
 
 .s2d-chain {
   fill: none;
+  stroke: var(--s2d-carbon);
+  stroke-width: 7;
+  stroke-linejoin: round;
+}
+
+/* the dashes are the plates, one per pitch: the gaps between them show the dark chain underneath */
+.s2d-chain-plates {
+  fill: none;
   stroke: var(--s2d-alloy);
-  stroke-width: 4;
+  stroke-width: 5.4;
+}
+
+.s2d-pulley-hub {
+  fill: var(--s2d-carbon);
 }
 
 .s2d-frame {
