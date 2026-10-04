@@ -72,6 +72,11 @@ const TUBE_RADIUS: Record<string, number> = {
   frame: 10,
 };
 
+/** Tyre half-width (the torus tube radius in addWheel), and the room the stays keep from it / from the tyre circle (mm). */
+const TYRE_HALF_WIDTH = 14;
+const STAY_TYRE_CLEARANCE = 4;
+const STAY_TYRE_GAP = 8;
+
 // Which tube name to use for a given edge a→b pair
 const EDGE_TUBE_NAME: Record<string, string> = {
   "bb→seat_cluster": "seat_tube",
@@ -490,8 +495,36 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     if (t.name === "bar" || t.name === "bar_ramp" || t.name === "bar_drop") continue; // swept handlebar in the scene
     if (FRAME_TUBES.has(t.name)) {
       const [r0, r1] = TUBE_PROFILE[t.name as TubeName];
-      if (t.name === "head_tube") g.add(cylinder(b, a, r0, r1, pick(t.name, mats.frame))); // bottom → top, flat top under the spacers
-      else if (t.name === "seatstay") g.add(taper(a.clone().addScaledVector(seatDir, -SEATSTAY_DROP), b, r0, r1, pick(t.name, mats.frame)));
+      if (t.name === "chainstay" || t.name === "seatstay") {
+        const start = t.name === "seatstay" ? a.clone().addScaledVector(seatDir, -SEATSTAY_DROP) : a;
+        const mat = pick(t.name, mats.frame);
+        const rearAxle = P.get("rear_axle");
+        if (!rearAxle) {
+          g.add(taper(start, b, r0, r1, mat));
+          continue;
+        }
+        // Wide stays: straight BB/seat-tube → dropout lines run through the tyre, so each stay bows out. It leaves the
+        // centreline, reaches tyre clearance where it enters the tyre circle, then runs on to the dropout.
+        const dx = b.x - start.x;
+        const dy = b.y - start.y;
+        const fx = start.x - rearAxle[0];
+        const fy = start.y - rearAxle[1];
+        const reach = wheelRadius + STAY_TYRE_GAP;
+        const qa = dx * dx + dy * dy;
+        const qb = 2 * (fx * dx + fy * dy);
+        const qc = fx * fx + fy * fy - reach * reach;
+        const disc = qb * qb - 4 * qa * qc;
+        const tEnter = qc <= 0 ? 0 : disc > 0 ? Math.min(Math.max((-qb - Math.sqrt(disc)) / (2 * qa), 0), 1) : 1;
+        const rAt = r0 + (r1 - r0) * tEnter;
+        const side = Math.sign(b.z) || 1;
+        const clearZ = Math.min(TYRE_HALF_WIDTH + STAY_TYRE_CLEARANCE + rAt, Math.abs(b.z));
+        const elbow = new THREE.Vector3(start.x + dx * tEnter, start.y + dy * tEnter, side * clearZ);
+        g.add(taper(start, elbow, r0, rAt, mat));
+        g.add(taper(elbow, b, rAt, r1, mat));
+        const joint = new THREE.Mesh(prim(`ball|${rAt}`, () => new THREE.SphereGeometry(rAt, 20, 16)), mat);
+        joint.position.copy(elbow);
+        g.add(joint);
+      } else if (t.name === "head_tube") g.add(cylinder(b, a, r0, r1, pick(t.name, mats.frame))); // bottom → top, flat top under the spacers
       else if (t.name === "top_tube") g.add(taper(a, b.clone().addScaledVector(htDown, HEAD_TUBE_JOIN.top), r0, r1, pick(t.name, mats.frame))); // ends inside the head tube, as in the 2D drawing
       else if (t.name === "down_tube") g.add(taper(a, b.clone().addScaledVector(htDown, -HEAD_TUBE_JOIN.down), r0, r1, pick(t.name, mats.frame)));
       else g.add(taper(a, b, r0, r1, pick(t.name, mats.frame)));
