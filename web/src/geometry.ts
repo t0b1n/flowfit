@@ -80,6 +80,9 @@ export const MANNEQUIN_PRESETS = {
   fast: { trunkAngleDeg: 43, backBendDeg: 8, forearmHorizontalBias: 0.65, elbowBarHeightBias: 0.8 },
 } as const;
 
+/** Default max wrist bend (deg) for the wrist lock. */
+export const DEFAULT_WRIST_LOCK_DEG = 20;
+
 export type MannequinPresetKey = keyof typeof MANNEQUIN_PRESETS;
 
 export const radiansFromDegrees = (deg: number) => (deg * Math.PI) / 180;
@@ -257,6 +260,8 @@ export const buildMannequin = (
   backBendDeg: number = 0,
   /** hood platform pitch (deg): when given, the hand lies along the hood instead of continuing the forearm */
   hoodPitchDeg?: number,
+  /** wrist lock: max |wrist bend| (deg). When the pose would exceed it, the shoulder shifts until the wrist is at the limit. */
+  wristLimitDeg?: number | null,
 ): MannequinSketch => {
   // The ischial tuberosity (sit bones) contacts the saddle; the hip joint centre
   // (femoral head) is hip_joint_offset mm above, where the femur actually rotates.
@@ -341,7 +346,7 @@ export const buildMannequin = (
   const sdy = hands.y - shoulder.y;
   const bbSide = sdx * (0 - shoulder.y) - sdy * (0 - shoulder.x);
   const sideA  = sdx * (elbowCandidateA.y - shoulder.y) - sdy * (elbowCandidateA.x - shoulder.x);
-  const elbow =
+  let elbow =
     Math.abs(bbSide) < 1e-4 || Math.sign(sideA) === Math.sign(bbSide)
       ? elbowCandidateA
       : elbowCandidateB;
@@ -364,6 +369,37 @@ export const buildMannequin = (
         y: hands.y - Math.sin(radiansFromDegrees(hoodPitchDeg - HAND_DRAPE_DEG)) * palmLength * HAND_WRIST_FRACTION,
       };
 
+  // Wrist lock: hands and wrist are fixed by the hood, so the wrist bend is set by the forearm direction.
+  // Past the limit, put the forearm at the limit and shift the shoulder (nearest point at upper-arm length
+  // from the new elbow) so the elbow no longer sags below the bars. The shoulder leaves the torso arc.
+  let wristLockShiftMm = 0;
+  if (hoodPitchDeg !== undefined && wristLimitDeg != null) {
+    const handAngle = Math.atan2(hands.y - wrist.y, hands.x - wrist.x);
+    const forearmAngle = Math.atan2(wrist.y - elbow.y, wrist.x - elbow.x);
+    let bend = ((handAngle - forearmAngle) * 180) / Math.PI;
+    while (bend > 180) bend -= 360;
+    while (bend <= -180) bend += 360;
+    const clamped = Math.min(wristLimitDeg, Math.max(-wristLimitDeg, bend));
+    if (clamped !== bend) {
+      const lockedForearm = handAngle - radiansFromDegrees(clamped);
+      const forearmLen = Math.hypot(wrist.x - elbow.x, wrist.y - elbow.y);
+      elbow = {
+        x: wrist.x - Math.cos(lockedForearm) * forearmLen,
+        y: wrist.y - Math.sin(lockedForearm) * forearmLen,
+      };
+      const sx = shoulder.x - elbow.x;
+      const sy = shoulder.y - elbow.y;
+      const sd = Math.max(Math.hypot(sx, sy), 1e-6);
+      const lockedShoulder = {
+        x: elbow.x + (sx / sd) * upperArm2D,
+        y: elbow.y + (sy / sd) * upperArm2D,
+      };
+      wristLockShiftMm = Math.hypot(lockedShoulder.x - shoulder.x, lockedShoulder.y - shoulder.y);
+      shoulder = lockedShoulder;
+      trunkAngle = Math.atan2(shoulder.y - hipJoint.y, shoulder.x - hipJoint.x);
+    }
+  }
+
   // Head direction: use upper-torso angle (spine_joint → shoulder) for head orientation
   const upperTrunkAngle = Math.atan2(shoulder.y - spineJoint.y, shoulder.x - spineJoint.x);
   const neckAngle = (55 * Math.PI) / 180 - 0.6 * Math.max(upperTrunkAngle, 0);
@@ -379,7 +415,7 @@ export const buildMannequin = (
     y: shoulder.y + (head.y - shoulder.y) * 0.15,
   };
 
-  return { hip: hipJoint, knee, ankle, shoulder, elbow, wrist, hands, head, neckBase, spineJoint, pedalGapMm, handGapMm };
+  return { hip: hipJoint, knee, ankle, shoulder, elbow, wrist, hands, head, neckBase, spineJoint, pedalGapMm, handGapMm, wristLockShiftMm };
 };
 
 export type FrontalMannequin = {
@@ -979,6 +1015,7 @@ export const hoodFit = (
     /** + = hoods too far from the shoulder, − = too close (mm, along the shoulder→hoods line). */
     excessReachMm: d - targetReach,
     handGapMm: mannequin.handGapMm ?? 0,
+    wristLockShiftMm: mannequin.wristLockShiftMm ?? 0,
     elbowFlexDeg: 180 - angleAtPoint(mannequin.shoulder, mannequin.elbow, mannequin.hands),
     shoulderDeg: angleAtPoint(mannequin.hip, mannequin.shoulder, mannequin.elbow),
   };
@@ -1034,6 +1071,10 @@ export const fitWarnings = ({ ideal, bike, hood, stroke, maxSaddleHeightMm, band
   if (hood.shoulderDeg < shoulderBand.min_deg || hood.shoulderDeg > shoulderBand.max_deg) {
     hoodSeverity = worse(hoodSeverity, "warning");
     hoodMessage += ` Shoulder angle ${hood.shoulderDeg.toFixed(0)}° (band ${shoulderBand.min_deg}–${shoulderBand.max_deg}°).`;
+  }
+  if (hood.wristLockShiftMm > 0.5) {
+    hoodSeverity = worse(hoodSeverity, "warning");
+    hoodMessage += ` Wrist lock active: shoulder shifted ${hood.wristLockShiftMm.toFixed(0)} mm to hold the wrist limit, so the trunk no longer matches the target posture.`;
   }
   const hoods: FitWarning = {
     contact: "hoods",

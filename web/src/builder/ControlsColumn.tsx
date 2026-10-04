@@ -6,7 +6,7 @@ import { CollapsibleSection } from "../components/CollapsibleSection";
 import { HOOD_PRESETS } from "../components/hoodPresets";
 import { PresetPills } from "../components/PresetPills";
 import { SliderCard } from "../components/SliderCard";
-import { DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements } from "../geometry";
+import { DEFAULT_TYRE_SIZE, DEFAULT_WRIST_LOCK_DEG, MANNEQUIN_PRESETS, MannequinPresetKey, BodyMeasurements } from "../geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "../types";
 import { Tier, PRESET_LABELS, PEDAL_PRESETS, SHOE_PRESETS } from "./shared";
 import type { buildRider } from "../geometry";
@@ -37,6 +37,10 @@ export interface ControlsColumnProps {
   setBackBendOverride: (value: React.SetStateAction<number | null>) => void;
   targetTrunkAngleDeg: number;
   backBendDeg: number;
+  wristLockEnabled: boolean;
+  setWristLockEnabled: (value: boolean) => void;
+  wristLockMaxDeg: number;
+  setWristLockMaxDeg: (value: number) => void;
   currentBrand: string;
   FRAME_CATALOG: FrameModel[];
   setSelection: (value: React.SetStateAction<BikeSelection>) => void;
@@ -61,7 +65,7 @@ export interface ControlsColumnProps {
   setShoePresetId: (value: React.SetStateAction<string>) => void;
 }
 
-export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, fullscreen, fitMode, handleFitModeChange, idealSaddleY, kneeFlex, riderFit, setRiderFit, targetSaddleHeightMm, setTargetSaddleHeightMm, pedalGapMm, maxSaddleHeightMm, rider, updateBodyMeasurement, setBodyMeasurements, trunkAngleOverride, backBendOverride, preset, setPreset, setTrunkAngleOverride, setBackBendOverride, targetTrunkAngleDeg, backBendDeg, currentBrand, FRAME_CATALOG, setSelection, brands, selection, getModelById, modelsForBrand, model, sizeData, components, updateComponent, resetComponent, hoodPresetId, setHoodPresetId, tyreSize, setTyreSize, pedalPresetId, handlePedalPreset, shoePresetId, handleShoePreset, setPedalPresetId, setShoePresetId }) => {
+export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, fullscreen, fitMode, handleFitModeChange, idealSaddleY, kneeFlex, riderFit, setRiderFit, targetSaddleHeightMm, setTargetSaddleHeightMm, pedalGapMm, maxSaddleHeightMm, rider, updateBodyMeasurement, setBodyMeasurements, trunkAngleOverride, backBendOverride, preset, setPreset, setTrunkAngleOverride, setBackBendOverride, targetTrunkAngleDeg, backBendDeg, wristLockEnabled, setWristLockEnabled, wristLockMaxDeg, setWristLockMaxDeg, currentBrand, FRAME_CATALOG, setSelection, brands, selection, getModelById, modelsForBrand, model, sizeData, components, updateComponent, resetComponent, hoodPresetId, setHoodPresetId, tyreSize, setTyreSize, pedalPresetId, handlePedalPreset, shoePresetId, handleShoePreset, setPedalPresetId, setShoePresetId }) => {
   return (
     (
     <>
@@ -218,12 +222,31 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
               <SliderCard
                 label="Back bend"
                 value={`${backBendDeg}°`}
-                min={-10} max={30} step={1}
+                min={-10} max={45} step={1}
                 sliderValue={backBendDeg}
                 variant="target"
                 onChange={setBackBendOverride}
                 onReset={() => setBackBendOverride(null)}
               />
+              <label className="field field--inline" style={{ gridColumn: "1 / -1" }}>
+                <input
+                  type="checkbox"
+                  checked={wristLockEnabled}
+                  onChange={(e) => setWristLockEnabled(e.target.checked)}
+                />
+                <span>Wrist lock: shift the shoulder instead of bending the wrist past the limit</span>
+              </label>
+              {wristLockEnabled && (
+                <SliderCard
+                  label="Max wrist bend"
+                  value={`${wristLockMaxDeg}°`}
+                  min={0} max={45} step={1}
+                  sliderValue={wristLockMaxDeg}
+                  variant="target"
+                  onChange={setWristLockMaxDeg}
+                  onReset={() => setWristLockMaxDeg(DEFAULT_WRIST_LOCK_DEG)}
+                />
+              )}
             </div>
           </CollapsibleSection>
         </Tier>

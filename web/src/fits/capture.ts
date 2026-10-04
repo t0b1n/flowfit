@@ -20,6 +20,8 @@ export interface BuilderInputs {
   preset: MannequinPresetKey;
   trunkAngleOverride: number | null;
   backBendOverride: number | null;
+  wristLockEnabled: boolean;
+  wristLockMaxDeg: number;
   hoodPresetId: string;
   bodyMeasurements: Partial<BodyMeasurements>;
   pedalPresetId: string;
@@ -47,6 +49,8 @@ export function restoreInputs(raw: Record<string, unknown>, set: Setters): void 
   if (typeof raw.preset === "string") set.preset(raw.preset as MannequinPresetKey);
   if (raw.trunkAngleOverride === null || typeof raw.trunkAngleOverride === "number") set.trunkAngleOverride(raw.trunkAngleOverride as number | null);
   if (raw.backBendOverride === null || typeof raw.backBendOverride === "number") set.backBendOverride(raw.backBendOverride as number | null);
+  if (typeof raw.wristLockEnabled === "boolean") set.wristLockEnabled(raw.wristLockEnabled);
+  if (typeof raw.wristLockMaxDeg === "number") set.wristLockMaxDeg(raw.wristLockMaxDeg);
   if (typeof raw.hoodPresetId === "string") set.hoodPresetId(raw.hoodPresetId);
   if (has("bodyMeasurements") && isObj(raw.bodyMeasurements)) set.bodyMeasurements(raw.bodyMeasurements as Partial<BodyMeasurements>);
   if (typeof raw.pedalPresetId === "string") set.pedalPresetId(raw.pedalPresetId);
