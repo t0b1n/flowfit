@@ -1389,16 +1389,16 @@ export const BikeScene3D: React.FC<BikeScene3DProps> = ({
       const right = legPoseAt(strokeLUT, theta);
       const left = legPoseAt(strokeLUT, theta + 180);
       const hs = (stanceWidth ?? 155) / 2;
-      const setback = strokeLUT.ankleSetbackMm;
+      const setback = strokeLUT.ankleSetbackMm, rise = strokeLUT.ankleRiseMm;
       const set = (name: string, x: number, y: number, z: number) => {
         const p = pts.find((q) => q.name === name);
         if (p) p.pos = [x, y, z];
       };
       set("knee_r", left.knee.x, left.knee.y, hs);
-      set("ankle_r", left.ankle.x - setback, left.ankle.y, hs);
+      set("ankle_r", left.cleat.x - setback, left.cleat.y + rise, hs);
       set("cleat_r", left.cleat.x, left.cleat.y, hs);
       set("knee_l", right.knee.x, right.knee.y, -hs);
-      set("ankle_l", right.ankle.x - setback, right.ankle.y, -hs);
+      set("ankle_l", right.cleat.x - setback, right.cleat.y + rise, -hs);
       set("cleat_l", right.cleat.x, right.cleat.y, -hs);
     }
     setGhost({

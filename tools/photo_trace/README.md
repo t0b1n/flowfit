@@ -35,3 +35,19 @@ A side photo and a top photo, nose pointing right in both.
    centreline, symmetrised plan half-width and hole half-width) and `saddle_*_parts.png` overlays.
 3. Paste into `saddleModels.ts`; trim the rail centreline ends into the base by hand. Crown and rail
    splay are not visible in either photo and are set by hand there.
+
+## Shoes → `web/src/shoeModels.ts`
+
+A side photo and a top photo, toe pointing right in both (flip the side shot if needed). White
+uppers on a white background need a low threshold (`thr`), so the floor shadow is masked by hand.
+
+1. In `CFG` in `shoe.py`, mark the pull loop to cut (`side_cut`), the floor-shadow polygon in which only
+   the black sole counts (`side_shadow`, only precise along the sole's bottom edge), the px x-range where
+   the BOA dials overhang the lateral edge of the top shot (bridged linearly), and a seed pixel inside the
+   collar opening.
+2. `shoe.py` — levels the side shot on the sole's heel–forefoot tangent, then writes `shoe.json` (per-u
+   upper top, upper/sole seam and sole bottom; asymmetric medial/lateral plan half-widths rescaled to
+   `width_frac`; the collar opening) and `shoe_*_parts.png` overlays. Everything is in fractions of the
+   shoe length.
+3. Paste into `shoeModels.ts` (side/plan tables every 2%, opening every 1%). The ball/cleat station, the
+   drawn-ankle station and the BOA dial stations are set by hand there.

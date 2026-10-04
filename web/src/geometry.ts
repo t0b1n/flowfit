@@ -15,6 +15,7 @@ import type { Geometry3DPoint, Geometry3DEdge, Geometry3DResponse } from "./bike
 import { FrameGeometry } from "./frameCatalog";
 import { buildCockpit, hoodContact } from "./cockpit";
 import { FORK } from "./design/fork";
+import { ankleOffset } from "./design/foot";
 
 export const DEFAULT_TYRE_SIZE = 28;
 
@@ -517,9 +518,12 @@ export interface PedalStrokeLUT {
   maxExtensionIndex: number;
   crankLength: number;
   hip: ContactPoint;
-  /** Anatomical ankle-joint setback behind the pedal spindle (drawn geometry
-   *  only — the IK solves from the spindle; see buildMannequin3DPoints). */
+  /** Drawn ankle (the shoe's malleolus station, design/foot.ts) behind and above the cleat point: drawn
+   *  geometry only — the IK solves from the spindle; see buildMannequin3DPoints. */
   ankleSetbackMm: number;
+  ankleRiseMm: number;
+  /** Shoe length (rider.foot_length) the drawn shoe is scaled to. */
+  shoeLengthMm: number;
 }
 
 export function solvePedalStroke(
@@ -575,7 +579,9 @@ export function solvePedalStroke(
     maxExtensionIndex,
     crankLength,
     hip,
-    ankleSetbackMm: rider.foot_length * 0.19 * (rider.height / 1800),
+    ankleSetbackMm: ankleOffset(rider.foot_length).setback,
+    ankleRiseMm: ankleOffset(rider.foot_length).rise,
+    shoeLengthMm: rider.foot_length,
   };
 }
 
@@ -1182,17 +1188,15 @@ export function buildMannequin3DPoints(
 
   const pedalStack = components.pedal_stack_height || 0;
 
-  // Anatomical ankle joint sits ~19% of foot length behind the ball of the
-  // foot / pedal spindle. The 2D side view draws the shin to this shifted
-  // point (visualAnkleX in FitBuilderMode); use the same convention here so
-  // the 3D knee bend reads identically. The IK itself solves with the
+  // The drawn ankle is the shoe's malleolus station, behind and above the cleat (design/foot.ts); the 2D
+  // skeleton and the pedalling legs draw the shin to the same point. The IK itself solves with the
   // unshifted ankle in both views.
-  const ankleSetback = rider.foot_length * 0.19 * (rider.height / 1800);
+  const ank = ankleOffset(rider.foot_length);
 
   // Right leg (+Z, drive side): the 2D fit pose, crank at bottom dead center,
   // matching the near leg of the 2D side view.
   p("cleat_r", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
-  p("ankle_r", mannequin.ankle.x - ankleSetback, mannequin.ankle.y, +halfStance);
+  p("ankle_r", mannequin.ankle.x - ank.setback, mannequin.ankle.y - pedalStack + ank.rise, +halfStance);
   p("knee_r", mannequin.knee.x, mannequin.knee.y, +halfStance);
 
   // Left leg (−Z): posed at the opposed crank position (top dead center) so the
@@ -1205,7 +1209,7 @@ export function buildMannequin3DPoints(
   const ankleL2d = legL.ankle;
   const kneeL2d = legL.knee;
   p("cleat_l", ankleL2d.x, ankleL2d.y - pedalStack, -halfStance);
-  p("ankle_l", ankleL2d.x - ankleSetback, ankleL2d.y, -halfStance);
+  p("ankle_l", ankleL2d.x - ank.setback, ankleL2d.y - pedalStack + ank.rise, -halfStance);
   p("knee_l", kneeL2d.x, kneeL2d.y, -halfStance);
 
   // Hips at ±half_hip + centerline

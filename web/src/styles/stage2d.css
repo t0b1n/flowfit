@@ -317,6 +317,8 @@
   --s2d-tyre: color-mix(in srgb, var(--ink) 16%, var(--tyre));
   --s2d-carbon: color-mix(in srgb, var(--ink) 16%, var(--carbon));
   --s2d-alloy: color-mix(in srgb, var(--ink) 12%, var(--alloy));
+  /* white shoe upper, a touch off pure white so it separates from the light surface */
+  --s2d-shoe-upper: color-mix(in srgb, var(--ink) 4%, #ffffff);
 }
 
 .s2d .s2d-ground {
@@ -467,6 +469,15 @@
 
 .s2d-shoe,
 .s2d-glove {
+  fill: var(--s2d-carbon);
+}
+
+/* the traced shoe (AnimatedLegs): white upper, black sole and collar lining */
+.s2d-shoe-upper {
+  fill: var(--s2d-shoe-upper);
+}
+
+.s2d-shoe-sole {
   fill: var(--s2d-carbon);
 }
 
