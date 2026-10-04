@@ -145,12 +145,28 @@ export function buildCockpit(barClamp: ContactPoint, c: Components, hoodModelId?
   const station = { x: contact.x - pc.x, y: contact.y - pc.y };
   const tops = { x: barClamp.x, y: barClamp.y + rise };
   // The bar runs on under the hood body, then bends down into the drop.
-  const under = rot(16, -22, pitchDeg);
-  const front = { x: station.x + under.x, y: station.y + under.y };
+  // The drops are laid out for roll = 0, relative to the hood station, then the whole bar rotates
+  // about the clamp centre: the drops swing with the hoods.
+  const flat = effectiveBarRoll(c) === 0 ? { ...c } : { ...c, bar_roll_deg: 0 };
+  const station0 = (() => {
+    const p0 = rot(hood.contact[0], hood.contact[1], hoodPitchDeg(flat));
+    const c0 = hoodContact(barClamp, flat);
+    return { x: c0.x - p0.x, y: c0.y - p0.y };
+  })();
+  const under = rot(16, -22, hoodPitchDeg(flat));
+  const front0 = { x: station0.x + under.x, y: station0.y + under.y };
   const bottomY = tops.y - dropDepth;
-  const front2 = { x: Math.max(front.x, station.x + 8) + 6, y: (front.y + bottomY) / 2 };
-  const dropBottom = { x: front.x - 22, y: bottomY };
-  const dropEnd = { x: dropBottom.x - 72, y: bottomY + 2 };
+  const front20 = { x: Math.max(front0.x, station0.x + 8) + 6, y: (front0.y + bottomY) / 2 };
+  const dropBottom0 = { x: front0.x - 22, y: bottomY };
+  const dropEnd0 = { x: dropBottom0.x - 72, y: bottomY + 2 };
+  const swing = (p: ContactPoint): ContactPoint => {
+    const d = rot(p.x - station0.x, p.y - station0.y, rollDeg);
+    return { x: station.x + d.x, y: station.y + d.y };
+  };
+  const front = swing(front0);
+  const front2 = swing(front20);
+  const dropBottom = swing(dropBottom0);
+  const dropEnd = swing(dropEnd0);
   const ramp = { x: (tops.x + station.x) / 2, y: Math.max(tops.y, station.y) + 2 };
   const hoodWidth = c.hood_width ?? c.bar_width;
   const dropWidth = c.bar_drop_width ?? hoodWidth;
