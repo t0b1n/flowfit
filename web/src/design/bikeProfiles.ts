@@ -110,3 +110,24 @@ export const CASSETTE = {
 
 /** Tip radius of a cog: pitch circle plus tooth height. */
 export const cogTipRadius = (teeth: number): number => CASSETTE.pitch / 2 / Math.sin(Math.PI / teeth) + CASSETTE.toothHeight;
+
+/**
+ * Rear derailleur (Dura-Ace RD-R9250, direct mount), side-view positions relative to the rear axle (x forward, y up).
+ * Shared by the 3D mesh (`derailleur3d.ts`) and the chain routing in `bike3d.ts`.
+ */
+export const RD = {
+  /** hanger bolt: the hanger plate runs from the axle to here */
+  mount: { x: -26, y: -21 },
+  /** cage pivot, at the front end of the body */
+  pivot: { x: 30, y: -34 },
+  /** pulley centres: the cage hangs nearly vertical below the pivot */
+  upper: { x: 28, y: -58 },
+  lower: { x: 12, y: -118 },
+  /** 13-tooth pulleys */
+  pulleyTeeth: 13,
+  pulleyTip: 19,
+  pulleyRoot: 16,
+  /** the frame's drive-side dropout face, and the z of the pulleys (the chain line) */
+  dropZ: 38,
+  chainZ: 60,
+} as const;

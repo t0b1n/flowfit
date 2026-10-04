@@ -10,7 +10,8 @@
 
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
-import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
+import { buildRearDerailleur } from "./derailleur3d";
+import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { forkFrame, forkSpine } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -302,6 +303,9 @@ export interface BikeMaterials {
   /** silver cogs; `cassetteEdge` is a BackSide dark material drawn as a thin outline around each cog */
   cassette?: THREE.Material;
   cassetteEdge?: THREE.Material;
+  /** gloss black derailleur body and grey titanium bolt caps (fall back to carbon / alloy) */
+  rdBody?: THREE.Material;
+  titanium?: THREE.Material;
 }
 
 type V3 = [number, number, number];
@@ -343,24 +347,6 @@ export function rimGeometry(R: number): THREE.LatheGeometry {
   if (area < 0) pts = pts.reverse(); // clockwise → counter-clockwise
   pts.push(pts[0].clone()); // close the loop
   return new THREE.LatheGeometry(pts, 120);
-}
-
-/** Flat plate: the convex hull of circles [x, y, r] (axle-relative, side view), extruded `depth` along Z from z = 0. */
-export function hullGeometry(circles: ReadonlyArray<readonly [number, number, number]>, depth: number): THREE.BufferGeometry {
-  const pts = circles
-    .flatMap(([cx, cy, r]) => Array.from({ length: 24 }, (_, i) => new THREE.Vector2(cx + r * Math.cos((i / 24) * Math.PI * 2), cy + r * Math.sin((i / 24) * Math.PI * 2))))
-    .sort((p, q) => p.x - q.x || p.y - q.y);
-  const cross = (o: THREE.Vector2, a: THREE.Vector2, b: THREE.Vector2) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-  const hull: THREE.Vector2[] = [];
-  for (const half of [pts, [...pts].reverse()]) {
-    const start = hull.length;
-    for (const p of half) {
-      while (hull.length >= start + 2 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 0) hull.pop();
-      hull.push(p);
-    }
-    hull.pop();
-  }
-  return new THREE.ExtrudeGeometry(new THREE.Shape(hull), { depth, bevelEnabled: false });
 }
 
 /** Black lockring: a short tube with the splined bore open, axis along Z. */
@@ -607,54 +593,23 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     const lock = new THREE.Mesh(prim("cassette|lockring", () => lockringGeometry()), pick("drivetrain", mats.tyre));
     lock.position.set(rear[0], rear[1], lockZ);
     g.add(lock);
-    // Rear derailleur (Dura-Ace RD-R9250 style, direct mount). It hangs off the frame: the drive-side dropout's axle end
-    // passes through the cassette to a hanger plate outboard of it, the plate runs back and down to the mount bolt, the
-    // B-knuckle sits on that bolt, two links slant in to the cage pivot, and the cage (two plates round two pulleys)
-    // hangs below at the chain line.
-    const at = (x: number, y: number, z: number) => new THREE.Vector3(rear[0] + x, rear[1] + y, z);
-    const mat = pick("drivetrain", mats.carbon);
-    const dropZ = 38; // the chainstays end here (_CHAINSTAY_HALF_SPREAD)
-    const hangZ = CASSETTE.z0 + (CASSETTE.teeth.length - 1) * CASSETTE.spacing + 8; // hanger plate, just outboard of the lockring
-    const mount = { x: -18, y: -30 }; // hanger bolt, relative to the axle
-    const up = at(8, -76, 60);
-    const lo = at(24, -132, 60);
-    const pivot = at(2, -58, 60); // cage pivot above the upper pulley
-    // dropout boss on the frame, and the axle end that carries the hanger out through the cassette bore
-    g.add(taper(at(0, 0, dropZ - 4), at(0, 0, dropZ + 6), 15, 15, pick("drivetrain", mats.frame), 16));
-    g.add(taper(at(0, 0, dropZ), at(0, 0, hangZ + 2), 8, 8, pick("drivetrain", mats.alloy), 12));
-    // flat plates (convex hull of circles in the side view), placed at the axle
-    const plate = (key: string, circles: ReadonlyArray<readonly [number, number, number]>, depth: number, z: number, material: THREE.Material) => {
-      const m = new THREE.Mesh(prim(`rd|${key}`, () => hullGeometry(circles, depth)), material);
-      m.position.set(rear[0], rear[1], z);
-      g.add(m);
-    };
-    const [mx, my] = [mount.x, mount.y];
-    // hanger plate: dropout boss to mount boss, bolted on the axle end
-    plate("hanger", [[0, 0, 14], [mx, my, 10]], 8, hangZ, pick("drivetrain", mats.frame));
-    g.add(taper(at(0, 0, hangZ + 8), at(0, 0, hangZ + 10), 10, 10, pick("drivetrain", mats.alloy), 16)); // thru-axle cap
-    // mount bolt through the hanger into the B-knuckle
-    g.add(taper(at(mx, my, hangZ), at(mx, my, hangZ + 18), 7, 7, pick("drivetrain", mats.alloy), 12));
-    // B-knuckle and parallelogram links: slabs from the mount to the cage pivot (outer link outboard, inner link slanting in)
-    plate("link-outer", [[mx + 6, my - 2, 15], [pivot.x - rear[0], pivot.y - rear[1], 13]], 12, hangZ + 8, mat);
-    plate("link-inner", [[mx + 4, my - 10, 10], [pivot.x - rear[0] - 2, pivot.y - rear[1] - 8, 9]], 6, 66, mat);
-    g.add(taper(at(mx, my, hangZ + 20), at(mx, my, hangZ + 22), 9, 9, pick("drivetrain", mats.alloy), 12)); // bolt cap
-    // cage plates (inner and outer): hull of the pivot and both pulleys
-    const cage = [[pivot.x - rear[0], pivot.y - rear[1], 12], [up.x - rear[0], up.y - rear[1], 13], [lo.x - rear[0], lo.y - rear[1], 14]] as const;
-    plate("cage", cage, 4, 46, mat);
-    plate("cage", cage, 4, 70, mat);
-    // the pivot spans the gap between the plates and the outer link
-    const pk = new THREE.Mesh(prim("rd|pivot", () => new THREE.CylinderGeometry(11, 11, 40, 20)), mat);
-    pk.rotation.x = Math.PI / 2;
-    pk.position.set(pivot.x, pivot.y, 64);
-    g.add(pk);
-    g.add(taper(up.clone().setZ(50), up.clone().setZ(70), 4, 4, pick("drivetrain", mats.alloy), 8)); // upper pulley bolt
-    g.add(taper(lo.clone().setZ(50), lo.clone().setZ(72), 4, 4, pick("drivetrain", mats.alloy), 8)); // lower pulley bolt
-    for (const p of [up, lo]) {
-      const pu = new THREE.Mesh(prim("pulley", () => new THREE.CylinderGeometry(17, 17, 8, 24)), pick("drivetrain", mats.alloy));
-      pu.rotation.x = Math.PI / 2;
-      pu.position.copy(p);
-      g.add(pu);
-    }
+    // Rear derailleur: hung off the drive-side dropout by a hanger plate (derailleur3d.ts)
+    g.add(
+      buildRearDerailleur(
+        rear,
+        {
+          body: mats.rdBody ?? mats.carbon,
+          titanium: mats.titanium ?? mats.alloy,
+          pulley: mats.rdBody ?? mats.carbon,
+          frame: mats.frame,
+          axle: mats.alloy,
+        },
+        prim,
+        pick,
+      ),
+    );
+    const up = new THREE.Vector3(rear[0] + RD.upper.x, rear[1] + RD.upper.y, RD.chainZ);
+    const lo = new THREE.Vector3(rear[0] + RD.lower.x, rear[1] + RD.lower.y, RD.chainZ);
     // Chain: big ring top → cassette top; ring bottom → pulleys → cassette bottom
     const ringTop = new THREE.Vector3(bb[0], bb[1] + CHAINRING.big.root, 46);
     const ringBot = new THREE.Vector3(bb[0], bb[1] - CHAINRING.big.root, 46);
@@ -667,7 +622,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
       }
     };
     run([ringTop, cogTop]);
-    run([ringBot, lo.clone().add(new THREE.Vector3(-12, -17, 0)), lo.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(17, 0, 0)), up.clone().add(new THREE.Vector3(-12, 17, 0)), cogBot]);
+    run([ringBot, lo.clone().add(new THREE.Vector3(-13, -15, 0)), lo.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(-13, 15, 0)), cogBot]);
     // Front derailleur
     const fd = new THREE.Mesh(prim("box|front-derailleur", () => new THREE.BoxGeometry(70, 26, 12)), pick("drivetrain", mats.alloy));
     fd.position.set(bb[0] + (cl[0] - bb[0]) * 0.27, bb[1] + (cl[1] - bb[1]) * 0.27, 62);
