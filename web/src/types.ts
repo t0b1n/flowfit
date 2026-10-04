@@ -110,6 +110,8 @@ export type MannequinSketch = {
   pedalGapMm?: number;
   /** How far the hands stop short of the hoods with the arms straight (0 = on the hoods). */
   handGapMm?: number;
+  /** How far the wrist lock moved the shoulder to hold the wrist limit (0 = lock off or not needed). */
+  wristLockShiftMm?: number;
 };
 
 export type RiderFit = {
