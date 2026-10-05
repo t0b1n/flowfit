@@ -11,7 +11,9 @@
 import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
 import { buildRearDerailleur } from "./derailleur3d";
-import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
+import { buildChain } from "./chain3d";
+import { CHAIN_COG_TEETH, bikeChain, chainShift, pitchRadius } from "./design/chain";
+import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, REAR_HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { CALIPER, forkCaliperSeat, forkFrame, forkSpine, type CaliperSeat } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -71,6 +73,11 @@ const TUBE_RADIUS: Record<string, number> = {
   // fallback by group
   frame: 10,
 };
+
+/** Tyre half-width (the torus tube radius in addWheel), and the room the stays keep from it / from the tyre circle (mm). */
+const TYRE_HALF_WIDTH = 14;
+const STAY_TYRE_CLEARANCE = 4;
+const STAY_TYRE_GAP = 8;
 
 // Which tube name to use for a given edge a→b pair
 const EDGE_TUBE_NAME: Record<string, string> = {
@@ -376,7 +383,8 @@ export function cogGeometry(teeth: number): THREE.BufferGeometry {
   return geo;
 }
 
-function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { rotorR: number; caliperAngle: number; caliper?: CaliperSeat }, cache?: GeometryCache) {
+function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: { rotorR: number; caliperAngle: number; caliper?: CaliperSeat; hub?: typeof HUB }, cache?: GeometryCache) {
+  const hubSpec = opts.hub ?? HUB;
   const taper = (a: THREE.Vector3, b: THREE.Vector3, r0: number, r1: number, mat: THREE.Material, seg = 6) => taperMesh(a, b, r0, r1, mat, seg, cache);
   /** wheel parts depend only on the wheel radius / rotor radius: placement is the mesh transform */
   const part = <G extends THREE.BufferGeometry>(key: string, build: () => G): G => (cache ? cache.get(`wheel|${key}`, build) : build());
@@ -391,24 +399,24 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
   for (let i = 0; i < 24; i++) {
     const a = (i / 24) * Math.PI * 2;
     // from the hub flanges (alternating sides) to the spoke bed of the rim
-    const flange = i % 2 === 0 ? HUB.flangeZ : -HUB.flangeZ;
+    const flange = i % 2 === 0 ? hubSpec.flangeDrive : -hubSpec.flangeLeft; // dished: the two flanges sit at different stations
     const s = new THREE.Vector3(HUB.flangeR * Math.cos(a), HUB.flangeR * Math.sin(a), flange);
     const e = new THREE.Vector3((R - RIM.spokeBed) * Math.cos(a), (R - RIM.spokeBed) * Math.sin(a), 0);
     w.add(taper(s, e, 1.1, 1.1, mats.spoke, 1));
   }
-  const hub = new THREE.Mesh(part("hub", () => new THREE.CylinderGeometry(HUB.shellR, HUB.shellR, 2 * HUB.shellHalf, 16, 1)), mats.alloy);
+  const hub = new THREE.Mesh(part(`hub|${hubSpec.shellHalf}`, () => new THREE.CylinderGeometry(hubSpec.shellR, hubSpec.shellR, 2 * hubSpec.shellHalf, 16, 1)), mats.alloy);
   hub.rotation.x = Math.PI / 2;
   w.add(hub);
   // Disc rotor on the rider's left (−Z, non-drive) side: ring + 6 spokes, flat-mount caliper
   const rr = opts.rotorR;
   const ring = new THREE.Mesh(part(`ring|${rr}`, () => new THREE.RingGeometry(rr - 16, rr, 64)), mats.rotor);
-  ring.position.z = -24;
+  ring.position.z = hubSpec.rotorZ;
   (ring.material as THREE.Material).side = THREE.DoubleSide;
   w.add(ring);
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
-    const s = new THREE.Vector3(14 * Math.cos(a), 14 * Math.sin(a), -24);
-    const e = new THREE.Vector3((rr - 16) * Math.cos(a), (rr - 16) * Math.sin(a), -24);
+    const s = new THREE.Vector3(14 * Math.cos(a), 14 * Math.sin(a), hubSpec.rotorZ);
+    const e = new THREE.Vector3((rr - 16) * Math.cos(a), (rr - 16) * Math.sin(a), hubSpec.rotorZ);
     w.add(taper(s, e, 4, 4, mats.rotor, 1));
   }
   // Simple flat-mount caliper: a base plate on the frame / fork mount face with the body on top, the rotor running
@@ -427,9 +435,9 @@ function addWheel(g: THREE.Group, c: V3, R: number, mats: BikeMaterials, opts: {
   const { plateLen, plateT, bodyLen, bodyDepth } = CALIPER;
   // the plate bridges from the blade (outboard) to the body, which is centred on the rotor
   const plate = new THREE.Mesh(part("caliper|plate", () => new THREE.BoxGeometry(plateLen, plateT, 36)), mats.alloy);
-  plate.position.set(0, plateT / 2, -35.5);
+  plate.position.set(0, plateT / 2, hubSpec.rotorZ - 11.5);
   const body = new THREE.Mesh(part("caliper|body", () => new THREE.BoxGeometry(bodyLen, bodyDepth, 24)), mats.alloy);
-  body.position.set(0, plateT + bodyDepth / 2, -24);
+  body.position.set(0, plateT + bodyDepth / 2, hubSpec.rotorZ);
   cal.add(plate, body);
   w.add(cal);
   g.add(w);
@@ -466,6 +474,12 @@ function forkGeometry(crown: { x: number; y: number }, axle: { x: number; y: num
   geo.setIndex(idx);
   computeNormals(geo);
   return geo;
+}
+
+/** Stored on the bike group's `userData.drive`: poses the chain, cassette and derailleur pulleys for a crank angle. */
+export interface DriveAnim {
+  /** `ringAngle`: world angle (rad, counter-clockwise, unwrapped) of the drive-side crank */
+  update(ringAngle: number): void;
 }
 
 /**
@@ -506,8 +520,36 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     if (t.name === "bar" || t.name === "bar_ramp" || t.name === "bar_drop") continue; // swept handlebar in the scene
     if (FRAME_TUBES.has(t.name)) {
       const [r0, r1] = TUBE_PROFILE[t.name as TubeName];
-      if (t.name === "head_tube") g.add(cylinder(b, a, r0, r1, pick(t.name, mats.frame))); // bottom → top, flat top under the spacers
-      else if (t.name === "seatstay") g.add(taper(a.clone().addScaledVector(seatDir, -SEATSTAY_DROP), b, r0, r1, pick(t.name, mats.frame)));
+      if (t.name === "chainstay" || t.name === "seatstay") {
+        const start = t.name === "seatstay" ? a.clone().addScaledVector(seatDir, -SEATSTAY_DROP) : a;
+        const mat = pick(t.name, mats.frame);
+        const rearAxle = P.get("rear_axle");
+        if (!rearAxle) {
+          g.add(taper(start, b, r0, r1, mat));
+          continue;
+        }
+        // Wide stays: straight BB/seat-tube → dropout lines run through the tyre, so each stay bows out. It leaves the
+        // centreline, reaches tyre clearance where it enters the tyre circle, then runs on to the dropout.
+        const dx = b.x - start.x;
+        const dy = b.y - start.y;
+        const fx = start.x - rearAxle[0];
+        const fy = start.y - rearAxle[1];
+        const reach = wheelRadius + STAY_TYRE_GAP;
+        const qa = dx * dx + dy * dy;
+        const qb = 2 * (fx * dx + fy * dy);
+        const qc = fx * fx + fy * fy - reach * reach;
+        const disc = qb * qb - 4 * qa * qc;
+        const tEnter = qc <= 0 ? 0 : disc > 0 ? Math.min(Math.max((-qb - Math.sqrt(disc)) / (2 * qa), 0), 1) : 1;
+        const rAt = r0 + (r1 - r0) * tEnter;
+        const side = Math.sign(b.z) || 1;
+        const clearZ = Math.min(TYRE_HALF_WIDTH + STAY_TYRE_CLEARANCE + rAt, Math.abs(b.z));
+        const elbow = new THREE.Vector3(start.x + dx * tEnter, start.y + dy * tEnter, side * clearZ);
+        g.add(taper(start, elbow, r0, rAt, mat));
+        g.add(taper(elbow, b, rAt, r1, mat));
+        const joint = new THREE.Mesh(prim(`ball|${rAt}`, () => new THREE.SphereGeometry(rAt, 20, 16)), mat);
+        joint.position.copy(elbow);
+        g.add(joint);
+      } else if (t.name === "head_tube") g.add(cylinder(b, a, r0, r1, pick(t.name, mats.frame))); // bottom → top, flat top under the spacers
       else if (t.name === "top_tube") g.add(taper(a, b.clone().addScaledVector(htDown, HEAD_TUBE_JOIN.top), r0, r1, pick(t.name, mats.frame))); // ends inside the head tube, as in the 2D drawing
       else if (t.name === "down_tube") g.add(taper(a, b.clone().addScaledVector(htDown, -HEAD_TUBE_JOIN.down), r0, r1, pick(t.name, mats.frame)));
       else g.add(taper(a, b, r0, r1, pick(t.name, mats.frame)));
@@ -566,7 +608,7 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
     : mats;
   // Calipers: the rear one sits on the chainstay/seat stay above and ahead of the axle (wheel-local angle from +x,
   // counter-clockwise, about 2 o'clock); the front one is seated on the back of the left fork blade (design/fork.ts).
-  if (rear) addWheel(g, rear, wheelRadius, wheelMats, { rotorR: 70, caliperAngle: 0.87 }, cache);
+  if (rear) addWheel(g, rear, wheelRadius, wheelMats, { rotorR: 70, caliperAngle: 0.87, hub: REAR_HUB }, cache);
   if (front) {
     const s = hb ? forkCaliperSeat({ x: hb[0], y: hb[1] }, { x: front[0], y: front[1] }, 80) : undefined;
     addWheel(g, front, wheelRadius, wheelMats, { rotorR: 80, caliperAngle: 2.7, caliper: s && { ...s, x: s.x - front[0], y: s.y - front[1] } }, cache);
@@ -576,6 +618,10 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   if (rear) {
     // Dura-Ace 11-34: 12 cogs, largest nearest the spokes. Toothed outlines, plain cylinders on mobile.
     const toothed = !opts.simpleCassette;
+    const cassette = new THREE.Group(); // turns about the axle with the chain (DriveAnim)
+    cassette.name = "cassette";
+    cassette.position.set(rear[0], rear[1], 0);
+    g.add(cassette);
     CASSETTE.teeth.forEach((n, i) => {
       const r = cogTipRadius(n);
       const z = CASSETTE.z0 + i * CASSETTE.spacing;
@@ -584,8 +630,8 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
         : prim(`cogcyl|${n}`, () => new THREE.CylinderGeometry(r, r, CASSETTE.thickness, 32));
       const c = new THREE.Mesh(geo, pick("drivetrain", mats.cassette ?? mats.alloy));
       c.rotation.x = Math.PI / 2;
-      c.position.set(rear[0], rear[1], z);
-      g.add(c);
+      c.position.set(0, 0, z);
+      cassette.add(c);
       if (mats.cassetteEdge && !opts.debug) {
         // inverted hull: back faces of a slightly enlarged copy show as a dark outline against the next cog behind
         const e = toothed
@@ -593,45 +639,48 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
           : new THREE.Mesh(prim(`cogedge|${r}`, () => new THREE.CylinderGeometry(r + 1.4, r + 1.4, CASSETTE.thickness, 32)), mats.cassetteEdge);
         if (toothed) e.scale.set(1.025, 1, 1.025);
         e.rotation.x = Math.PI / 2;
-        e.position.set(rear[0], rear[1], z);
-        g.add(e);
+        e.position.set(0, 0, z);
+        cassette.add(e);
       }
     });
     // black lockring on the smallest (outermost) cog
     const lockZ = CASSETTE.z0 + (CASSETTE.teeth.length - 1) * CASSETTE.spacing + CASSETTE.thickness / 2 + 1.5;
     const lock = new THREE.Mesh(prim("cassette|lockring", () => lockringGeometry()), pick("drivetrain", mats.tyre));
-    lock.position.set(rear[0], rear[1], lockZ);
-    g.add(lock);
+    lock.position.set(0, 0, lockZ);
+    cassette.add(lock);
     // Rear derailleur: hung off the drive-side dropout by a hanger plate (derailleur3d.ts)
-    g.add(
-      buildRearDerailleur(
-        rear,
-        {
-          body: mats.rdBody ?? mats.carbon,
-          titanium: mats.titanium ?? mats.alloy,
-          pulley: mats.rdBody ?? mats.carbon,
-          frame: mats.frame,
-          axle: mats.alloy,
-        },
-        prim,
-        pick,
-      ),
+    const derailleur = buildRearDerailleur(
+      rear,
+      {
+        body: mats.rdBody ?? mats.carbon,
+        titanium: mats.titanium ?? mats.alloy,
+        pulley: mats.rdBody ?? mats.carbon,
+        frame: mats.frame,
+        axle: mats.alloy,
+      },
+      prim,
+      pick,
     );
-    const up = new THREE.Vector3(rear[0] + RD.upper.x, rear[1] + RD.upper.y, RD.chainZ);
-    const lo = new THREE.Vector3(rear[0] + RD.lower.x, rear[1] + RD.lower.y, RD.chainZ);
-    // Chain: big ring top → cassette top; ring bottom → pulleys → cassette bottom
-    const ringTop = new THREE.Vector3(bb[0], bb[1] + CHAINRING.big.root, 46);
-    const ringBot = new THREE.Vector3(bb[0], bb[1] - CHAINRING.big.root, 46);
-    const cogTop = new THREE.Vector3(rear[0], rear[1] + 50, 50);
-    const cogBot = new THREE.Vector3(rear[0], rear[1] - 50, 50);
-    const run = (pts: THREE.Vector3[]) => {
-      for (let i = 0; i < pts.length - 1; i++) {
-        g.add(taper(pts[i], pts[i + 1], 3.5, 3.5, pick("drivetrain", mats.cassette ?? mats.alloy), 1));
-        if (mats.cassetteEdge && !opts.debug) g.add(taper(pts[i], pts[i + 1], 5, 5, mats.cassetteEdge, 1));
-      }
-    };
-    run([ringTop, cogTop]);
-    run([ringBot, lo.clone().add(new THREE.Vector3(-13, -15, 0)), lo.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(19, 0, 0)), up.clone().add(new THREE.Vector3(-13, 15, 0)), cogBot]);
+    g.add(derailleur);
+    // Chain: links wrapped round the big ring, the 17T cog and the two cage pulleys (design/chain.ts), on the chain line
+    const loop = bikeChain({ x: bb[0], y: bb[1] }, { x: rear[0], y: rear[1] });
+    const chain = buildChain(loop, RD.chainZ, pick("drivetrain", mats.titanium ?? mats.alloy), pick("drivetrain", mats.alloy), prim);
+    g.add(chain.group);
+    // Pedalling: the big ring turns with the drive-side crank (AnimatedLegs); `ringAngle` is that angle, unwrapped. The chain
+    // moves R·angle along the loop, and every wheel it wraps turns by (distance / its pitch radius) the way it is wrapped.
+    const R = { ring: pitchRadius(CHAINRING.big.teeth), cog: pitchRadius(CHAIN_COG_TEETH), pulley: pitchRadius(RD.pulleyTeeth) };
+    const pulleyUp = derailleur.getObjectByName("rd-pulley-upper");
+    const pulleyLo = derailleur.getObjectByName("rd-pulley-lower");
+    g.userData.drive = {
+      update(ringAngle: number) {
+        const s = chainShift(loop, ringAngle);
+        chain.update(s);
+        const travelled = R.ring * ringAngle; // phase-free distance, so the cogs turn smoothly and start at rest pose
+        cassette.rotation.z = travelled / R.cog;
+        if (pulleyUp) pulleyUp.rotation.z = -travelled / R.pulley; // wrapped clockwise
+        if (pulleyLo) pulleyLo.rotation.z = travelled / R.pulley; // wrapped counter-clockwise
+      },
+    } satisfies DriveAnim;
     // Front derailleur
     const fd = new THREE.Mesh(prim("box|front-derailleur", () => new THREE.BoxGeometry(70, 26, 12)), pick("drivetrain", mats.alloy));
     fd.position.set(bb[0] + (cl[0] - bb[0]) * 0.27, bb[1] + (cl[1] - bb[1]) * 0.27, 62);

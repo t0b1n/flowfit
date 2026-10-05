@@ -8,7 +8,7 @@
  */
 
 import * as THREE from "three";
-import { CASSETTE, RD } from "./design/bikeProfiles";
+import { RD } from "./design/bikeProfiles";
 
 export interface DerailleurMaterials {
   /** gloss black body (links, knuckles, cage) */
@@ -112,7 +112,7 @@ export function buildRearDerailleur(
   g.name = "rear-derailleur";
   g.position.set(rear[0], rear[1], 0);
   const { mount: M, pivot: P, upper: U, lower: L, dropZ, chainZ } = RD;
-  const hangZ = CASSETTE.z0 + (CASSETTE.teeth.length - 1) * CASSETTE.spacing + 8;
+  const hangZ = dropZ + 4; // the hanger sits just outboard of the dropout face, clear of the cassette lockring
   const body = pick("drivetrain", mats.body);
   const ti = pick("drivetrain", mats.titanium);
   const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number, rotX = false) => {
@@ -144,10 +144,10 @@ export function buildRearDerailleur(
   // Inner link: thinner, below and inboard of the outer one
   add(
     prim("rd|link-inner", () => roundedPolyGeometry([[M.x + 4, M.y - 14], [P.x - 8, P.y - 8], [P.x - 2, P.y - 20], [M.x + 8, M.y - 24]].map(([x, y]) => [x - M.x, y - M.y] as const), 4, 6)),
-    body, M.x, M.y, 64,
+    body, M.x, M.y, hangZ - 23,
   );
   // Cage pivot knuckle and its bolt cap, spanning from the links in to the cage plates
-  disc("pivot", 13, 50, hangZ + 14, P.x, P.y, body);
+  disc("pivot", 13, chainZ - 10, hangZ + 14, P.x, P.y, body);
   disc("pivotcap", 8, hangZ + 14, hangZ + 16, P.x, P.y, ti);
   // Cage plates. The outer plate is one curved arm: broad at the pivot, narrowing as it sweeps back and down, then
   // flaring into a triangular foot with a window that shows the lower pulley. The inner plate is fuller.
@@ -155,16 +155,17 @@ export function buildRearDerailleur(
   const lx = L.x - P.x;
   const ly = L.y - P.y;
   const outline: Pt[] = [
-    [-16, 12], [14, 12], [18, -12], [10, -36], [4, -62], // front edge: pivot shield, then down
-    [lx + 20, ly + 10], [lx + 16, ly - 16], [lx - 6, ly - 24], [lx - 26, ly - 18], [lx - 28, ly + 2], // foot round the lower pulley
-    [-30, -62], [-24, -40], [-18, -16], // back edge up to the pivot
+    [-20, 14], [20, 14], [30, -12], [24, -36], [16, -58], // front edge: pivot shield, then down
+    [lx + 30, ly + 14], [lx + 26, ly - 24], [lx - 6, ly - 33], [lx - 34, ly - 26], [lx - 36, ly + 4], // foot round the (full-size) lower pulley
+    [-36, -62], [-30, -40], [-24, -16], // back edge up to the pivot
   ];
-  const window: Pt[] = [[lx - 20, ly + 8], [lx + 8, ly + 12], [lx + 2, ly - 12], [lx - 18, ly - 14]];
+  const window: Pt[] = [[lx - 20, ly + 12], [lx + 14, ly + 16], [lx + 6, ly - 16], [lx - 20, ly - 18]];
   add(prim("rd|cage-outer", () => roundedPolyGeometry(outline, 5, 4, [window])), body, P.x, P.y, chainZ + 10);
-  add(prim("rd|cage-inner", () => hullGeometry([rel(P, 12), rel(U, 12), rel(L, 15)], 4)), body, P.x, P.y, chainZ - 14);
+  add(prim("rd|cage-inner", () => hullGeometry([rel(P, 12), rel(U, 20), rel(L, 24)], 4)), body, P.x, P.y, chainZ - 14);
   // Toothed pulleys on the chain line, with titanium bolt heads through the cage
   for (const c of [U, L]) {
-    add(prim("rd|pulley", () => pulleyGeometry()), pick("drivetrain", mats.pulley), c.x, c.y, chainZ);
+    // named so the animation can turn them with the chain (bike3d.ts `DriveAnim`)
+    add(prim("rd|pulley", () => pulleyGeometry()), pick("drivetrain", mats.pulley), c.x, c.y, chainZ).name = c === U ? "rd-pulley-upper" : "rd-pulley-lower";
     disc(`pulleybolt|${c === L}`, 5, chainZ - 14, chainZ + 16, c.x, c.y, ti);
     disc(`pulleyhub|${c === L}`, 8, chainZ - 4, chainZ + 4, c.x, c.y, ti);
   }
