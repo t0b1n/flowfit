@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CASSETTE, CHAINRING, RD } from "./bikeProfiles";
-import { bikeChain, chainLoop, pitchRadius } from "./chain";
+import { RING_REST, bikeChain, chainLoop, chainShift, pitchRadius } from "./chain";
 
 const BB = { x: 404, y: -70 };
 const AXLE = { x: 0, y: 0 };
@@ -50,5 +50,34 @@ describe("chain loop", () => {
       { x: 100, y: 0, r, turn: 1 },
     ]);
     expect(belt.length).toBeCloseTo(2 * 100 + 2 * Math.PI * r, 6);
+  });
+
+  describe("pedalling", () => {
+    const T = CHAINRING.big.teeth;
+    const R = pitchRadius(T);
+
+    it("seats the rollers in the big ring's tooth gaps at any crank angle", () => {
+      for (const alpha of [0, 0.7, -2.4, 5.1]) {
+        const shift = chainShift(loop, alpha);
+        for (let i = 0; i < loop.links; i++) {
+          const p = loop.at(i * loop.pitch + shift);
+          if (Math.abs(Math.hypot(p.x - BB.x, p.y - BB.y) - R) > 1e-6) continue; // not on the ring
+          const theta = Math.atan2(p.y - BB.y, p.x - BB.x);
+          const tooth = (2 * Math.PI) / T;
+          const phase = (((theta - alpha - RING_REST - Math.PI / T) % tooth) + tooth) % tooth;
+          expect(Math.min(phase, tooth - phase)).toBeLessThan(0.01);
+        }
+      }
+    });
+
+    it("runs the top run toward the ring when the crank turns clockwise (forward pedalling)", () => {
+      // clockwise = the crank angle decreasing; links on the top run (heading −x along the loop) must move +x
+      const probe = loop.at(loop.legs[0].length + 100); // well inside the top run
+      expect(Math.cos(probe.angle)).toBeLessThan(-0.99); // heading −x
+      const before = loop.at(loop.legs[0].length + 100 + chainShift(loop, 0));
+      const after = loop.at(loop.legs[0].length + 100 + chainShift(loop, -0.1));
+      expect(after.x - before.x).toBeGreaterThan(0);
+      expect(after.x - before.x).toBeCloseTo(R * 0.1, 0);
+    });
   });
 });

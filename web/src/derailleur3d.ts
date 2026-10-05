@@ -164,7 +164,8 @@ export function buildRearDerailleur(
   add(prim("rd|cage-inner", () => hullGeometry([rel(P, 12), rel(U, 20), rel(L, 24)], 4)), body, P.x, P.y, chainZ - 14);
   // Toothed pulleys on the chain line, with titanium bolt heads through the cage
   for (const c of [U, L]) {
-    add(prim("rd|pulley", () => pulleyGeometry()), pick("drivetrain", mats.pulley), c.x, c.y, chainZ);
+    // named so the animation can turn them with the chain (bike3d.ts `DriveAnim`)
+    add(prim("rd|pulley", () => pulleyGeometry()), pick("drivetrain", mats.pulley), c.x, c.y, chainZ).name = c === U ? "rd-pulley-upper" : "rd-pulley-lower";
     disc(`pulleybolt|${c === L}`, 5, chainZ - 14, chainZ + 16, c.x, c.y, ti);
     disc(`pulleyhub|${c === L}`, 8, chainZ - 4, chainZ + 4, c.x, c.y, ti);
   }

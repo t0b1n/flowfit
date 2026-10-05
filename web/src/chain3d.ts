@@ -33,7 +33,8 @@ function rollerGeometry(): THREE.BufferGeometry {
 
 /**
  * The chain as one group at lateral station `z` (the chain line). `plateMat` and `rollerMat` are the two metals;
- * `prim` is the caller's shape-keyed geometry cache.
+ * `prim` is the caller's shape-keyed geometry cache. `update(shift)` slides every link `shift` mm along the loop
+ * (the chain moves as the chainring turns); the links are instanced, so a frame is ~350 matrix writes.
  */
 export function buildChain(
   path: ChainPath,
@@ -41,32 +42,38 @@ export function buildChain(
   plateMat: THREE.Material,
   rollerMat: THREE.Material,
   prim: <G extends THREE.BufferGeometry>(key: string, build: () => G) => G,
-): THREE.Group {
+): { group: THREE.Group; update: (shift: number) => void } {
   const g = new THREE.Group();
   g.name = "chain";
   const n = path.links;
   const plates = new THREE.InstancedMesh(prim(`chain|plate|${path.pitch.toFixed(2)}`, () => plateGeometry(path.pitch)), plateMat, 2 * n);
   const rollers = new THREE.InstancedMesh(prim("chain|roller", rollerGeometry), rollerMat, n);
+  // links slide through the view: never cull on the (static) bounding sphere of the first placement
+  plates.frustumCulled = false;
+  rollers.frustumCulled = false;
   const dummy = new THREE.Object3D();
-  const pts = Array.from({ length: n + 1 }, (_, i) => path.at(i * path.pitch));
-  for (let i = 0; i < n; i++) {
-    const a = pts[i];
-    const b = pts[i + 1];
-    const angle = Math.atan2(b.y - a.y, b.x - a.x);
-    const off = i % 2 === 0 ? PLATE.innerZ : PLATE.outerZ;
-    for (const side of [1, -1]) {
-      dummy.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, z + side * off);
-      dummy.rotation.set(0, 0, angle);
+  const update = (shift: number) => {
+    let a = path.at(shift);
+    for (let i = 0; i < n; i++) {
+      const b = path.at((i + 1) * path.pitch + shift);
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      const off = i % 2 === 0 ? PLATE.innerZ : PLATE.outerZ;
+      for (const side of [1, -1]) {
+        dummy.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, z + side * off);
+        dummy.rotation.set(0, 0, angle);
+        dummy.updateMatrix();
+        plates.setMatrixAt(2 * i + (side > 0 ? 0 : 1), dummy.matrix);
+      }
+      dummy.position.set(a.x, a.y, z);
+      dummy.rotation.set(0, 0, 0);
       dummy.updateMatrix();
-      plates.setMatrixAt(2 * i + (side > 0 ? 0 : 1), dummy.matrix);
+      rollers.setMatrixAt(i, dummy.matrix);
+      a = b;
     }
-    dummy.position.set(a.x, a.y, z);
-    dummy.rotation.set(0, 0, 0);
-    dummy.updateMatrix();
-    rollers.setMatrixAt(i, dummy.matrix);
-  }
-  plates.instanceMatrix.needsUpdate = true;
-  rollers.instanceMatrix.needsUpdate = true;
+    plates.instanceMatrix.needsUpdate = true;
+    rollers.instanceMatrix.needsUpdate = true;
+  };
+  update(0);
   g.add(plates, rollers);
-  return g;
+  return { group: g, update };
 }

@@ -12,8 +12,8 @@ import * as THREE from "three";
 import { debugMaterial, partForTube } from "./debug";
 import { buildRearDerailleur } from "./derailleur3d";
 import { buildChain } from "./chain3d";
-import { bikeChain } from "./design/chain";
-import { CASSETTE, HEAD_TUBE_JOIN, HUB, RD, REAR_HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
+import { CHAIN_COG_TEETH, bikeChain, chainShift, pitchRadius } from "./design/chain";
+import { CASSETTE, CHAINRING, HEAD_TUBE_JOIN, HUB, RD, REAR_HUB, RIM, SEATSTAY_DROP, STEM, TUBE_PROFILE, cogTipRadius, type TubeName } from "./design/bikeProfiles";
 import { limbGeometry, orientBetween } from "./riderMesh";
 import { CALIPER, forkCaliperSeat, forkFrame, forkSpine, type CaliperSeat } from "./design/fork";
 import type { Cockpit } from "./cockpit";
@@ -476,6 +476,12 @@ function forkGeometry(crown: { x: number; y: number }, axle: { x: number; y: num
   return geo;
 }
 
+/** Stored on the bike group's `userData.drive`: poses the chain, cassette and derailleur pulleys for a crank angle. */
+export interface DriveAnim {
+  /** `ringAngle`: world angle (rad, counter-clockwise, unwrapped) of the drive-side crank */
+  update(ringAngle: number): void;
+}
+
 /**
  * Builds the static bike: tapered frame tubes, ENVE-style fork, fillets, wheels (deep carbon rims, rotors,
  * calipers), rear cassette, derailleurs and chain. The swept handlebar and the saddle stay
@@ -612,6 +618,10 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
   if (rear) {
     // Dura-Ace 11-34: 12 cogs, largest nearest the spokes. Toothed outlines, plain cylinders on mobile.
     const toothed = !opts.simpleCassette;
+    const cassette = new THREE.Group(); // turns about the axle with the chain (DriveAnim)
+    cassette.name = "cassette";
+    cassette.position.set(rear[0], rear[1], 0);
+    g.add(cassette);
     CASSETTE.teeth.forEach((n, i) => {
       const r = cogTipRadius(n);
       const z = CASSETTE.z0 + i * CASSETTE.spacing;
@@ -620,8 +630,8 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
         : prim(`cogcyl|${n}`, () => new THREE.CylinderGeometry(r, r, CASSETTE.thickness, 32));
       const c = new THREE.Mesh(geo, pick("drivetrain", mats.cassette ?? mats.alloy));
       c.rotation.x = Math.PI / 2;
-      c.position.set(rear[0], rear[1], z);
-      g.add(c);
+      c.position.set(0, 0, z);
+      cassette.add(c);
       if (mats.cassetteEdge && !opts.debug) {
         // inverted hull: back faces of a slightly enlarged copy show as a dark outline against the next cog behind
         const e = toothed
@@ -629,32 +639,48 @@ export function buildBikeMeshes(points: Geometry3DPoint[], tubes: Tube3D[], whee
           : new THREE.Mesh(prim(`cogedge|${r}`, () => new THREE.CylinderGeometry(r + 1.4, r + 1.4, CASSETTE.thickness, 32)), mats.cassetteEdge);
         if (toothed) e.scale.set(1.025, 1, 1.025);
         e.rotation.x = Math.PI / 2;
-        e.position.set(rear[0], rear[1], z);
-        g.add(e);
+        e.position.set(0, 0, z);
+        cassette.add(e);
       }
     });
     // black lockring on the smallest (outermost) cog
     const lockZ = CASSETTE.z0 + (CASSETTE.teeth.length - 1) * CASSETTE.spacing + CASSETTE.thickness / 2 + 1.5;
     const lock = new THREE.Mesh(prim("cassette|lockring", () => lockringGeometry()), pick("drivetrain", mats.tyre));
-    lock.position.set(rear[0], rear[1], lockZ);
-    g.add(lock);
+    lock.position.set(0, 0, lockZ);
+    cassette.add(lock);
     // Rear derailleur: hung off the drive-side dropout by a hanger plate (derailleur3d.ts)
-    g.add(
-      buildRearDerailleur(
-        rear,
-        {
-          body: mats.rdBody ?? mats.carbon,
-          titanium: mats.titanium ?? mats.alloy,
-          pulley: mats.rdBody ?? mats.carbon,
-          frame: mats.frame,
-          axle: mats.alloy,
-        },
-        prim,
-        pick,
-      ),
+    const derailleur = buildRearDerailleur(
+      rear,
+      {
+        body: mats.rdBody ?? mats.carbon,
+        titanium: mats.titanium ?? mats.alloy,
+        pulley: mats.rdBody ?? mats.carbon,
+        frame: mats.frame,
+        axle: mats.alloy,
+      },
+      prim,
+      pick,
     );
+    g.add(derailleur);
     // Chain: links wrapped round the big ring, the 17T cog and the two cage pulleys (design/chain.ts), on the chain line
-    g.add(buildChain(bikeChain({ x: bb[0], y: bb[1] }, { x: rear[0], y: rear[1] }), RD.chainZ, pick("drivetrain", mats.titanium ?? mats.alloy), pick("drivetrain", mats.alloy), prim));
+    const loop = bikeChain({ x: bb[0], y: bb[1] }, { x: rear[0], y: rear[1] });
+    const chain = buildChain(loop, RD.chainZ, pick("drivetrain", mats.titanium ?? mats.alloy), pick("drivetrain", mats.alloy), prim);
+    g.add(chain.group);
+    // Pedalling: the big ring turns with the drive-side crank (AnimatedLegs); `ringAngle` is that angle, unwrapped. The chain
+    // moves R·angle along the loop, and every wheel it wraps turns by (distance / its pitch radius) the way it is wrapped.
+    const R = { ring: pitchRadius(CHAINRING.big.teeth), cog: pitchRadius(CHAIN_COG_TEETH), pulley: pitchRadius(RD.pulleyTeeth) };
+    const pulleyUp = derailleur.getObjectByName("rd-pulley-upper");
+    const pulleyLo = derailleur.getObjectByName("rd-pulley-lower");
+    g.userData.drive = {
+      update(ringAngle: number) {
+        const s = chainShift(loop, ringAngle);
+        chain.update(s);
+        const travelled = R.ring * ringAngle; // phase-free distance, so the cogs turn smoothly and start at rest pose
+        cassette.rotation.z = travelled / R.cog;
+        if (pulleyUp) pulleyUp.rotation.z = -travelled / R.pulley; // wrapped clockwise
+        if (pulleyLo) pulleyLo.rotation.z = travelled / R.pulley; // wrapped counter-clockwise
+      },
+    } satisfies DriveAnim;
     // Front derailleur
     const fd = new THREE.Mesh(prim("box|front-derailleur", () => new THREE.BoxGeometry(70, 26, 12)), pick("drivetrain", mats.alloy));
     fd.position.set(bb[0] + (cl[0] - bb[0]) * 0.27, bb[1] + (cl[1] - bb[1]) * 0.27, 62);

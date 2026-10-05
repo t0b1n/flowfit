@@ -22,6 +22,12 @@ export interface Wheel2 {
 /** Pitch radius of a sprocket with `teeth` teeth on a 12.7 mm chain. */
 export const pitchRadius = (teeth: number): number => CASSETTE.pitch / 2 / Math.sin(Math.PI / teeth);
 
+/**
+ * Where the big ring's teeth sit relative to the drive-side crank: the ring group is turned by `crankAngle + RING_REST`
+ * so that one spider arm lies under the crank. The chain's phase is set from it, so rollers sit in the tooth gaps.
+ */
+export const RING_REST = -Math.PI / 2 - 0.5;
+
 /** The cog the chain sits on (middle of the cassette: the one on the chain line, 17 teeth). */
 export const CHAIN_COG_TEETH = CASSETTE.teeth[6];
 
@@ -106,6 +112,18 @@ export function chainLoop(wheels: readonly Wheel2[]): ChainPath {
     return pts;
   };
   return { legs, length, links, pitch, at, polyline };
+}
+
+/**
+ * How far (mm, along the loop) the chain has moved when the drive-side crank is at world angle `alpha` (radians,
+ * counter-clockwise from +x, unwrapped). The offset also puts the rollers in the big ring's tooth gaps at alpha = 0.
+ */
+export function chainShift(path: ChainPath, alpha: number): number {
+  const teeth = CHAINRING.big.teeth;
+  const R = pitchRadius(teeth);
+  const ring = path.legs[0] as Extract<Leg, { kind: "arc" }>; // the loop starts on the big ring
+  const phase = R * (Math.PI / teeth + RING_REST - ring.a0);
+  return R * alpha + phase;
 }
 
 /** The bike's chain: big ring at the bottom bracket, the 17T cog on the rear axle, and the two cage pulleys. */
