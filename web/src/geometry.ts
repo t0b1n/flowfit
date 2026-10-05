@@ -14,6 +14,7 @@ import type {
 import type { Geometry3DPoint, Geometry3DEdge, Geometry3DResponse } from "./bike3d";
 import { FrameGeometry } from "./frameCatalog";
 import { buildCockpit, hoodContact } from "./cockpit";
+import { REAR_HUB } from "./design/bikeProfiles";
 import { FORK } from "./design/fork";
 import { ankleOffset } from "./design/foot";
 
@@ -1346,7 +1347,7 @@ const _FRAME_EDGES: [string, string][] = [
 ];
 
 /** Lateral half-spread of the rear dropouts (mm); the fork's is FORK.halfSpread (design/fork.ts). */
-const _CHAINSTAY_HALF_SPREAD = 38;
+const _CHAINSTAY_HALF_SPREAD = REAR_HUB.halfSpread;
 /** Visual seatpost head extension above the rail clamp centre (mm). */
 const _SEATPOST_HEAD_EXTENSION = 5;
 

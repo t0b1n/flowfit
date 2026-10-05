@@ -16,6 +16,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { CHAINRING } from "./design/bikeProfiles";
+import { RING_REST } from "./design/chain";
 import { useDbg } from "./debug";
 import { shoePlacement } from "./design/foot";
 import { pedalParts } from "./pedal3d";
@@ -66,6 +67,8 @@ interface AnimatedLegsProps {
   /** rider height in mm (radii scale by height / 1800) */
   heightMm?: number;
   crankAngleRef: React.MutableRefObject<number>;
+  /** unwrapped world angle (rad) of the drive-side crank, kept by `DriveAngle`: the rings turn with it */
+  driveAngleRef?: React.MutableRefObject<number>;
   playing: boolean;
   cadenceRpm: number;
   showLegs: boolean;
@@ -95,8 +98,9 @@ const shoeGeo = () => (shoeRef ??= buildShoeGeometries(SWORKS_TORCH));
 
 export function AnimatedLegs({
   lut, hipR, hipL, bb, halfStance, heightMm = 1800,
-  crankAngleRef, playing, cadenceRpm, showLegs,
+  crankAngleRef, driveAngleRef, playing, cadenceRpm, showLegs,
 }: AnimatedLegsProps) {
+  const ringsRef = useRef<THREE.Group>(null);
   const M = useMats();
   const dbg = useDbg();
   const thighRRef = useRef<THREE.Group>(null);
@@ -205,6 +209,8 @@ export function AnimatedLegs({
     pedalLRef.current?.position.set(left.spindle.x, left.spindle.y, zL);
     spindleRRef.current?.position.set(right.spindle.x, right.spindle.y, (CRANK_ROOT_Z + zR) / 2);
     spindleLRef.current?.position.set(left.spindle.x, left.spindle.y, (-CRANK_ROOT_Z + zL) / 2);
+    // The chainrings and spider turn with the drive-side crank (the chain follows in bike3d.ts `DriveAnim`)
+    if (ringsRef.current && driveAngleRef) ringsRef.current.rotation.z = driveAngleRef.current + RING_REST;
     if (playing) state.invalidate(); // frameloop="demand": keep the animation running
   });
 
@@ -264,7 +270,7 @@ export function AnimatedLegs({
         <cylinderGeometry args={[12, 12, CRANK_ROOT_Z * 2 + 16, 16, 1]} />
         {M.carbon}
       </mesh>
-      <group position={[bb[0], bb[1], CHAINRING_Z]}>
+      <group ref={ringsRef} position={[bb[0], bb[1], CHAINRING_Z]} rotation={[0, 0, RING_REST]}>
         <mesh geometry={rings.big} position={[0, 0, 2]}>{dbg("drivetrain", M.carbon)}</mesh>
         <mesh geometry={rings.small} position={[0, 0, -7]}>{dbg("drivetrain", M.carbon)}</mesh>
         {Array.from({ length: CHAINRING.spiderArms }, (_, i) => (

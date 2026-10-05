@@ -27,6 +27,7 @@ import {
   Tube3D,
   LEG_POINT_NAMES,
   LEG_EDGE_GROUPS,
+  type DriveAnim,
 } from "./bike3d";
 import { AnimatedLegs } from "./AnimatedLegs";
 import { DebugProvider, debugMaterial, useDbg, useDebugOn } from "./debug";
@@ -455,10 +456,27 @@ export function frameTubesFor(geo: Geometry3DResponse) {
   };
 }
 
+/**
+ * Keeps `out` at the unwrapped world angle (rad, counter-clockwise from +x) of the drive-side crank about the BB.
+ * Unwrapped, because the cassette turns by (52 / 17)× this and must not jump when the angle passes ±π. Placed before
+ * the consumers so they read this frame's value.
+ */
+function DriveAngle({ lut, crankAngleRef, bb, out }: { lut: PedalStrokeLUT; crankAngleRef: React.MutableRefObject<number>; bb: [number, number, number]; out: React.MutableRefObject<number> }) {
+  const last = useRef<number | null>(null);
+  useFrame(() => {
+    const s = legPoseAt(lut, crankAngleRef.current + 180).spindle; // the right (drive-side) crank is the left one + 180°
+    const a = Math.atan2(s.y - bb[1], s.x - bb[0]);
+    if (last.current === null) out.current = a;
+    else out.current += Math.atan2(Math.sin(a - last.current), Math.cos(a - last.current));
+    last.current = a;
+  });
+  return null;
+}
+
 /** The static bike (tapered frame, curved fork, deep carbon rims, rotors, cassette, derailleur, chain, hoods). */
 export function BikeStatic({
-  geo, tubes, wheelRadius, simpleCassette = false,
-}: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; simpleCassette?: boolean }) {
+  geo, tubes, wheelRadius, simpleCassette = false, driveAngleRef,
+}: { geo: Geometry3DResponse; tubes: Tube3D[]; wheelRadius: number; simpleCassette?: boolean; driveAngleRef?: React.MutableRefObject<number> }) {
   const M = useMats();
   const debug = useDebugOn();
   // Shape-keyed geometry cache: the sliders mostly move parts, so rebuilding only what changed shape keeps ticks cheap.
@@ -484,6 +502,16 @@ export function BikeStatic({
   }, [geo, tubes, wheelRadius, simpleCassette, M, debug, cache]);
   // Sweep after commit: the previous group is still in the scene during render and must not lose its geometry.
   useEffect(() => cache.end(), [bike, hoods, cache]);
+  // Pedalling: chain, cassette and derailleur pulleys follow the drive-side crank. Re-posed only when the angle changes
+  // (or the bike was rebuilt), so a static view costs nothing.
+  const posed = useRef<{ bike: THREE.Group; angle: number } | null>(null);
+  useFrame(() => {
+    const drive = bike.userData.drive as DriveAnim | undefined;
+    const angle = driveAngleRef?.current ?? 0;
+    if (!drive || (posed.current?.bike === bike && posed.current.angle === angle)) return;
+    drive.update(angle);
+    posed.current = { bike, angle };
+  });
   useEffect(() => () => legacyHoods?.traverse((o) => (o as THREE.Mesh).geometry?.dispose()), [legacyHoods]);
   return (
     <>
@@ -863,6 +891,7 @@ const SceneContent = React.memo(function SceneContent({
   const hipR = effPtMap.get("hip_r");
   const hipL = effPtMap.get("hip_l");
   const bbPt = effPtMap.get("bb") ?? ([0, 0, 0] as [number, number, number]);
+  const driveAngleRef = useRef(0); // drive-side crank angle (rad, unwrapped): the chain, cassette and pulleys turn with it
 
   const wheelRadius = geo.frame.wheel_radius ?? 311;
 
@@ -945,7 +974,8 @@ const SceneContent = React.memo(function SceneContent({
       </group>
 
       {/* Bike: tapered frame, fork, wheels, drivetrain parts, hoods (see bike3d.ts) */}
-      {!tPose && <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} simpleCassette={quality === "mobile"} />}
+      {!tPose && strokeLUT && <DriveAngle lut={strokeLUT} crankAngleRef={crankAngleRef} bb={bbPt} out={driveAngleRef} />}
+      {!tPose && <BikeStatic geo={geo} tubes={frameTubes} wheelRadius={wheelRadius} simpleCassette={quality === "mobile"} driveAngleRef={driveAngleRef} />}
 
       {/* Swept handlebar */}
       {!tPose && !geo.cockpit && <HandlebarMesh ptMap={framePtMap} />}
@@ -968,6 +998,7 @@ const SceneContent = React.memo(function SceneContent({
           halfStance={stanceWidth / 2}
           heightMm={geo.rider?.height ?? 1800}
           crankAngleRef={crankAngleRef}
+          driveAngleRef={driveAngleRef}
           playing={playing}
           cadenceRpm={cadenceRpm}
           showLegs={showMannequin}
