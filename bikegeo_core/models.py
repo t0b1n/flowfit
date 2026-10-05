@@ -55,7 +55,7 @@ class Components(BaseModel):
     )
     saddle_stack: float = Field(75.0, description="Vertical distance from rail clamp to saddle surface, in mm.")
     seatpost_offset: float = Field(0.0, description="Horizontal setback of the clamp from the seat-tube centreline, in mm (positive = rearward).")
-    saddle_rail_offset: float = Field(0.0, description="Forward/backward slide of the saddle on its rails relative to the clamp, in mm (positive = forward).")
+    saddle_rail_offset: float = Field(-43.0, description="Horizontal offset of the saddle contact point from the clamp, in mm (positive = forward). Default: contact ~43 mm behind mid-rail, where the clamp grips.")
     pedal_stack_height: float = Field(11.0, description="Height from pedal axle to cleat contact in mm.")
     # Cockpit (mirrors web/src/cockpit.ts; all optional so older payloads stay valid)
     bar_rise: float = Field(0.0, description="Vertical rise of the bar tops above the clamp centre, in mm.")

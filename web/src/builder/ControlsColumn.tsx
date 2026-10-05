@@ -344,7 +344,7 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
                 [
                   ["Saddle stack", components.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
                   ["Seatpost offset", components.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
-                  ["Rail offset", components.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
+                  ["Rail offset", components.saddle_rail_offset, -78, -8, 5, "saddle_rail_offset", "mm"],
                   ["Crank length", components.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],
                 ] as const
               ).map(([label, value, min, max, step, key, unit]) => (

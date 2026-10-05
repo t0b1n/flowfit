@@ -1,5 +1,5 @@
 import { getSizeData } from "./frameCatalog";
-import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight } from "./saddleModels";
+import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, contactX } from "./saddleModels";
 import type {
   BikeSketch,
   ComponentDeltas,
@@ -38,7 +38,8 @@ export const DEFAULT_COMPONENTS: Components = {
   // rail centreline to the top of the default (traced) saddle at the contact station
   saddle_stack: contactHeight(SWORKS_POWER, SADDLE_CONTACT_U),
   seatpost_offset: 0,
-  saddle_rail_offset: 0,
+  // contact station sits behind mid-rail (where the clamp grips): contactX(trace, U) = −43 mm
+  saddle_rail_offset: Math.round(contactX(SWORKS_POWER, SADDLE_CONTACT_U)),
   pedal_stack_height: 12,
 };
 
@@ -98,8 +99,8 @@ export type BodyMeasurements = {
   footLength: number;
 };
 
-/** Ankle joint → cleat point, as a fraction of height (see buildRider). */
-const ANKLE_TO_CLEAT_FRAC = 0.045;
+/** Ankle joint height above the floor (barefoot), as a fraction of height (see buildRider). */
+const ANKLE_HEIGHT_FRAC = 0.045;
 
 export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   const heightScale = fit.height / 1800;
@@ -108,15 +109,15 @@ export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   // ankle. Inseam measures sit-bones-to-floor, so the articulating leg length
   // is inseam + hipOffset.
   const articulatingLeg = fit.inseam + hipOffset;
-  // The IK leg ends at the cleat, not the ankle joint: the shank segment is the tibia plus the ankle-to-cleat offset
-  // (ankle height + sole + cleat, ~4.5% of height). Femur and tibia are about equal (0.245 H / 0.246 H), so the
-  // thigh takes half of what remains. The sum is unchanged, so saddle height still follows the inseam.
-  const thigh = (articulatingLeg - ANKLE_TO_CLEAT_FRAC * fit.height) / 2;
+  // The IK leg ends at the ankle joint (the shoe's malleolus, see design/foot.ts), which stands ANKLE_HEIGHT_FRAC
+  // of height off the floor, so thigh + tibia = the articulating leg less that. Femur and tibia are about equal
+  // (0.245 H / 0.246 H), so each takes half. Saddle height still follows the inseam.
+  const limb = (articulatingLeg - ANKLE_HEIGHT_FRAC * fit.height) / 2;
   return {
     ...DEFAULT_RIDER,
     height: fit.height,
-    thigh_length: thigh,
-    shank_length: articulatingLeg - thigh,
+    thigh_length: limb,
+    shank_length: limb,
     torso_length: body?.torsoLength ?? DEFAULT_RIDER.torso_length * heightScale,
     upper_arm_length: body?.upperArmLength ?? DEFAULT_RIDER.upper_arm_length * heightScale,
     forearm_length: body?.forearmLength ?? DEFAULT_RIDER.forearm_length * heightScale,
@@ -277,7 +278,9 @@ export const buildMannequin = (
     y: saddleContact.y + rider.hip_joint_offset,
   };
 
-  const pedalTarget = { x: bike.cleat.x, y: bike.cleat.y + pedalStackHeight };
+  // The leg solves to the true ankle (the shoe's malleolus), behind and above the cleat point.
+  const ank = ankleOffset(rider.foot_length, pedalStackHeight);
+  const pedalTarget = { x: bike.cleat.x - ank.setback, y: bike.cleat.y + ank.rise };
   const { knee, ankle, pedalGapMm } = solveLeg(hipJoint, pedalTarget, rider.thigh_length, rider.shank_length);
 
   const targetHands = bike.hoods;
@@ -560,8 +563,8 @@ export interface PedalStrokeLUT {
   maxExtensionIndex: number;
   crankLength: number;
   hip: ContactPoint;
-  /** Drawn ankle (the shoe's malleolus station, design/foot.ts) behind and above the cleat point: drawn
-   *  geometry only — the IK solves from the spindle; see buildMannequin3DPoints. */
+  /** The ankle (the shoe's malleolus station, design/foot.ts) behind and above the cleat point: the leg IK
+   *  solves to it, so `pose.ankle` = cleat − setback, + rise. */
   ankleSetbackMm: number;
   ankleRiseMm: number;
   /** Shoe length (rider.foot_length) the drawn shoe is scaled to. */
@@ -580,6 +583,7 @@ export function solvePedalStroke(
   const poses: LegPose[] = [];
   const kneeExtensionDeg: number[] = [];
   const pedalGapMm: number[] = [];
+  const ank = ankleOffset(rider.foot_length, pedalStackHeight);
 
   for (let i = 0; i < samples; i++) {
     const theta = (i / samples) * 2 * Math.PI;
@@ -587,9 +591,9 @@ export function solvePedalStroke(
       x: bb.x + crankLength * Math.sin(theta),
       y: bb.y + crankLength * Math.cos(theta),
     };
-    const target = { x: spindle.x - cleatSetback, y: spindle.y + pedalStackHeight };
+    const target = { x: spindle.x - cleatSetback - ank.setback, y: spindle.y + ank.rise };
     const leg = solveLeg(hip, target, rider.thigh_length, rider.shank_length);
-    const cleat = { x: leg.ankle.x, y: leg.ankle.y - pedalStackHeight };
+    const cleat = { x: leg.ankle.x + ank.setback, y: leg.ankle.y - ank.rise };
 
     poses.push({ spindle, cleat, ankle: leg.ankle, knee: leg.knee });
     kneeExtensionDeg.push(angleAtPoint(hip, leg.knee, leg.ankle));
@@ -621,8 +625,8 @@ export function solvePedalStroke(
     maxExtensionIndex,
     crankLength,
     hip,
-    ankleSetbackMm: ankleOffset(rider.foot_length).setback,
-    ankleRiseMm: ankleOffset(rider.foot_length).rise,
+    ankleSetbackMm: ank.setback,
+    ankleRiseMm: ank.rise,
     shoeLengthMm: rider.foot_length,
   };
 }
@@ -824,12 +828,22 @@ export const expandBoundsForMannequins = (
 
 // ── Mode 1: Fit Builder helpers ──────────────────────────────────────────────
 
+/** Centre of the circle the true ankle runs on (the ankle at the spindle's crank-circle centre, BB-relative). */
+const ankleCircleCentre = (
+  rider: ReturnType<typeof buildRider>,
+  cleatSetback: number,
+  pedalStackHeight: number,
+): ContactPoint => {
+  const ank = ankleOffset(rider.foot_length, pedalStackHeight);
+  return { x: -cleatSetback - ank.setback, y: ank.rise };
+};
+
 /**
  * Saddle contact point (on the seat-tube line, shifted by saddleXOffset) that gives
  * `targetKneeExtensionDeg` at the most extended point of the pedal stroke.
  *
- * The IK ankle runs on a circle of radius crankLength centred at
- * (−cleatSetback, pedalStackHeight), so the largest hip→ankle distance is
+ * The IK ankle (the shoe's malleolus) runs on a circle of radius crankLength centred at
+ * ankleCircleCentre(), so the largest hip→ankle distance is
  * |hip − centre| + crankLength (≈ 5 o'clock, on the hip–BB line). Bisects the
  * clamp offset so that distance matches the target knee angle.
  */
@@ -844,7 +858,7 @@ export const saddleForKneeExtension = (
   saddleXOffset: number = 0,
 ): ContactPoint => {
   const seatAngle = radiansFromDegrees(seatAngleDeg);
-  const centre: ContactPoint = { x: -cleatSetback, y: pedalStackHeight };
+  const centre = ankleCircleCentre(rider, cleatSetback, pedalStackHeight);
   const targetDistance =
     distanceForKneeAngle(Math.min(targetKneeExtensionDeg, 180), rider.thigh_length, rider.shank_length) - crankLength;
   const saddleAt = (offset: number): ContactPoint => ({
@@ -872,7 +886,7 @@ export const maxKneeExtensionForHip = (
   cleatSetback: number = 0,
 ) =>
   kneeAngleForDistance(
-    distanceBetweenPoints(hip, { x: -cleatSetback, y: pedalStackHeight }) + crankLength,
+    distanceBetweenPoints(hip, ankleCircleCentre(rider, cleatSetback, pedalStackHeight)) + crankLength,
     rider.thigh_length,
     rider.shank_length,
   );
@@ -1235,28 +1249,27 @@ export function buildMannequin3DPoints(
 
   const pedalStack = components.pedal_stack_height || 0;
 
-  // The drawn ankle is the shoe's malleolus station, behind and above the cleat (design/foot.ts); the 2D
-  // skeleton and the pedalling legs draw the shin to the same point. The IK itself solves with the
-  // unshifted ankle in both views.
-  const ank = ankleOffset(rider.foot_length);
+  // The ankle is the shoe's malleolus station, behind and above the cleat (design/foot.ts); the IK solves
+  // to it and the 2D skeleton and pedalling legs draw the shin to the same point.
+  const ank = ankleOffset(rider.foot_length, pedalStack);
 
   // Right leg (+Z, drive side): the 2D fit pose, crank at bottom dead center,
   // matching the near leg of the 2D side view.
-  p("cleat_r", mannequin.ankle.x, mannequin.ankle.y - pedalStack, +halfStance);
-  p("ankle_r", mannequin.ankle.x - ank.setback, mannequin.ankle.y - pedalStack + ank.rise, +halfStance);
+  p("cleat_r", mannequin.ankle.x + ank.setback, mannequin.ankle.y - ank.rise, +halfStance);
+  p("ankle_r", mannequin.ankle.x, mannequin.ankle.y, +halfStance);
   p("knee_r", mannequin.knee.x, mannequin.knee.y, +halfStance);
 
   // Left leg (−Z): posed at the opposed crank position (top dead center) so the
   // rider isn't impossibly pedaling with both feet down. The pedal spindle
   // sits at (0, −crank_length) from the BB (origin), so the opposed spindle is
   // at +crank_length; the cleat keeps its setback. Same leg IK as the 2D view.
-  const pedalL2d = { x: -components.cleat_setback, y: components.crank_length + pedalStack };
+  const pedalL2d = { x: -components.cleat_setback - ank.setback, y: components.crank_length + ank.rise };
   const hip2d = { x: mannequin.hip.x, y: mannequin.hip.y };
   const legL = solveLeg(hip2d, pedalL2d, rider.thigh_length, rider.shank_length);
   const ankleL2d = legL.ankle;
   const kneeL2d = legL.knee;
-  p("cleat_l", ankleL2d.x, ankleL2d.y - pedalStack, -halfStance);
-  p("ankle_l", ankleL2d.x - ank.setback, ankleL2d.y - pedalStack + ank.rise, -halfStance);
+  p("cleat_l", ankleL2d.x + ank.setback, ankleL2d.y - ank.rise, -halfStance);
+  p("ankle_l", ankleL2d.x, ankleL2d.y, -halfStance);
   p("knee_l", kneeL2d.x, kneeL2d.y, -halfStance);
 
   // Hips at ±half_hip + centerline

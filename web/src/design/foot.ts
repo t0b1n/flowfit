@@ -2,8 +2,8 @@
  * Shoe placement shared by the 2D side view and the 3D pedalling legs. The solver puts the ball of the foot on
  * the cleat point (directly above the pedal spindle); the traced shoe (shoeModels.ts) is drawn flat with its
  * ball station over the cleat and its sole on the pedal body, so shoe, cleat and pedal always touch.
- * The drawn ankle (the end of the drawn shin) is the shoe's malleolus station inside the collar: drawing only,
- * the IK solves to the unshifted cleat in both views.
+ * The ankle (the end of the drawn shin) is the shoe's malleolus station inside the collar, and the leg IK
+ * solves to it: `ankleOffset` is its offset from the cleat point.
  * Points are {x, y} in mm, y up.
  */
 import { lerpTable } from "../saddleModels";
@@ -35,17 +35,25 @@ export function shoePlacement(cleat: { x: number; y: number }, footLengthMm: num
   };
 }
 
-/** Drawn ankle offset from the cleat point: `setback` behind it, `rise` above it (mm). */
-export function ankleOffset(footLengthMm: number, s: ShoeTrace = SHOE): { setback: number; rise: number } {
+/** Ankle offset from the cleat point: `setback` behind it, `rise` above it (mm). `stackMm` = cleat point to sole. */
+export function ankleOffset(
+  footLengthMm: number,
+  stackMm: number = SOLE_ABOVE_SPINDLE,
+  s: ShoeTrace = SHOE,
+): { setback: number; rise: number } {
   const len = footLengthMm;
   return {
     setback: (s.ball - s.ankle.u) * len,
-    rise: SOLE_ABOVE_SPINDLE + (s.ankle.h - lerpTable(s.bottom, s.ball)) * len,
+    rise: stackMm + (s.ankle.h - lerpTable(s.bottom, s.ball)) * len,
   };
 }
 
-/** Drawn ankle point for a cleat point. */
-export function drawnAnkle(cleat: { x: number; y: number }, footLengthMm: number): { x: number; y: number } {
-  const o = ankleOffset(footLengthMm);
+/** Ankle point for a cleat point. */
+export function drawnAnkle(
+  cleat: { x: number; y: number },
+  footLengthMm: number,
+  stackMm: number = SOLE_ABOVE_SPINDLE,
+): { x: number; y: number } {
+  const o = ankleOffset(footLengthMm, stackMm);
   return { x: cleat.x - o.setback, y: cleat.y + o.rise };
 }

@@ -11,6 +11,7 @@ from bikegeo_core import (
 from bikegeo_core.constraints import evaluate_posture_constraints
 from bikegeo_core.geometry import cleat_at_crank_angle, pedal_spindle_at_angle, synthesize_bike
 from bikegeo_core.mannequin2d import (
+    ankle_offset,
     _circle_intersections,
     sample_pedal_stroke,
     solve_leg_2d,
@@ -126,8 +127,9 @@ def test_anterior_knee_matches_prefer_upper_at_bdc() -> None:
 
     hip_x = bike.saddle.x
     hip_y = bike.saddle.y + rider.hip_joint_offset
-    ankle_x = bike.cleat.x
-    ankle_y = bike.cleat.y + components.pedal_stack_height
+    setback, rise = ankle_offset(rider, components.pedal_stack_height)
+    ankle_x = bike.cleat.x - setback
+    ankle_y = bike.cleat.y + rise
     legacy_knee = _circle_intersections(
         hip_x, hip_y, ankle_x, ankle_y, rider.thigh_length, rider.shank_length, True
     )
@@ -210,3 +212,11 @@ def test_solve_setup_populates_stroke_metrics() -> None:
     assert solved.pose_metrics.knee_extension_max_deg is not None
     assert solved.pose_metrics.kops_offset_mm is not None
     assert solved.pose_metrics.knee_flexion_tdc_deg > 60.0
+
+
+def test_ankle_offset_matches_frontend_shoe_trace() -> None:
+    # web/src/design/foot.ts::ankleOffset(290, 12) → setback 133.4, rise 68.724 (shoe traced in shoeModels.ts)
+    rider = _rider().model_copy(update={"foot_length": 290.0})
+    setback, rise = ankle_offset(rider, 12.0)
+    assert math.isclose(setback, 133.4, abs_tol=0.05)
+    assert math.isclose(rise, 68.724, abs_tol=0.05)

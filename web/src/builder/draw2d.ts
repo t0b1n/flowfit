@@ -3,7 +3,7 @@
  * converted to SVG (y down) when a point string is produced. Shapes come from the same profile tables as
  * the 3D meshes: `design/riderBody.ts` and `design/bikeProfiles.ts`.
  */
-import { SHOE, drawnAnkle, shoePlacement } from "../design/foot";
+import { SHOE, shoePlacement } from "../design/foot";
 import { HEAD_GAZE_OFFSET_DEG, NECK_SLIM, bump, calAt, headDeform, lerp, spinePath, torsoDepth, type SegmentName, type SpinePath } from "../design/riderBody";
 import type { ContactPoint } from "../types";
 
@@ -184,7 +184,7 @@ export interface FigureInput {
 
 /** Bone segments and joints for the skeleton overlay (no outline polygons: those are drawn by the 3D scene now). */
 export function figureSkeleton(f: FigureInput): Pick<FigurePolys, "bones" | "joints"> {
-  const ankleVis = drawnAnkle(f.cleat, f.footLengthMm);
+  const ankleVis = f.ankle;
   return {
     bones: [
       [f.hip, f.spineJoint],
@@ -211,7 +211,7 @@ export function buildFigure(f: FigureInput): FigurePolys {
   const torsoProf = (t: number) =>
     k("torso") * calAt("torso", t) * (98 - 16 * bump(t, 0.36, 0.13) + 20 * bump(t, 0.78, 0.16)) * torsoDepth(t);
 
-  const visAnkle = (_an: V, cleat: V): V => drawnAnkle(cleat, f.footLengthMm);
+  const visAnkle = (an: V, _cleat: V): V => an;
 
   const shoe = (_an: V, cleat: V): string => {
     // traced side outline: upper top heel → toe, then the sole bottom back to the heel

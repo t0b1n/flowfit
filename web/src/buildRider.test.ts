@@ -5,15 +5,14 @@ import { segScale } from "./riderMesh";
 describe("buildRider leg proportions", () => {
   const r = buildRider(DEFAULT_RIDER_FIT);
 
-  it("keeps the total articulating leg = inseam + hip joint offset", () => {
-    expect(r.thigh_length + r.shank_length).toBeCloseTo(DEFAULT_RIDER_FIT.inseam + r.hip_joint_offset, 6);
+  it("keeps thigh + tibia = inseam + hip joint offset less the ankle height off the floor (0.045 H)", () => {
+    expect(r.thigh_length + r.shank_length + 0.045 * r.height).toBeCloseTo(DEFAULT_RIDER_FIT.inseam + r.hip_joint_offset, 6);
   });
 
-  it("gives an anthropometric thigh (femur ≈ 0.245 H) and a shank that carries the ankle-to-cleat offset", () => {
+  it("gives an anthropometric thigh (femur ≈ 0.245 H) and an equal tibia that ends at the ankle joint", () => {
     expect(r.thigh_length / r.height).toBeGreaterThan(0.235);
     expect(r.thigh_length / r.height).toBeLessThan(0.26);
-    const foot = r.shank_length - r.thigh_length;
-    expect(foot / r.height).toBeCloseTo(0.045, 3);
+    expect(r.shank_length).toBeCloseTo(r.thigh_length, 6);
   });
 
   it("follows the inseam", () => {

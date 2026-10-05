@@ -79,6 +79,21 @@ def _circle_intersection_anterior(ax, ay, bx, by, radius_a, radius_b):
     return np.where(take_p1, p1[0], p2[0]), np.where(take_p1, p1[1], p2[1])
 
 
+# Ankle (shoe malleolus) offset from the cleat point, mirroring web/src/design/foot.ts::ankleOffset for the
+# traced S-Works Torch (shoeModels.ts: ball 0.66, ankle u 0.2 / h 0.2, sole bottom at the ball 0.0044), in
+# fractions of shoe length (= rider.foot_length). The solver puts the ankle that far behind and above the cleat.
+_ANKLE_SETBACK_FRAC = 0.66 - 0.2
+_ANKLE_RISE_FRAC = 0.2 - 0.0044
+
+
+def ankle_offset(rider: RiderAnthropometrics, pedal_stack_height: float) -> tuple[float, float]:
+    """(setback, rise) of the true ankle from the cleat point, mm. pedal_stack_height = cleat point to sole."""
+    return (
+        _ANKLE_SETBACK_FRAC * rider.foot_length,
+        pedal_stack_height + _ANKLE_RISE_FRAC * rider.foot_length,
+    )
+
+
 def solve_leg_2d(
     hip: Vec2,
     cleat: Vec2,
@@ -87,11 +102,12 @@ def solve_leg_2d(
 ) -> tuple[Vec2, Vec2, float]:
     """Solve the leg 2-link IK for one cleat position.
 
-    Returns (knee, ankle, knee_extension_deg). The ankle sits
-    pedal_stack_height vertically above the cleat; the knee is chosen on the
-    anterior side of the hip→ankle chord.
+    Returns (knee, ankle, knee_extension_deg). The ankle is the shoe's
+    malleolus, behind and above the cleat (see ankle_offset); the knee is
+    chosen on the anterior side of the hip→ankle chord.
     """
-    ankle = Vec2(cleat.x, cleat.y + pedal_stack_height)
+    setback, rise = ankle_offset(rider, pedal_stack_height)
+    ankle = Vec2(cleat.x - setback, cleat.y + rise)
     kx, ky = _circle_intersection_anterior(
         hip.x, hip.y, ankle.x, ankle.y, rider.thigh_length, rider.shank_length
     )

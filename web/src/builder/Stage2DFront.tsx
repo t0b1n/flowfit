@@ -86,7 +86,8 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
   const farPose = strokeMetrics.poses[0];
   const farCleatY = farPose.cleat.y;
   const kneeL = v(fm.kneeL.x, farPose.knee.y);
-  const ankleL = v(fm.ankleL.x, farPose.ankle.y);
+  // frontal shin ends just above the shoe: measure from the cleat, not the (higher) malleolus
+  const ankleL = v(fm.ankleL.x, farPose.cleat.y + SOLE_ABOVE_SPINDLE);
   const thigh = (t: number) => hs * (lerp(86, 50, t) + 8) * 0.95;
   const shin = (t: number) => hs * (lerp(40, 20, t) + 6);
   const upper = (t: number) => hs * lerp(36, 28, t) * 1.15;
@@ -154,7 +155,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
               {poly("s2d-clay", seg(fm.hipL, kneeL, thigh), "leg")}
               {poly("s2d-clay", seg(kneeL, v(ankleL.x, ankleL.y + 28 * hs), shin), "leg")}
               {poly("s2d-clay", seg(fm.hipR, fm.kneeR, thigh), "leg")}
-              {poly("s2d-clay", seg(fm.kneeR, v(fm.ankleR.x, fm.ankleR.y + 28 * hs), shin), "leg")}
+              {poly("s2d-clay", seg(fm.kneeR, v(fm.ankleR.x, bike.cleat.y + SOLE_ABOVE_SPINDLE + 28 * hs), shin), "leg")}
             </>
           )}
           {riderVisibility.feet && (
