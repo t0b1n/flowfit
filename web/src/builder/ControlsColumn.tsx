@@ -342,7 +342,7 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
             <div className="slider-grid slider-grid--compact">
               {(
                 [
-                  ["Saddle stack", components.saddle_stack, 30, 120, 5, "saddle_stack", "mm"],
+                  ["Saddle stack", components.saddle_stack, 30, 120, 1, "saddle_stack", "mm"],
                   ["Seatpost offset", components.seatpost_offset, -30, 30, 2, "seatpost_offset", "mm"],
                   ["Rail offset", components.saddle_rail_offset, -25, 25, 5, "saddle_rail_offset", "mm"],
                   ["Crank length", components.crank_length, 160, 177.5, 2.5, "crank_length", "mm"],

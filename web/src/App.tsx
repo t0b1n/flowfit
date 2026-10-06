@@ -10,9 +10,11 @@ import "./styles/stage3d.css";
 import "./styles/transfer.css";
 import "./styles/forms.css";
 import "./styles/profile.css";
+import "./styles/guide.css";
 import { AddBikeMode } from "./AddBikeMode";
 import { FitBuilderMode } from "./FitBuilderMode";
 import { FitTransferMode } from "./FitTransferMode";
+import { GuidePage } from "./GuidePage";
 import { ProfilePage } from "./ProfilePage";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { LoginPage } from "./auth/LoginPage";
@@ -44,6 +46,9 @@ const Header: React.FC = () => {
         </NavLink>
         <NavLink to="/add" className={tab}>
           Add Bike
+        </NavLink>
+        <NavLink to="/guide" className={tab}>
+          Guide
         </NavLink>
       </nav>
       <div className="top-nav__right">
@@ -115,6 +120,14 @@ export const App: React.FC = () => (
                   <AddBikeMode />
                 </Shell>
               </RequireAuth>
+            }
+          />
+          <Route
+            path="/guide"
+            element={
+              <Shell>
+                <GuidePage />
+              </Shell>
             }
           />
           <Route

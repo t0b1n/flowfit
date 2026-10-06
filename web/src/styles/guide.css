@@ -1,0 +1,19 @@
+/* ── Guide ─────────────────────────────────────────────────────────────────── */
+.guide-page { max-width: 760px; margin: 0 auto; padding: 0 0 80px; font: 400 14px/1.55 var(--font-sans); color: var(--ink); }
+.guide-page h1 { margin: 6px 0 var(--s-3); font: 600 26px/1.2 var(--font-sans); letter-spacing: -0.01em; text-transform: none; }
+.guide-page h2 { margin: 0 0 var(--s-2); font: 600 17px/1.3 var(--font-sans); text-transform: none; }
+.guide-page section { padding-top: var(--s-4); margin-top: var(--s-5); border-top: 1px solid var(--faint); }
+.guide-lead { color: var(--muted); margin: 0; }
+.guide-steps, .guide-list { padding-left: 20px; display: grid; gap: var(--s-2); }
+.guide-note { color: var(--muted); font-size: 13px; border-left: 2px solid var(--accent); padding-left: var(--s-3); }
+.guide-fig { display: block; width: 100%; height: auto; margin: var(--s-3) 0; border: 1px solid var(--faint); background: var(--surface); }
+.guide-fig--mid { max-width: 440px; }
+.guide-fill-body { fill: color-mix(in srgb, var(--ink) 14%, transparent); stroke: var(--ink); stroke-width: 1; }
+.guide-fill-rail { fill: var(--ink); opacity: 0.55; }
+.guide-dim { stroke: var(--ink); stroke-width: 1; fill: none; }
+.guide-pt { fill: var(--accent); }
+.guide-pt--alt { fill: var(--ink); }
+.guide-lbl { fill: var(--ink); font: 400 11px var(--font-mono); }
+.guide-muted { fill: var(--muted); stroke: var(--muted); }
+.guide-lbl.guide-muted { stroke: none; }
+.guide-foot { margin-top: var(--s-6); }

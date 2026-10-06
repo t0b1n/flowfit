@@ -82,5 +82,11 @@ export const contactX = (s: SaddleTrace, contactU: number) => (0.5 - contactU) *
 /** Contact height above the rail centreline: the side-profile top at the contact station. */
 export const contactHeight = (s: SaddleTrace, contactU: number) => lerpTable(s.top, contactX(s, contactU));
 
+/** Nose tip relative to the rider contact point (mm; x forward, y up): where fitters measure setback and reach to. */
+export const noseTipOffset = (s: SaddleTrace, contactU: number): Pt => {
+  const [x, y] = s.top[s.top.length - 1];
+  return [x - contactX(s, contactU), y - contactHeight(s, contactU)];
+};
+
 /** Rider contact station shared by the 2D and 3D saddles. */
 export const SADDLE_CONTACT_U = 0.68;
