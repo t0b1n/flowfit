@@ -711,16 +711,20 @@ export const synthesizeBike = (
     x: -Math.cos(seatAngle) * components.saddle_clamp_offset - components.seatpost_offset,
     y: Math.sin(seatAngle) * components.saddle_clamp_offset,
   };
-  // Seatpost top is at the rail clamp position (no head extension)
-  const seatpostTop = { ...saddleClamp };
+  const saddle = {
+    x: saddleClamp.x + components.saddle_rail_offset,
+    y: saddleClamp.y + components.saddle_stack,
+  };
+  // The post ends at the rail centreline (the traced saddle's rails sit that far below the contact point),
+  // so it stops at the rails whatever the saddle_stack slider says.
+  const seatpostTop = {
+    x: saddleClamp.x,
+    y: saddle.y - contactHeight(SWORKS_POWER, SADDLE_CONTACT_U),
+  };
   const bendDist = Math.max(0, components.saddle_clamp_offset - SEATPOST_BEND_LENGTH);
   const seatpostBend = {
     x: -Math.cos(seatAngle) * bendDist,
     y: Math.sin(seatAngle) * bendDist,
-  };
-  const saddle = {
-    x: saddleClamp.x + components.saddle_rail_offset,
-    y: saddleClamp.y + components.saddle_stack,
   };
   const crankEnd = {
     x: -components.cleat_setback,
@@ -1320,7 +1324,8 @@ const _FRAME_EDGES: [string, string][] = [
   ["head_tube_bottom", "fork_r"],
   ["head_tube_bottom", "fork_l"],
   // Seatpost (straight along seat tube axis to clamp — saddle rendered separately)
-  ["seat_tube_top", "seatpost_top"],
+  ["seat_tube_top", "seatpost_bend"],
+  ["seatpost_bend", "seatpost_top"],
   // Cockpit: steerer/spacers follow head angle, then stem, then handlebar
   ["head_tube_top", "steerer_top"],
   ["steerer_top", "stem_pivot"],
@@ -1335,8 +1340,6 @@ const _FRAME_EDGES: [string, string][] = [
 
 /** Lateral half-spread of the rear dropouts (mm); the fork's is FORK.halfSpread (design/fork.ts). */
 const _CHAINSTAY_HALF_SPREAD = REAR_HUB.halfSpread;
-/** Visual seatpost head extension above the rail clamp centre (mm). */
-const _SEATPOST_HEAD_EXTENSION = 5;
 
 const _numericEntries = (obj: object): Record<string, number> =>
   Object.fromEntries(
@@ -1375,13 +1378,10 @@ export function buildGeometry3D(
   p("stem_pivot", bike.stemPivot);
   p("bar_clamp", bike.barClamp);
 
-  // Seatpost head extends a short distance past the clamp along the seat
-  // tube so the rendered post is not truncated at the rail support.
-  const seatAngle = radiansFromDegrees(frame.seat_angle_deg);
-  p("seatpost_top", {
-    x: bike.saddleClamp.x - Math.cos(seatAngle) * _SEATPOST_HEAD_EXTENSION,
-    y: bike.saddleClamp.y + Math.sin(seatAngle) * _SEATPOST_HEAD_EXTENSION,
-  });
+  // Post runs up the seat tube axis to the bend, then only the top clamp region steps back to the
+  // rails (seatpost_offset); it ends at the rail centreline.
+  p("seatpost_bend", bike.seatpostBend);
+  p("seatpost_top", bike.seatpostTop);
 
   // Bilateral frame points (positive Z = rider's left)
   // Cockpit points from the shared cockpit model (the 3D bar and hood meshes read `cockpit` directly).

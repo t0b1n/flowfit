@@ -403,6 +403,8 @@ export function SaddleMesh({
     // Contact = side-profile top at contactU, placed on the world saddle point; y = 0 is the rail centreline
     const cx = contactX(spec.trace, spec.contactU);
     const rs = lerpTable(spec.trace.railHalfSpread, cx);
+    // The clamp holds the rails where the post is: under the contact at rail offset 0, sliding with it otherwise.
+    const clampX = cx + ((ptMap.get("saddle_clamp")?.[0] ?? sx) - sx);
     return (
       <group position={[sx - cx, sy - contactHeight(spec.trace, spec.contactU), sz]}>
         {body}
@@ -412,7 +414,7 @@ export function SaddleMesh({
           </mesh>
         ))}
         {/* Clamp crossbar under the contact station */}
-        <RailTube a={new THREE.Vector3(cx, 0, -rs - 7)} b={new THREE.Vector3(cx, 0, rs + 7)} r={5} />
+        <RailTube a={new THREE.Vector3(clampX, 0, -rs - 7)} b={new THREE.Vector3(clampX, 0, rs + 7)} r={5} />
       </group>
     );
   }
