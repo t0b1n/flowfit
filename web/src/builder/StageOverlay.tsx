@@ -15,7 +15,7 @@ import {
   type MetricId,
   type Vec3,
 } from "../fitMetrics";
-import { POSTURE_PRESET, type PedalStrokeLUT } from "../geometry";
+import { POSTURE_PRESET, saddleNose, type PedalStrokeLUT } from "../geometry";
 import type { BikeSketch, MannequinSketch } from "../types";
 import type { V } from "./draw2d";
 
@@ -31,6 +31,7 @@ export function metricAnchors2D(m: MannequinSketch, bike: BikeSketch, lut: Pedal
     kops: m.knee,
     saddle_height: bike.saddle,
     setback: bike.saddle,
+    setback_nose: saddleNose(bike),
     drop: bike.hoods,
     reach: bike.hoods,
   };
@@ -47,6 +48,7 @@ export const SIDE_PREFER: Partial<Record<MetricId, [number, number]>> = {
   kops: [100, 90],
   saddle_height: [-120, 50],
   setback: [-120, 80],
+  setback_nose: [120, 80],
   drop: [100, -50],
   reach: [100, -80],
 };
@@ -55,6 +57,7 @@ export const SIDE_PREFER: Partial<Record<MetricId, [number, number]>> = {
 export function metricValues(m: MannequinSketch, bike: BikeSketch, lut: PedalStrokeLUT) {
   const pts = new Map<string, Vec3>([
     ["saddle", [bike.saddle.x, bike.saddle.y, 0]],
+    ["saddle_nose", [saddleNose(bike).x, saddleNose(bike).y, 0]],
     ["hoods_r", [bike.hoods.x, bike.hoods.y, 0]],
     ["hoods_l", [bike.hoods.x, bike.hoods.y, 0]],
   ]);

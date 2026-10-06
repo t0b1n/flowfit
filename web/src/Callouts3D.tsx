@@ -57,6 +57,7 @@ export const PREFER_3D: Partial<Record<MetricId, [number, number]>> = {
   kops: [100, 100],
   saddle_height: [110, 0],
   setback: [110, 40],
+  setback_nose: [110, 80],
   drop: [-100, -60],
   reach: [-100, -90],
 };

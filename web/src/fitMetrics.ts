@@ -17,6 +17,7 @@ export type MetricId =
   | "kops"
   | "saddle_height"
   | "setback"
+  | "setback_nose"
   | "drop"
   | "reach";
 
@@ -174,6 +175,18 @@ export const METRICS: MetricDef[] = [
       return s ? -s[0] : null;
     },
     anchor: (ctx) => pt(ctx, "saddle"),
+  },
+  {
+    id: "setback_nose",
+    code: "C2",
+    label: "Saddle setback · nose tip",
+    short: "NOSE SB",
+    unit: "mm",
+    compute: (ctx) => {
+      const n = pt(ctx, "saddle_nose");
+      return n ? -n[0] : null;
+    },
+    anchor: (ctx) => pt(ctx, "saddle_nose"),
   },
   {
     id: "drop",

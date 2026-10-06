@@ -1,5 +1,5 @@
 import { getSizeData } from "./frameCatalog";
-import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight } from "./saddleModels";
+import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, noseTipOffset } from "./saddleModels";
 import type {
   BikeSketch,
   ComponentDeltas,
@@ -156,6 +156,12 @@ export const estimateSeatTubeTopDistance = (frame: FrameGeometry) => {
 
 export const distanceBetweenPoints = (a: ContactPoint, b: ContactPoint) =>
   Math.hypot(b.x - a.x, b.y - a.y);
+
+/** Saddle nose tip (the fitter's setback/reach reference), from the traced saddle. */
+export const saddleNose = (bike: Pick<BikeSketch, "saddle">): ContactPoint => {
+  const [dx, dy] = noseTipOffset(SWORKS_POWER, SADDLE_CONTACT_U);
+  return { x: bike.saddle.x + dx, y: bike.saddle.y + dy };
+};
 
 export const exposedSeatpostLength = (bike: Pick<BikeSketch, "seatTubeTop" | "seatpostTop">) =>
   distanceBetweenPoints(bike.seatTubeTop, bike.seatpostTop);
@@ -1370,6 +1376,7 @@ export function buildGeometry3D(
   p("front_axle", bike.frontAxle);
   p("saddle", bike.saddle);
   p("saddle_clamp", bike.saddleClamp);
+  p("saddle_nose", saddleNose(bike));
   p("seat_cluster", bike.seatCluster);
   p("seat_tube_top", bike.seatTubeTop);
   p("head_tube_top", bike.headTubeTop);
