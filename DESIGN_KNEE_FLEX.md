@@ -115,4 +115,4 @@ The 3D view rebuilds the mannequin in the browser (rather than using backend poi
 
 ## The rule both pipelines must follow
 
-The femur pivots at the **hip joint center**, which is ~95mm above the saddle surface (where the sit bones rest). Every calculation that positions the knee — whether it's the saddle height search, the mannequin IK, or the angle measurement — must use this hip joint position, not the saddle surface.
+The femur pivots at the **hip joint center**, which is ~80mm above the saddle surface (where the sit bones rest). Every calculation that positions the knee — whether it's the saddle height search, the mannequin IK, or the angle measurement — must use this hip joint position, not the saddle surface.

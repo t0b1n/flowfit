@@ -20,7 +20,7 @@ describe("wrist lock", () => {
   });
 
   it("holds the wrist at the limit by shifting the shoulder", () => {
-    const limit = Math.abs(wristAngleDeg(free)) - 8;
+    const limit = Math.abs(wristAngleDeg(free)) / 2; // half the free bend: always binding, whatever the rider defaults
     const locked = buildMannequin(bike, rider, 400, 0, 25, 30, 0, limit);
     expect(Math.abs(wristAngleDeg(locked))).toBeLessThanOrEqual(limit + 0.01);
     expect(locked.wristLockShiftMm).toBeGreaterThan(0);

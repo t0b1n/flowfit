@@ -74,7 +74,7 @@ SetupInput → solver.py::solve_setup()
 ### Non-obvious conventions
 
 - **Stem angle** is quoted like stem makers do: relative to the perpendicular of the steerer (`stemAngleFromHorizontal` / `stem_angle_from_horizontal`), so −6° on a 73° head tube points 11° up and −17° is level. Spacers and the stem clamp stack along the steerer.
-- **Hip joint offset** (~95 mm vertical rise from saddle contact to femoral head) is distinct from saddle height and is critical to the IK chain but not exposed in the main UI.
+- **Hip joint offset** (80 mm default vertical rise from saddle contact to femoral head) is distinct from saddle height and is critical to the IK chain but not exposed in the main UI.
 - **Preset → fine-tune pattern:** button pills set a value, a slider allows override. Used for Riding Intent, Hood Reach, and Pedal/Shoe Stack — not a shared component.
 - **`wheel_radius`** in frame catalog entries should always be the identifier `defaultWheelRadius` (340 for 700c), not a literal number, so the constant stays in sync.
 - **Stem / spacers:** `spacer_stack` and `stem_height` are measured along the steerer (head-tube axis), not vertically. `stem_angle_deg` is the manufacturer rating, measured from the normal to the steerer (`stemAngleFromHorizontal()` / `stem_angle_from_horizontal()`), so on a 73° head tube a −6° stem rises 11° above horizontal.

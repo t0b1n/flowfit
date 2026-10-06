@@ -16,7 +16,7 @@ Describes how the 2D sagittal-plane skeleton and its 3D bilateral expansion are 
 | `foot_length` | Shoe/foot length; used for visual rendering |
 | `shoulder_width` | Bilateral shoulder spread (centre-to-centre) in mm |
 | `hip_width` | Bilateral hip spread; defaults to 200 mm if absent |
-| `hip_joint_offset` | Vertical rise from saddle contact surface to femoral head (default 95 mm) |
+| `hip_joint_offset` | Vertical rise from saddle contact surface to femoral head (default 80 mm) |
 
 ---
 

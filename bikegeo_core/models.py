@@ -95,7 +95,7 @@ class RiderAnthropometrics(BaseModel):
     hip_width: Optional[float] = None
     stance_width: Optional[float] = None
     flexibility: float = Field(1.0, description="Scalar to widen/narrow posture bands.")
-    hip_joint_offset: float = Field(95.0, description="Vertical offset from saddle contact to hip joint centre (femoral head), in mm.")
+    hip_joint_offset: float = Field(80.0, description="Vertical offset from saddle contact to hip joint centre (femoral head), in mm.")
 
 
 class AngleBand(BaseModel):

@@ -113,7 +113,7 @@ export const DEFAULT_BODY: Partial<BodyMeasurements> = {
 
 export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   const heightScale = fit.height / 1800;
-  const hipOffset = body?.hipJointOffset ?? 95;
+  const hipOffset = body?.hipJointOffset ?? DEFAULT_BODY.hipJointOffset!;
   // The IK chain runs from hip joint center (above the saddle by hipOffset) to
   // ankle. Inseam measures sit-bones-to-floor, so the articulating leg length
   // is inseam + hipOffset.

@@ -37,6 +37,15 @@ make web-dev
 make test
 ```
 
+## Fit accuracy: what to check first
+
+FlowFit fits from contact points, so these matter most (the in-app **Guide** tab has diagrams):
+
+- **Saddle:** the default is an S-Works Power. The rider's sit bones are placed 163.2 mm back from the nose tip, with a 43.4 mm saddle stack above the rail centreline. For any other saddle, measure your contact point from the nose tip and your stack, then use **Saddle stack** and **Rail offset** (0 = clamp under the contact point).
+- **Setback:** shown two ways. *Setback* is BB to contact point (what the fit targets). *Nose SB* is BB to nose tip (what fitters usually measure).
+- **Body:** height and inseam set leg length. Enter tape-measured shoulder, arm, torso and shoe size under Advanced → Body dimensions.
+- **Hip joint offset:** the rise from the sit bones to the hip joint is **80 mm** everywhere (Fit Builder, Fit Transfer and the Python solver). It changes the leg length the saddle height is solved for: 10 mm more offset gives about 10 mm lower saddle. Adjust it as "Saddle–hip joint offset".
+
 ## All make targets
 
 ```
