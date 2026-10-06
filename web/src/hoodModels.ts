@@ -57,11 +57,18 @@ const SRAM_RED_E1: HoodProfile = {
 export const HOOD_MODELS: HoodModel[] = [
   { id: "shimano", label: "Shimano DA", hoodReachOffset: 24, profile: SHIMANO_R9270, contact: [38, 25], peak: 44.2, length: 120.2, thickness: 30, padOnLever: true },
   { id: "sram-red", label: "SRAM Red E1", hoodReachOffset: 28, profile: SRAM_RED_E1, contact: [40, 27], peak: 53.3, length: 124.9, thickness: 28, padOnLever: false },
-  { id: "sram-force", label: "SRAM Force E1", hoodReachOffset: 28, profile: SRAM_RED_E1, contact: [40, 27], peak: 53.3, length: 124.9, thickness: 29, padOnLever: false },
 ];
 
-export type HoodModelId = "shimano" | "sram-red" | "sram-force";
+export type HoodModelId = "shimano" | "sram-red";
+
+/** Ids that no longer have their own model (Force shared Red's shape and reach), mapped to their replacement. */
+const LEGACY_HOOD_IDS: Record<string, HoodModelId> = { "sram-force": "sram-red" };
+
+export function canonicalHoodId(id: string): string {
+  return LEGACY_HOOD_IDS[id] ?? id;
+}
 
 export function hoodModelFor(id?: string | null): HoodModel {
-  return HOOD_MODELS.find((m) => m.id === id) ?? HOOD_MODELS[0];
+  const want = id ? canonicalHoodId(id) : id;
+  return HOOD_MODELS.find((m) => m.id === want) ?? HOOD_MODELS[0];
 }

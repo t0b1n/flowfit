@@ -87,8 +87,12 @@ export interface Cockpit {
   contact: ContactPoint;
   /** hood mesh origin (bar centre under the hood), placed so the profile's palm point lands on `contact` */
   station: ContactPoint;
-  /** sagittal bar centreline: clamp, tops, ramp, station, bend front, drop bottom, drop end */
+  /** sagittal bar centreline: clamp, tops, ramp, station, then the drop (upper bend, drop, lower bend, ramp end) */
   sagittal: ContactPoint[];
+  /** lowest point of the drop on the centreline */
+  dropBottom: ContactPoint;
+  /** per drop point (sagittal[4…]): flare from hood width (0) to drop width (1) at the bottom; 1…2 along the ramp beyond it */
+  dropFlare: number[];
   rise: number;
   dropDepth: number;
   backsweepDeg: number;
@@ -133,6 +137,64 @@ export function uciReport(hoodWidth: number, dropWidth: number, hoodRollDeg: num
   };
 }
 
+/**
+ * Bar centreline from the hood station down through the drop, in station-local mm (x forward, y up, roll 0).
+ * The bar leaves the station heading forward and rounds the upper bend into the drop, which leans back a few
+ * degrees; the lower bend turns it rearward and the ramp rises slightly to the end. `depth` is the vertical
+ * distance from the station to the lowest point of the centreline; bends tighten if it is too short for them.
+ */
+function dropCurve(depth: number): { pts: ContactPoint[]; bottom: number; flare: number[] } {
+  const LEAN = 98 * D2R; // heading at the end of the upper bend: 8° past straight down
+  const RAMP = 4 * D2R; // the ramp rises this much toward its end
+  const k1 = 1 - Math.cos(LEAN);
+  const k2 = 1 + Math.cos(LEAN);
+  const need = 32 * k1 + 45 * k2;
+  const d = Math.max(depth, 30);
+  const sc = Math.min(1, d / need);
+  const r1 = 32 * sc;
+  const r2 = 45 * sc;
+  const straight = Math.max(0, d - r1 * k1 - r2 * k2) / Math.sin(LEAN);
+  const TAIL = 60;
+
+  // Walk the path with heading φ measured clockwise from forward (so φ = 90° is straight down), emitting
+  // points as arc length grows.
+  const pts: ContactPoint[] = [];
+  const arc: number[] = [];
+  let x = 0, y = 0, s = 0;
+  const arcTo = (r: number, from: number, to: number, steps: number) => {
+    for (let i = 1; i <= steps; i++) {
+      const a0 = from + ((to - from) * (i - 1)) / steps;
+      const a1 = from + ((to - from) * i) / steps;
+      x += r * (Math.sin(a1) - Math.sin(a0));
+      y += r * (Math.cos(a1) - Math.cos(a0));
+      s += r * (a1 - a0);
+      pts.push({ x, y });
+      arc.push(s);
+    }
+  };
+  const line = (len: number, heading: number, steps: number) => {
+    for (let i = 0; i < steps; i++) {
+      x += (Math.cos(heading) * len) / steps;
+      y += (-Math.sin(heading) * len) / steps;
+      s += len / steps;
+      pts.push({ x, y });
+      arc.push(s);
+    }
+  };
+  arcTo(r1, 0, LEAN, 3);
+  if (straight > 4) line(straight, LEAN, straight > 30 ? 2 : 1);
+  arcTo(r2, LEAN, Math.PI, 3);
+  const bottom = pts.length - 1;
+  arcTo(r2, Math.PI, Math.PI + RAMP, 1);
+  line(TAIL, Math.PI + RAMP, 2);
+
+  const sBottom = arc[bottom];
+  const sEnd = arc[arc.length - 1];
+  // 0 → 1 reaching the drop width at the bottom, then 1 → 2 over the ramp (a few mm of extra toe-out at its end)
+  const flare = arc.map((a) => (a <= sBottom ? (a / sBottom) ** 1.5 : 1 + (a - sBottom) / (sEnd - sBottom)));
+  return { pts, bottom, flare };
+}
+
 export function buildCockpit(barClamp: ContactPoint, c: Components, hoodModelId?: string): Cockpit {
   const hood = hoodModelFor(hoodModelId ?? c.hood_model);
   const rollDeg = effectiveBarRoll(c);
@@ -154,20 +216,14 @@ export function buildCockpit(barClamp: ContactPoint, c: Components, hoodModelId?
     const c0 = hoodContact(barClamp, flat);
     return { x: c0.x - p0.x, y: c0.y - p0.y };
   })();
-  const under = rot(16, -22, hoodPitchDeg(flat));
-  const front0 = { x: station0.x + under.x, y: station0.y + under.y };
   const bottomY = barClamp.y + rise - dropDepth;
-  const front20 = { x: Math.max(front0.x, station0.x + 8) + 6, y: (front0.y + bottomY) / 2 };
-  const dropBottom0 = { x: front0.x - 22, y: bottomY };
-  const dropEnd0 = { x: dropBottom0.x - 72, y: bottomY + 2 };
+  const curve = dropCurve(station0.y - bottomY);
   const swing = (p: ContactPoint): ContactPoint => {
-    const d = rot(p.x - station0.x, p.y - station0.y, rollDeg);
+    const d = rot(p.x, p.y, rollDeg);
     return { x: station.x + d.x, y: station.y + d.y };
   };
-  const front = swing(front0);
-  const front2 = swing(front20);
-  const dropBottom = swing(dropBottom0);
-  const dropEnd = swing(dropEnd0);
+  const drop = curve.pts.map(swing);
+  const dropBottom = drop[curve.bottom];
   const ramp = { x: (tops.x + station.x) / 2, y: Math.max(tops.y, station.y) + 2 };
   const hoodWidth = c.hood_width ?? c.bar_width;
   const dropWidth = c.bar_drop_width ?? hoodWidth;
@@ -181,7 +237,9 @@ export function buildCockpit(barClamp: ContactPoint, c: Components, hoodModelId?
     clamp: barClamp,
     contact,
     station,
-    sagittal: [barClamp, tops, ramp, station, front, front2, dropBottom, dropEnd],
+    sagittal: [barClamp, tops, ramp, station, ...drop],
+    dropBottom,
+    dropFlare: curve.flare,
     rise,
     dropDepth,
     backsweepDeg: c.bar_backsweep_deg ?? COCKPIT_DEFAULTS.bar_backsweep_deg,
@@ -200,7 +258,7 @@ export type Vec3 = [number, number, number];
  * the hood station → bend → flared drop. Shared by the 3D sweep and tests.
  */
 export function barCenterline3D(ck: Cockpit, sideZ: 1 | -1): Vec3[] {
-  const [c, tops, , station, front, front2, dropBottom, dropEnd] = ck.sagittal;
+  const [c, tops, , station, ...drop] = ck.sagittal;
   const hx = ck.hoodWidth / 2;
   const dx = ck.dropWidth / 2;
   const sweep = Math.tan(ck.backsweepDeg * D2R);
@@ -214,10 +272,10 @@ export function barCenterline3D(ck: Cockpit, sideZ: 1 | -1): Vec3[] {
     [tops.x - sweep * (topsEnd - 22), tops.y, z(topsEnd)],
     [(tops.x + station.x) / 2 - sweep * (hx - 22) * 0.5, Math.max(tops.y, station.y) + 1, z(hx - 6)],
     [station.x, station.y, z(hx)],
-    [front.x, front.y, z(hx + (dx - hx) * 0.2)],
-    [front2.x, front2.y, z(hx + (dx - hx) * 0.6)],
-    [dropBottom.x, dropBottom.y, z(dx)],
-    [dropEnd.x, dropEnd.y, z(dx + 4)],
+    ...drop.map((p, i): Vec3 => {
+      const f = ck.dropFlare[i];
+      return [p.x, p.y, z(f <= 1 ? hx + (dx - hx) * f : dx + 4 * (f - 1))];
+    }),
   ];
   // Collapse coincident points (zero rise) so the spline has no zero-length spans.
   return pts.filter((p, i) => i === 0 || Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1], p[2] - pts[i - 1][2]) > 0.5);

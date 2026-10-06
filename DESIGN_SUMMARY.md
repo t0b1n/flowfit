@@ -87,7 +87,7 @@ Handlebar and stem setup. Controls the rider's hand position.
 | Bar Width | mm | 200–460 | 10 |
 | Hood Reach | mm | 16–32 | 0.5 |
 
-**Presets:** Hood Reach has pill buttons — Shimano DA (24 mm), SRAM Red (28 mm), SRAM Force (28 mm).
+**Presets:** Hood Reach has pill buttons — Shimano DA (24 mm), SRAM Red (28 mm).
 
 **Notes:** Hood Reach uses the same "preset pills above a slider" pattern as Riding Intent. Bar Width only affects the front view.
 

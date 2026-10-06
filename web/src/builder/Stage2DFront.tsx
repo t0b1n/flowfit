@@ -73,7 +73,7 @@ export const Stage2DFront: React.FC<Stage2DFrontProps> = ({
     ? (() => {
         const cw = Math.max(cockpit.dropWidth, cockpit.hoodWidth, rider.shoulder_width * 0.8) / 2 + 150;
         const top = Math.max(mannequin.elbow.y, cockpit.sagittal[1].y + cockpit.hood.peak) + 90;
-        const bottom = cockpit.sagittal[6].y - 140;
+        const bottom = cockpit.dropBottom.y - 140;
         return `${-cw} ${-top} ${cw * 2} ${top - bottom}`;
       })()
     : `${-halfW} ${svgTop} ${halfW * 2} ${svgH}`;

@@ -47,7 +47,7 @@ _Last updated: 2026-03-17_
 | Frame catalog (6 models × 3 sizes) | ✅ |
 | URL-encoded shareable setups | ✅ |
 | Stem length axis in solver (±20mm) | ✅ |
-| Hood/pedal presets (Shimano DA, SRAM Red/Force, etc.) | ✅ |
+| Hood/pedal presets (Shimano DA, SRAM Red, etc.) | ✅ |
 
 ### bikegeo gaps vs XY Bike Calc
 

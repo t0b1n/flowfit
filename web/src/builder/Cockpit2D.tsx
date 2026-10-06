@@ -86,12 +86,12 @@ export const CockpitSide: React.FC<{ cockpit: Cockpit; ghost?: boolean }> = ({ c
  * tops, flared drops, and the hoods leaning in by the hood rotation.
  */
 export const CockpitFront: React.FC<{ cockpit: Cockpit; ghost?: boolean; showUci?: boolean }> = ({ cockpit: ck, ghost, showUci }) => {
-  const [clamp, tops, , , , , dropBottom] = ck.sagittal;
+  const [clamp, tops] = ck.sagittal;
   const cy = clamp.y;
   const ty = tops.y;
   const hx = ck.hoodWidth / 2;
   const dx = ck.dropWidth / 2;
-  const by = dropBottom.y;
+  const by = ck.dropBottom.y;
   const side = (s: 1 | -1): ContactPoint[] => [
     { x: 0, y: cy },
     { x: s * 22, y: cy },
@@ -159,9 +159,8 @@ export const CockpitFront: React.FC<{ cockpit: Cockpit; ghost?: boolean; showUci
 
 /** UCI measurement lines (inner hoods, outside width) of the front view, in the front view's mm coordinates. */
 export const UciAnnotation: React.FC<{ cockpit: Cockpit }> = ({ cockpit: ck }) => {
-  const [, tops, , , , , dropBottom] = ck.sagittal;
-  const ty = tops.y;
-  const by = dropBottom.y;
+  const ty = ck.sagittal[1].y;
+  const by = ck.dropBottom.y;
   const u = ck.uci;
   return (
     <g className="s2d-uci">
