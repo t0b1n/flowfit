@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { type FrameMeasurementId, type FrameMeasurementVisibility } from "./BikeAnnotations";
 import { useCatalog } from "./catalog/CatalogContext";
 import { HOOD_PRESETS } from "./components/hoodPresets";
-import { DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, DEFAULT_WRIST_LOCK_DEG, MannequinPresetKey, BodyMeasurements, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, hoodFit, idealContactsFromRider, idealContactsFromSaddleHeight, saddleForKneeExtension, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
+import { DEFAULT_BODY, DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE, MANNEQUIN_PRESETS, DEFAULT_WRIST_LOCK_DEG, MannequinPresetKey, BodyMeasurements, barReachNeeded, boundsForBikes, buildFrontalMannequin, buildGeometry3D, buildMannequin, buildRider, exposedSeatpostLength, expandBoundsForMannequins, fitWarnings, hoodFit, idealContactsFromRider, idealContactsFromSaddleHeight, saddleForKneeExtension, radiansFromDegrees, seatpostRecommendation, solvePedalStroke, synthesizeBike, withTyreSize, POSTURE_PRESET, type BandStatus } from "./geometry";
 import type { BikeSelection, Components, FitMode, RiderFit } from "./types";
 import { BikeScene3D } from "./BikeScene3D";
 import { buildCockpit, hoodPitchDeg } from "./cockpit";
@@ -55,13 +55,7 @@ export const FitBuilderMode: React.FC = () => {
   // Partial — any unset field falls back to the height-derived default in buildRider.
   // This means height changes still rescale the body unless the user has explicitly
   // overridden a measurement by moving its slider.
-  const [bodyMeasurements, setBodyMeasurements] = useState<Partial<BodyMeasurements>>({
-    shoulderWidth: 370,
-    upperArmLength: 320,
-    forearmLength: 270,
-    hipJointOffset: 80,
-    footLength: 290,
-  });
+  const [bodyMeasurements, setBodyMeasurements] = useState<Partial<BodyMeasurements>>({ ...DEFAULT_BODY });
   const [pedalPresetId, setPedalPresetId] = useState<string>("keo-blade");
   const [shoePresetId, setShoePresetId] = useState<string>(SHOE_PRESETS[0].id);
   const [fitMode, setFitMode] = useState<FitMode>("contact");

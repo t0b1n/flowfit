@@ -3,14 +3,14 @@ import { Link } from "react-router-dom";
 
 import { SpecTable } from "./design/SpecTable";
 import { PEDAL_BODY, SOLE_ABOVE_SPINDLE } from "./design/foot";
-import { DEFAULT_COMPONENTS, DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE } from "./geometry";
+import { DEFAULT_BODY, DEFAULT_COMPONENTS, DEFAULT_RIDER_FIT, DEFAULT_TYRE_SIZE } from "./geometry";
 import { SADDLE_CONTACT_U, SWORKS_POWER, contactHeight, noseTipOffset, type Pt } from "./saddleModels";
 
 const T = SWORKS_POWER;
 const FROM_NOSE = SADDLE_CONTACT_U * T.length; // contact station, mm behind the nose tip
 const STACK = contactHeight(T, SADDLE_CONTACT_U);
 const [NOSE_DX, NOSE_DY] = noseTipOffset(T, SADDLE_CONTACT_U);
-const HIP_OFFSET = 95; // buildRider / bikegeo_core models.hip_joint_offset
+const HIP_OFFSET = DEFAULT_BODY.hipJointOffset!;
 const r1 = (n: number) => (Math.round(n * 10) / 10).toString();
 
 const outline = (pts: Pt[], at: (p: Pt) => Pt) =>
@@ -127,22 +127,25 @@ export const GuidePage: React.FC = () => (
     </section>
 
     <section>
-      <h2>3 · Your body: two measurements, the rest is scaled</h2>
+      <h2>3 · Your body: measure what you can</h2>
       <p>
-        Only <b>height</b> and <b>inseam</b> are measured. Torso, arms, foot length and shoulder width are scaled from height,
-        against a {1800} mm reference rider. Riders with unusually long arms or torso will see the reach numbers drift.
+        <b>Height</b> and <b>inseam</b> drive saddle height and leg length. Open <b>Advanced → Body dimensions</b> and
+        enter tape-measured shoulder width, torso, upper arm, forearm, shoe size and hip offset. Torso length is the
+        only one not preset: it scales with height (600 mm at 1800 mm height), so check it. The preset
+        arm, shoulder and foot values are averages, not your numbers, and reach to the hoods depends on them.
       </p>
       <LegDiagram />
       <p className="guide-note">
-        Inseam is measured to the sit bones' height (book-between-the-legs method), floor to book. We add a fixed
-        {" "}<b>{HIP_OFFSET} mm</b> hip-joint offset above the saddle contact to get the hip joint; it isn't adjustable in the UI.
+        Inseam is measured to the sit bones' height (book-between-the-legs method), floor to book. The hip joint sits
+        {" "}<b>{HIP_OFFSET} mm</b> above the saddle contact by default (adjustable as "Saddle–hip joint offset"); it changes
+        the leg length the saddle height is solved for.
       </p>
     </section>
 
     <section>
       <h2>4 · Shoes, pedals and hoods</h2>
       <ul className="guide-list">
-        <li><b>Foot:</b> the shoe is a traced S-Works Torch scaled to a foot length of 290 mm × (height ÷ 1800). The solver puts the ball of the foot over the cleat, {c.cleat_setback} mm setback by default.</li>
+        <li><b>Foot:</b> the shoe is a traced S-Works Torch sized to the shoe size you set (290 mm default). The solver puts the ball of the foot over the cleat, {c.cleat_setback} mm setback by default.</li>
         <li><b>Pedal stack:</b> {c.pedal_stack_height} mm from spindle to the sole; {SOLE_ABOVE_SPINDLE} mm sole plus cleat above the spindle axis, {PEDAL_BODY[1]} mm pedal body thickness.</li>
         <li><b>Hands:</b> the contact point is on the hood, {c.hood_reach_offset} mm from the bar centre (Shimano Dura-Ace preset), {c.hood_drop_offset} mm drop. Change the hood preset if you ride SRAM.</li>
         <li><b>Stem:</b> angle is the maker's rating (−6° on a 73° head tube sits 11° above level). Spacers and clamp stack along the steerer, not vertically.</li>
@@ -164,6 +167,10 @@ export const GuidePage: React.FC = () => (
             { label: "Height (default)", value: DEFAULT_RIDER_FIT.height, unit: "mm" },
             { label: "Inseam (default)", value: DEFAULT_RIDER_FIT.inseam, unit: "mm" },
             { label: "Hip joint above contact", value: HIP_OFFSET, unit: "mm" },
+            { label: "Shoulder width", value: DEFAULT_BODY.shoulderWidth, unit: "mm" },
+            { label: "Upper arm / forearm", value: `${DEFAULT_BODY.upperArmLength} / ${DEFAULT_BODY.forearmLength}`, unit: "mm" },
+            { label: "Torso (at 1800 mm height)", value: 600, unit: "mm" },
+            { label: "Shoe length", value: DEFAULT_BODY.footLength, unit: "mm" },
             { label: "Target knee flexion", value: DEFAULT_RIDER_FIT.targetKneeFlexDeg, unit: "°" },
             { label: "Reference height for scaling", value: 1800, unit: "mm" },
           ] },

@@ -102,6 +102,15 @@ export type BodyMeasurements = {
 /** Ankle joint → cleat point, as a fraction of height (see buildRider). */
 const ANKLE_TO_CLEAT_FRAC = 0.045;
 
+/** Builder starting values for the Advanced body dimensions; torso length is not set, so it scales with height. */
+export const DEFAULT_BODY: Partial<BodyMeasurements> = {
+  shoulderWidth: 370,
+  upperArmLength: 320,
+  forearmLength: 270,
+  hipJointOffset: 80,
+  footLength: 290,
+};
+
 export const buildRider = (fit: RiderFit, body?: Partial<BodyMeasurements>) => {
   const heightScale = fit.height / 1800;
   const hipOffset = body?.hipJointOffset ?? 95;
