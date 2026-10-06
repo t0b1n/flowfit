@@ -156,7 +156,7 @@ export const GuidePage: React.FC = () => (
       <h2>Starting values</h2>
       <p className="guide-note">
         These are what a new fit starts with. Sliders and presets change most of them. The saddle's shape and contact point,
-        the shoe shape, the 1800 mm scaling reference are built in and can't be edited.
+        the shoe shape and the 1800 mm scaling reference are built in and can't be edited.
       </p>
       <SpecTable
         sections={[
