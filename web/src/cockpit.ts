@@ -185,7 +185,6 @@ function dropCurve(depth: number): { pts: ContactPoint[]; bottom: number; flare:
   if (straight > 4) line(straight, LEAN, straight > 30 ? 2 : 1);
   arcTo(r2, LEAN, Math.PI, 3);
   const bottom = pts.length - 1;
-  arcTo(r2, Math.PI, Math.PI + RAMP, 1);
   line(TAIL, Math.PI + RAMP, 2);
 
   const sBottom = arc[bottom];
