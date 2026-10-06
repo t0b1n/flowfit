@@ -153,7 +153,11 @@ export const GuidePage: React.FC = () => (
     </section>
 
     <section>
-      <h2>Defaults we have hard-coded</h2>
+      <h2>Starting values</h2>
+      <p className="guide-note">
+        These are what a new fit starts with. Sliders and presets change most of them. The saddle's shape and contact point,
+        the shoe shape, the 1800 mm scaling reference and the 35° knee-flexion band are built in and can't be edited.
+      </p>
       <SpecTable
         sections={[
           { title: "Saddle (S-Works Power 143)", rows: [
