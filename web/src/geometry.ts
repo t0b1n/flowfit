@@ -31,7 +31,7 @@ export const DEFAULT_COMPONENTS: Components = {
   stem_height: 40,
   bar_reach: 80,
   bar_drop: 0,
-  hood_reach_offset: 24.6,
+  hood_reach_offset: 30.3,
   hood_drop_offset: 0,
   bar_width: 370,
   hood_width: null,

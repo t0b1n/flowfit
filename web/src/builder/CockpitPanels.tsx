@@ -126,7 +126,7 @@ export const CockpitControls: React.FC<CockpitControlsProps> = ({ components: c,
           />
           {slider("Hood position on bar", "hood_slide_mm", c.hood_slide_mm ?? 0, -10, 20, 1, "mm", 0)}
           {slider("Hood rotation (inward)", "hood_roll_deg", c.hood_roll_deg ?? 0, 0, 16, 0.5, "°", 0)}
-          {slider("Hood reach", "hood_reach_offset", c.hood_reach_offset, 16, 34, 0.5, "mm", HOOD_PRESETS.find((p) => p.id === hoodPresetId)?.hoodReachOffset ?? 24)}
+          {slider("Hood reach", "hood_reach_offset", c.hood_reach_offset, 16, 40, 0.5, "mm", HOOD_PRESETS.find((p) => p.id === hoodPresetId)?.hoodReachOffset ?? 30.3)}
         </div>
         <div className="cockpit-note">
           Hood angle (result): <b>{sign(hoodPitchDeg(c))}°</b>. Bar roll tips the whole bar; sliding the hoods down the bend

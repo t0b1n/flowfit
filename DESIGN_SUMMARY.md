@@ -85,9 +85,11 @@ Handlebar and stem setup. Controls the rider's hand position.
 | Spacers | mm | 0–40 | 1 |
 | Bar Reach | mm | 65–105 | 1 |
 | Bar Width | mm | 200–460 | 10 |
-| Hood Reach | mm | 16–32 | 0.5 |
+| Hood Reach | mm | 16–40 | 0.5 |
 
-**Presets:** Hood Reach has pill buttons — Shimano DA (24 mm), SRAM Red (28 mm).
+**Presets:** Hood Reach has pill buttons — Shimano DA (30.3 mm), SRAM Red (35.5 mm).
+
+**Hood reach calibration:** the hood outlines are scaled to WeightWeenies forum measurements: rear end of the hood body to the corner where the top starts to rise (the palm's pressure point) is 65 mm for Shimano Di2 and 67 mm for SRAM Red E1 (D1 65 mm + 2; Rival/Force D2 is ~60 mm, not modelled). The preset offset is the corner's local x plus the fixed bar-axis position, which is why it is larger than before. Sources, quotes and datum: RESEARCH.md §7.
 
 **Notes:** Hood Reach uses the same "preset pills above a slider" pattern as Riding Intent. Bar Width only affects the front view.
 
