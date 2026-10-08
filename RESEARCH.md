@@ -47,7 +47,7 @@ _Last updated: 2026-03-17_
 | Frame catalog (6 models × 3 sizes) | ✅ |
 | URL-encoded shareable setups | ✅ |
 | Stem length axis in solver (±20mm) | ✅ |
-| Hood/pedal presets (Shimano DA, SRAM Red/Force, etc.) | ✅ |
+| Hood/pedal presets (Shimano DA, SRAM Red, etc.) | ✅ |
 
 ### bikegeo gaps vs XY Bike Calc
 
@@ -229,3 +229,32 @@ bikegeo's core proposition — body-first, biomechanically-aware bike fitting �
 3. **Database breadth**: more frames, searchable
 4. **Output artifacts**: PDF/print report
 5. **Undiscovered territory**: cleat modelling, asymmetry, indoor/outdoor — areas no competitor currently addresses
+
+---
+
+## 7. Hood reach calibration (WeightWeenies)
+
+Source: WeightWeenies forum, threads `viewtopic.php?p=1868862` and `p=580471` (weightweenies.starbike.com). The site sits behind a Cloudflare challenge, so the posts were pasted in by the user rather than fetched; the pasted text does not say which thread each post came from. Poster names below are as pasted.
+
+**Quotes**
+
+- *TobinHatesYou*: "The reach to the bottom of the horns is about 70mm from where the rubber ends, but that's kind of an arbitrary starting point depending on how far the rubber extends past the lever body. For Shimano Di2 levers, it's about 65mm. For Rival/Force D2, it's about 60mm. For Red/Force D1 it's about 65mm."
+- *bezel* asked "from where to where exactly are you measuring?" and noted the rubber cover cannot be measured, "you have to measure from the actual length of the housing to the hoods"; the figures "sound about right" except the new Red.
+- A further post (poster not shown): "I have the force d1 and it is the same as 12spd di2 shimano. From reviews and sram info, force d2 has slightly less reach. And from sram info, the new red has slightly more than D1 levers. That said, given that the new hoods are supposed to be tilted a bit higher, that extra reach ends up to be a bit smaller than initially measured. In the end, i believe the difference must be really small. Negligible."
+
+| Lever | Reach (mm) | Used in the app |
+|---|---|---|
+| Shimano Di2 (12-speed) | ~65 | 65 |
+| SRAM Red / Force D1 | ~65 | – (no D1 preset) |
+| SRAM Rival / Force D2 | ~60 | docs only (no D2 preset) |
+| SRAM Red AXS E1 | "slightly more than D1", no number | 67 (D1 + 2, the user's call) |
+
+**Datum.** The posts never answer bezel's question, so it was settled with the poster: *from the rear end of the hood body (housing) to where the rubber housing starts to go up, the corner of the housing where the hand puts most of its pressure.* The ~70 mm "from where the rubber ends" figure uses the rubber's own end as the start, which varies by hood, so it is not used. The hood-tilt caveat (E1 sits higher, which shortens its effective reach) is not modelled: outlines stay in the photo's own attitude and the E1 is not reduced below D1 + 2.
+
+**Implementation** (`web/src/hoodModels.ts`)
+
+- On each traced outline, the reach is the distance from the rearmost point of the body to the point where the top edge first rises 2 mm above the flat. That point is the palm `contact`.
+- Drawn reach before calibration: Shimano 68.7 mm, SRAM Red 68.9 mm. Each profile (body, lever, pad, details, bolts, `peak`, `length`, `contact`) is scaled uniformly about its origin: Shimano ×0.946, SRAM Red ×0.973. Lengths become 113.8 mm and 121.5 mm.
+- `contact` is the scaled corner: Shimano [44.3, 25.0], SRAM Red [47.5, 26.3].
+- `hoodReachOffset` keeps the bar axis (local origin) where it was relative to the bar-reach point, so only the hood's own size and the corner contact move the hand: offset = contact.x − 14 (Shimano) / − 12 (SRAM) = **30.3 mm** and **35.5 mm** (was 24 and 28). The hand therefore sits 6.3 / 7.5 mm further forward for the same bar. `DEFAULT_COMPONENTS.hood_reach_offset` follows the Shimano preset (30.3) and the Hood Reach sliders go to 40 mm.
+- `bikegeo_core/geometry.py::hood_contact` is unchanged (it only uses the offset), so `cockpit.fixtures.json` is unchanged.

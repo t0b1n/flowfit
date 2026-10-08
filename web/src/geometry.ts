@@ -31,7 +31,7 @@ export const DEFAULT_COMPONENTS: Components = {
   stem_height: 40,
   bar_reach: 80,
   bar_drop: 0,
-  hood_reach_offset: 24.6,
+  hood_reach_offset: 30.3,
   hood_drop_offset: 0,
   bar_width: 370,
   hood_width: null,
@@ -1410,11 +1410,11 @@ export function buildGeometry3D(
   p("chainstay_l", bike.rearAxle, -_CHAINSTAY_HALF_SPREAD);
   p("fork_r", bike.frontAxle, +FORK.halfSpread);
   p("fork_l", bike.frontAxle, -FORK.halfSpread);
-  const [, ckTops, , , , , ckDropBottom] = cockpit.sagittal;
+  const ckTops = cockpit.sagittal[1];
   p("bar_top_r", ckTops, +cockpit.hoodWidth / 2);
   p("bar_top_l", ckTops, -cockpit.hoodWidth / 2);
-  p("bar_drop_r", ckDropBottom, +cockpit.dropWidth / 2);
-  p("bar_drop_l", ckDropBottom, -cockpit.dropWidth / 2);
+  p("bar_drop_r", cockpit.dropBottom, +cockpit.dropWidth / 2);
+  p("bar_drop_l", cockpit.dropBottom, -cockpit.dropWidth / 2);
 
   // Mannequin — the same bilateral expansion the 2D mannequin drives.
   // Pushed after the frame points so duplicate names (cleat_r/cleat_l)

@@ -5,6 +5,7 @@
  */
 import type { Geometry3DPoint } from "../bike3d";
 import type { MetricId } from "../fitMetrics";
+import { canonicalHoodId } from "../hoodModels";
 import type { BikeSelection, Components, FitMode, RiderFit } from "../types";
 import type { BodyMeasurements, MannequinPresetKey } from "../geometry";
 import type { FitOut, FitSnapshot } from "./api";
@@ -51,7 +52,7 @@ export function restoreInputs(raw: Record<string, unknown>, set: Setters): void 
   if (raw.backBendOverride === null || typeof raw.backBendOverride === "number") set.backBendOverride(raw.backBendOverride as number | null);
   if (typeof raw.wristLockEnabled === "boolean") set.wristLockEnabled(raw.wristLockEnabled);
   if (typeof raw.wristLockMaxDeg === "number") set.wristLockMaxDeg(raw.wristLockMaxDeg);
-  if (typeof raw.hoodPresetId === "string") set.hoodPresetId(raw.hoodPresetId);
+  if (typeof raw.hoodPresetId === "string") set.hoodPresetId(canonicalHoodId(raw.hoodPresetId));
   if (has("bodyMeasurements") && isObj(raw.bodyMeasurements)) set.bodyMeasurements(raw.bodyMeasurements as Partial<BodyMeasurements>);
   if (typeof raw.pedalPresetId === "string") set.pedalPresetId(raw.pedalPresetId);
   if (typeof raw.shoePresetId === "string") set.shoePresetId(raw.shoePresetId);

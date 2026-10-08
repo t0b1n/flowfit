@@ -316,7 +316,7 @@ export const ControlsColumn: React.FC<ControlsColumnProps> = ({ mobilePanel, ful
               <SliderCard
                 label="Hood reach"
                 value={`${components.hood_reach_offset.toFixed(1)} mm`}
-                min={16} max={32} step={0.5}
+                min={16} max={40} step={0.5}
                 sliderValue={components.hood_reach_offset}
                 onChange={(v) => updateComponent("hood_reach_offset", v)}
               >
